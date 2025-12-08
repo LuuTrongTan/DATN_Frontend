@@ -36,3 +36,61 @@ code {
   display: block;
 }
 
+/* Admin Sidebar Custom Styles */
+.ant-layout-sider.ant-layout-sider-light {
+  background: #FFE5CC !important;
+}
+
+.ant-menu-light {
+  background: transparent !important;
+}
+
+.ant-menu-light .ant-menu-item {
+  color: #E65100 !important;
+  border-radius: 8px;
+  margin: 4px 8px;
+}
+
+/* Khi sidebar collapsed, giảm margin của menu items và căn giữa icon */
+.ant-layout-sider-collapsed .ant-menu-light .ant-menu-item {
+  margin: 4px 4px !important;
+  padding: 0 16px !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+}
+
+.ant-layout-sider-collapsed .ant-menu-light .ant-menu-item-icon {
+  margin-right: 0 !important;
+  margin-left: 0 !important;
+  display: inline-flex !important;
+  width: auto !important;
+}
+
+.ant-layout-sider-collapsed .ant-menu-light .ant-menu-item .ant-menu-title-content {
+  display: none !important;
+}
+
+.ant-menu-light .ant-menu-item:hover {
+  background: rgba(255, 152, 0, 0.3) !important;
+  color: #BF360C !important;
+}
+
+.ant-menu-light .ant-menu-item-selected {
+  background: rgba(255, 152, 0, 0.4) !important;
+  color: #BF360C !important;
+  font-weight: 600;
+}
+
+.ant-menu-light .ant-menu-item-selected::after {
+  display: none;
+}
+
+.ant-menu-light .ant-menu-item-danger {
+  color: #d32f2f !important;
+}
+
+.ant-menu-light .ant-menu-item-danger:hover {
+  background: rgba(211, 47, 47, 0.1) !important;
+}
+
