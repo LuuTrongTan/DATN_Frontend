@@ -9,3 +9,6 @@ export * from './addressService';
 export * from './wishlistService';
 export * from './inventoryService';
 export * from './reviewService';
+export * from './couponService';
+export * from './paymentService';
+export * from './shippingService';
