@@ -23,10 +23,15 @@ import {
   ArrowLeftOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
+  HeartOutlined,
+  HeartFilled,
+  StarFilled,
 } from '@ant-design/icons';
 import { productService } from '../../shares/services/productService';
 import { cartService } from '../../shares/services/cartService';
-import { Product } from '../../shares/types';
+import { wishlistService } from '../../shares/services/wishlistService';
+import { reviewService } from '../../shares/services/reviewService';
+import { Product, Review } from '../../shares/types';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -34,13 +39,19 @@ const ProductDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [product, setProduct] = useState<Product | null>(null);
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [addingToCart, setAddingToCart] = useState(false);
+  const [isInWishlist, setIsInWishlist] = useState(false);
+  const [wishlistLoading, setWishlistLoading] = useState(false);
 
   useEffect(() => {
     if (id) {
       fetchProduct();
+      fetchReviews();
+      checkWishlist();
     }
   }, [id]);
 
@@ -59,6 +70,56 @@ const ProductDetail: React.FC = () => {
       navigate('/products');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchReviews = async () => {
+    try {
+      setReviewsLoading(true);
+      const response = await reviewService.getProductReviews(Number(id), { limit: 10 });
+      if (response.success && response.data) {
+        setReviews(response.data.data || []);
+      }
+    } catch (error: any) {
+      console.error('Error fetching reviews:', error);
+    } finally {
+      setReviewsLoading(false);
+    }
+  };
+
+  const checkWishlist = async () => {
+    try {
+      const response = await wishlistService.checkWishlist(Number(id));
+      if (response.success && response.data) {
+        setIsInWishlist(response.data.isInWishlist);
+      }
+    } catch (error: any) {
+      console.error('Error checking wishlist:', error);
+    }
+  };
+
+  const handleToggleWishlist = async () => {
+    if (!product) return;
+
+    try {
+      setWishlistLoading(true);
+      if (isInWishlist) {
+        const response = await wishlistService.removeFromWishlist(product.id);
+        if (response.success) {
+          setIsInWishlist(false);
+          message.success('Đã xóa khỏi danh sách yêu thích');
+        }
+      } else {
+        const response = await wishlistService.addToWishlist(product.id);
+        if (response.success) {
+          setIsInWishlist(true);
+          message.success('Đã thêm vào danh sách yêu thích');
+        }
+      }
+    } catch (error: any) {
+      message.error(error.message || 'Có lỗi xảy ra');
+    } finally {
+      setWishlistLoading(false);
     }
   };
 
@@ -265,6 +326,16 @@ const ProductDetail: React.FC = () => {
                 >
                   Mua ngay
                 </Button>
+                <Button
+                  type={isInWishlist ? 'primary' : 'default'}
+                  size="large"
+                  icon={isInWishlist ? <HeartFilled /> : <HeartOutlined />}
+                  onClick={handleToggleWishlist}
+                  loading={wishlistLoading}
+                  danger={isInWishlist}
+                >
+                  {isInWishlist ? 'Đã yêu thích' : 'Yêu thích'}
+                </Button>
               </Space>
 
               {/* Thông tin chi tiết */}
@@ -301,6 +372,63 @@ const ProductDetail: React.FC = () => {
           </Paragraph>
         </Card>
       )}
+
+      {/* Đánh giá sản phẩm */}
+      <Card title="Đánh giá sản phẩm" style={{ marginTop: 24 }}>
+        {reviewsLoading ? (
+          <div style={{ textAlign: 'center', padding: '20px' }}>
+            <Spin />
+          </div>
+        ) : reviews.length === 0 ? (
+          <Empty description="Chưa có đánh giá nào" />
+        ) : (
+          <Space direction="vertical" style={{ width: '100%' }} size="large">
+            {reviews.map((review) => (
+              <Card key={review.id} size="small">
+                <Space direction="vertical" style={{ width: '100%' }} size="small">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <Text strong>{review.user?.full_name || 'Khách hàng'}</Text>
+                      <div style={{ marginTop: 4 }}>
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <StarFilled
+                            key={i}
+                            style={{
+                              color: i < review.rating ? '#faad14' : '#d9d9d9',
+                              fontSize: 16,
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      {new Date(review.created_at).toLocaleDateString('vi-VN')}
+                    </Text>
+                  </div>
+                  {review.comment && (
+                    <Paragraph style={{ margin: 0 }}>{review.comment}</Paragraph>
+                  )}
+                  {review.image_urls && review.image_urls.length > 0 && (
+                    <div>
+                      <Image.PreviewGroup>
+                        {review.image_urls.map((url, idx) => (
+                          <Image
+                            key={idx}
+                            src={url}
+                            width={80}
+                            height={80}
+                            style={{ objectFit: 'cover', marginRight: 8, borderRadius: 4 }}
+                          />
+                        ))}
+                      </Image.PreviewGroup>
+                    </div>
+                  )}
+                </Space>
+              </Card>
+            ))}
+          </Space>
+        )}
+      </Card>
     </div>
   );
 };

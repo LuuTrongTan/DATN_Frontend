@@ -9,6 +9,7 @@ import {
   UserOutlined,
   SettingOutlined,
   LogoutOutlined,
+  HeartOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { authService } from '../../services/authService';
@@ -45,6 +46,11 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed }) => {
       key: '/cart',
       icon: <ShoppingCartOutlined />,
       label: 'Giỏ hàng',
+    },
+    {
+      key: '/wishlist',
+      icon: <HeartOutlined />,
+      label: 'Yêu thích',
     },
     {
       key: '/orders',

@@ -1,16 +1,19 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Card, Row, Col, Input, Select, Button, Typography, Spin, Empty, Image, Tag, Space } from 'antd';
-import { SearchOutlined, ShoppingCartOutlined } from '@ant-design/icons';
+import { SearchOutlined, ShoppingCartOutlined, HeartOutlined, HeartFilled } from '@ant-design/icons';
 import { productService } from '../../shares/services/productService';
 import { categoryService } from '../../shares/services/categoryService';
+import { wishlistService } from '../../shares/services/wishlistService';
 import { Product, Category } from '../../shares/types';
 import { useNavigate } from 'react-router-dom';
+import { message } from 'antd';
 
 const { Title, Text } = Typography;
 
 const ProductList: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [wishlistProductIds, setWishlistProductIds] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<number | undefined>();
@@ -20,7 +23,41 @@ const ProductList: React.FC = () => {
   useEffect(() => {
     fetchCategories();
     fetchProducts();
+    fetchWishlist();
   }, []);
+
+  const fetchWishlist = async () => {
+    try {
+      const response = await wishlistService.getWishlist();
+      if (response.success && response.data) {
+        const ids = new Set(response.data.map((item: any) => item.product_id));
+        setWishlistProductIds(ids);
+      }
+    } catch (error) {
+      // Silent fail
+    }
+  };
+
+  const handleToggleWishlist = async (e: React.MouseEvent, productId: number) => {
+    e.stopPropagation();
+    try {
+      if (wishlistProductIds.has(productId)) {
+        await wishlistService.removeFromWishlist(productId);
+        setWishlistProductIds(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(productId);
+          return newSet;
+        });
+        message.success('Đã xóa khỏi danh sách yêu thích');
+      } else {
+        await wishlistService.addToWishlist(productId);
+        setWishlistProductIds(prev => new Set([...prev, productId]));
+        message.success('Đã thêm vào danh sách yêu thích');
+      }
+    } catch (error: any) {
+      message.error(error.message || 'Có lỗi xảy ra');
+    }
+  };
 
   useEffect(() => {
     fetchProducts();
@@ -143,6 +180,14 @@ const ProductList: React.FC = () => {
                       }}
                     >
                       Xem chi tiết
+                    </Button>,
+                    <Button
+                      type={wishlistProductIds.has(product.id) ? 'primary' : 'default'}
+                      danger={wishlistProductIds.has(product.id)}
+                      icon={wishlistProductIds.has(product.id) ? <HeartFilled /> : <HeartOutlined />}
+                      onClick={(e) => handleToggleWishlist(e, product.id)}
+                    >
+                      {wishlistProductIds.has(product.id) ? 'Đã yêu thích' : 'Yêu thích'}
                     </Button>,
                   ]}
                 >

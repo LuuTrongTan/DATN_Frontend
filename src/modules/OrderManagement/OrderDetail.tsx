@@ -17,14 +17,22 @@ import {
   Col,
   Statistic,
   Timeline,
+  Modal,
+  Form,
+  Input,
+  Rate,
+  Upload,
+  Alert,
 } from 'antd';
 import {
   ArrowLeftOutlined,
   FileTextOutlined,
   DollarOutlined,
   ShoppingCartOutlined,
+  StarOutlined,
 } from '@ant-design/icons';
 import { orderService } from '../../shares/services/orderService';
+import { reviewService } from '../../shares/services/reviewService';
 import { Order, OrderItem, OrderStatus, PaymentStatus } from '../../shares/types';
 
 const { Title, Text } = Typography;
@@ -34,6 +42,10 @@ const OrderDetail: React.FC = () => {
   const navigate = useNavigate();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
+  const [reviewModalVisible, setReviewModalVisible] = useState(false);
+  const [reviewingProductId, setReviewingProductId] = useState<number | null>(null);
+  const [reviewForm] = Form.useForm();
+  const [submittingReview, setSubmittingReview] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -280,8 +292,123 @@ const OrderDetail: React.FC = () => {
           <Card title="Trạng thái đơn hàng" style={{ marginTop: 24 }}>
             <Timeline items={getStatusTimeline(order.order_status)} />
           </Card>
+
+          {/* Nút đánh giá nếu đã giao hàng */}
+          {order.order_status === 'delivered' && order.items && order.items.length > 0 && (
+            <Card title="Đánh giá sản phẩm" style={{ marginTop: 24 }}>
+              <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                {order.items.map((item) => (
+                  <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <Text strong>{item.product?.name || 'Sản phẩm'}</Text>
+                      {item.variant && (
+                        <div>
+                          <Text type="secondary" style={{ fontSize: 12 }}>
+                            {item.variant.variant_type}: {item.variant.variant_value}
+                          </Text>
+                        </div>
+                      )}
+                    </div>
+                    <Button
+                      type="primary"
+                      icon={<StarOutlined />}
+                      onClick={() => {
+                        setReviewingProductId(item.product_id);
+                        reviewForm.resetFields();
+                        setReviewModalVisible(true);
+                      }}
+                    >
+                      Đánh giá
+                    </Button>
+                  </div>
+                ))}
+              </Space>
+            </Card>
+          )}
         </Col>
       </Row>
+
+      {/* Modal đánh giá */}
+      <Modal
+        title="Đánh giá sản phẩm"
+        open={reviewModalVisible}
+        onCancel={() => {
+          setReviewModalVisible(false);
+          setReviewingProductId(null);
+          reviewForm.resetFields();
+        }}
+        footer={null}
+        width={600}
+      >
+        <Form
+          form={reviewForm}
+          layout="vertical"
+          onFinish={async (values) => {
+            if (!order || !reviewingProductId) return;
+
+            try {
+              setSubmittingReview(true);
+              const response = await reviewService.createReview({
+                product_id: reviewingProductId,
+                order_id: order.id,
+                rating: values.rating,
+                comment: values.comment || undefined,
+              });
+
+              if (response.success) {
+                message.success('Đánh giá thành công!');
+                setReviewModalVisible(false);
+                setReviewingProductId(null);
+                reviewForm.resetFields();
+                fetchOrder(); // Refresh order data
+              }
+            } catch (error: any) {
+              message.error(error.message || 'Có lỗi xảy ra khi đánh giá');
+            } finally {
+              setSubmittingReview(false);
+            }
+          }}
+        >
+          <Alert
+            message="Bạn chỉ có thể đánh giá trong vòng 7 ngày sau khi nhận hàng"
+            type="info"
+            style={{ marginBottom: 16 }}
+          />
+
+          <Form.Item
+            label="Đánh giá"
+            name="rating"
+            rules={[{ required: true, message: 'Vui lòng chọn số sao' }]}
+          >
+            <Rate />
+          </Form.Item>
+
+          <Form.Item
+            label="Nhận xét"
+            name="comment"
+            rules={[{ max: 500, message: 'Nhận xét không được quá 500 ký tự' }]}
+          >
+            <Input.TextArea rows={4} placeholder="Chia sẻ trải nghiệm của bạn về sản phẩm..." maxLength={500} showCount />
+          </Form.Item>
+
+          <Form.Item>
+            <Space>
+              <Button type="primary" htmlType="submit" loading={submittingReview}>
+                Gửi đánh giá
+              </Button>
+              <Button
+                onClick={() => {
+                  setReviewModalVisible(false);
+                  setReviewingProductId(null);
+                  reviewForm.resetFields();
+                }}
+              >
+                Hủy
+              </Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 };

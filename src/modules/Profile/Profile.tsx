@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Form, Input, Button, Typography, Space, message, Divider } from 'antd';
-import { UserOutlined, MailOutlined, PhoneOutlined, SaveOutlined, LockOutlined } from '@ant-design/icons';
+import { UserOutlined, MailOutlined, PhoneOutlined, SaveOutlined, LockOutlined, EnvironmentOutlined } from '@ant-design/icons';
 import { useAuth } from '../../shares/contexts/AuthContext';
 import { authService } from '../../shares/services/authService';
 import { useNavigate } from 'react-router-dom';
@@ -126,6 +126,13 @@ const Profile: React.FC = () => {
                 size="large"
               >
                 Đổi mật khẩu
+              </Button>
+              <Button
+                icon={<EnvironmentOutlined />}
+                onClick={() => navigate('/profile/addresses')}
+                size="large"
+              >
+                Quản lý địa chỉ
               </Button>
             </Space>
           </Form.Item>

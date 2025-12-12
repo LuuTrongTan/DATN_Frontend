@@ -5,3 +5,7 @@ export * from './orderService';
 export * from './categoryService';
 export * from './adminService';
 export * from './uploadService';
+export * from './addressService';
+export * from './wishlistService';
+export * from './inventoryService';
+export * from './reviewService';

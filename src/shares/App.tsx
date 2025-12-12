@@ -28,6 +28,12 @@ import ProductDetail from '../modules/ProductManagement/ProductDetail';
 import Checkout from '../modules/OrderManagement/Checkout';
 import OrderDetail from '../modules/OrderManagement/OrderDetail';
 import ChangePassword from '../modules/Profile/ChangePassword';
+import AddressManagement from '../modules/Profile/AddressManagement';
+import Wishlist from '../modules/ProductManagement/Wishlist';
+import InventoryManagement from '../modules/Admin/InventoryManagement';
+import StockAlerts from '../modules/Admin/StockAlerts';
+import StockHistory from '../modules/Admin/StockHistory';
+import { Statistics } from '../modules/Report';
 
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -310,6 +316,72 @@ const AppRoutes: React.FC = () => {
               <ChangePassword />
             </MainLayout>
           </ProtectedRoute>
+        } 
+      />
+      
+      <Route 
+        path="/profile/addresses" 
+        element={
+          <ProtectedRoute>
+            <MainLayout>
+              <AddressManagement />
+            </MainLayout>
+          </ProtectedRoute>
+        } 
+      />
+      
+      <Route 
+        path="/wishlist" 
+        element={
+          <ProtectedRoute>
+            <MainLayout>
+              <Wishlist />
+            </MainLayout>
+          </ProtectedRoute>
+        } 
+      />
+      
+      <Route 
+        path="/admin/statistics" 
+        element={
+          <RoleProtectedRoute allowedRoles={['admin']}>
+            <AdminLayout>
+              <Statistics />
+            </AdminLayout>
+          </RoleProtectedRoute>
+        } 
+      />
+      
+      <Route 
+        path="/admin/inventory" 
+        element={
+          <RoleProtectedRoute allowedRoles={['admin', 'staff']}>
+            <AdminLayout>
+              <InventoryManagement />
+            </AdminLayout>
+          </RoleProtectedRoute>
+        } 
+      />
+      
+      <Route 
+        path="/admin/inventory/alerts" 
+        element={
+          <RoleProtectedRoute allowedRoles={['admin', 'staff']}>
+            <AdminLayout>
+              <StockAlerts />
+            </AdminLayout>
+          </RoleProtectedRoute>
+        } 
+      />
+      
+      <Route 
+        path="/admin/inventory/history" 
+        element={
+          <RoleProtectedRoute allowedRoles={['admin', 'staff']}>
+            <AdminLayout>
+              <StockHistory />
+            </AdminLayout>
+          </RoleProtectedRoute>
         } 
       />
       

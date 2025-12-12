@@ -12,6 +12,9 @@ import {
   LogoutOutlined,
   DoubleLeftOutlined,
   DoubleRightOutlined,
+  DatabaseOutlined,
+  WarningOutlined,
+  HistoryOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { authService } from '../../services/authService';
@@ -64,6 +67,33 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ collapsed, onToggle }) => {
       key: '/admin/reports',
       icon: <BarChartOutlined />,
       label: 'Báo cáo & Thống kê',
+    },
+    {
+      key: '/admin/statistics',
+      icon: <BarChartOutlined />,
+      label: 'Thống kê',
+    },
+    {
+      key: 'inventory-group',
+      icon: <DatabaseOutlined />,
+      label: 'Quản lý kho',
+      children: [
+        {
+          key: '/admin/inventory',
+          icon: <DatabaseOutlined />,
+          label: 'Nhập/Điều chỉnh kho',
+        },
+        {
+          key: '/admin/inventory/alerts',
+          icon: <WarningOutlined />,
+          label: 'Cảnh báo hết hàng',
+        },
+        {
+          key: '/admin/inventory/history',
+          icon: <HistoryOutlined />,
+          label: 'Lịch sử kho',
+        },
+      ],
     },
   ];
 
