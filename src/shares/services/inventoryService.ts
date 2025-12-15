@@ -81,7 +81,9 @@ export const inventoryService = {
   },
 
   markAlertAsNotified: async (id: number): Promise<ApiResponse<StockAlert>> => {
-    return apiClient.put(`/inventory/alerts/${id}/notify`);
+    // API không cần payload; gửi object rỗng để phù hợp chữ ký put
+    return apiClient.put(`/inventory/alerts/${id}/notify`, {});
   },
 };
+
 

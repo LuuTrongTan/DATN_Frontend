@@ -25,7 +25,7 @@ import { adminService, StatisticsResponse } from '../../shares/services/adminSer
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
 
 const SalesReport: React.FC = () => {

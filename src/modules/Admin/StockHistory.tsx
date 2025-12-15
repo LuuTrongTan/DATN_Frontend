@@ -18,12 +18,12 @@ import {
   ArrowDownOutlined,
   EditOutlined,
 } from '@ant-design/icons';
-import { inventoryService, StockHistory } from '../../shares/services/inventoryService';
+import { inventoryService, type StockHistory as StockHistoryRecord } from '../../shares/services/inventoryService';
 
 const { Title } = Typography;
 
 const StockHistory: React.FC = () => {
-  const [history, setHistory] = useState<StockHistory[]>([]);
+  const [history, setHistory] = useState<StockHistoryRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({
     page: 1,
@@ -105,7 +105,7 @@ const StockHistory: React.FC = () => {
     {
       title: 'Sản phẩm',
       key: 'product',
-      render: (_: any, record: StockHistory) => (
+      render: (_: any, record: StockHistoryRecord) => (
         <div>
           {record.product_id ? `Sản phẩm #${record.product_id}` : '-'}
           {record.variant_id && (
@@ -121,7 +121,7 @@ const StockHistory: React.FC = () => {
       dataIndex: 'quantity',
       key: 'quantity',
       align: 'right' as const,
-      render: (quantity: number, record: StockHistory) => (
+      render: (quantity: number, record: StockHistoryRecord) => (
         <Tag color={record.type === 'in' ? 'green' : record.type === 'out' ? 'red' : 'blue'}>
           {record.type === 'in' ? '+' : record.type === 'out' ? '-' : '±'}{quantity}
         </Tag>
@@ -216,4 +216,5 @@ const StockHistory: React.FC = () => {
 };
 
 export default StockHistory;
+
 

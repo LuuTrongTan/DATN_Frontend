@@ -177,3 +177,4 @@ const Wishlist: React.FC = () => {
 
 export default Wishlist;
 
+

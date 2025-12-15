@@ -11,6 +11,7 @@ export interface User {
   role: UserRole;
   is_verified: boolean;
   is_active: boolean;
+  is_banned?: boolean;
   created_at: string;
   updated_at: string;
 }

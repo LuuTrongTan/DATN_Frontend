@@ -65,19 +65,19 @@ const AdminOrderManagement: React.FC = () => {
       });
       
       if (response.orders) {
-        let filteredOrders = response.orders;
+        let filteredOrders: Order[] = response.orders;
         
         // Lọc theo phương thức thanh toán
         if (paymentMethodFilter) {
           filteredOrders = filteredOrders.filter(
-            order => order.payment_method === paymentMethodFilter
+            (order: Order) => order.payment_method === paymentMethodFilter
           );
         }
         
         // Tìm kiếm theo mã đơn hàng
         if (searchQuery) {
           filteredOrders = filteredOrders.filter(
-            order => order.order_number.toLowerCase().includes(searchQuery.toLowerCase())
+            (order: Order) => order.order_number.toLowerCase().includes(searchQuery.toLowerCase())
           );
         }
         

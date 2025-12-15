@@ -7,9 +7,9 @@ export interface LoginRequest {
 }
 
 export interface RegisterRequest {
-  email?: string;
-  phone?: string;
+  phone: string;
   password: string;
+  idToken: string; // Firebase ID token (bắt buộc)
 }
 
 export interface LoginResponse {
@@ -36,9 +36,14 @@ export interface RegisterResponse {
   success: boolean;
   message: string;
   data?: {
-    userId: number;
-    email?: string;
-    phone?: string;
+    token: string;
+    refreshToken: string;
+    user: {
+      id: number;
+      email?: string;
+      phone?: string;
+      role: string;
+    };
   };
 }
 
@@ -55,11 +60,31 @@ export const authService = {
   resendVerification: async (email?: string, phone?: string) => {
     return apiClient.post('/auth/resend-verification', { email, phone });
   },
+  // Quên mật khẩu qua Phone (Firebase) - reset ngay
+  forgotPasswordByPhone: async (phone: string, idToken: string, newPassword: string, confirmPassword: string) => {
+    return apiClient.post('/auth/forgot-password', { 
+      phone, 
+      idToken, 
+      newPassword, 
+      confirmPassword 
+    });
+  },
+  // Quên mật khẩu qua Email (OTP) - bước 1: gửi code
+  forgotPasswordByEmail: async (email: string) => {
+    return apiClient.post('/auth/forgot-password', { email });
+  },
+  // Quên mật khẩu qua Email (OTP) - bước 2: reset với code
+  resetPassword: async (code: string, email: string, newPassword: string, confirmPassword: string) => {
+    return apiClient.post('/auth/reset-password', { 
+      code, 
+      email, 
+      newPassword, 
+      confirmPassword 
+    });
+  },
+  // Legacy method for backward compatibility
   forgotPassword: async (email?: string, phone?: string) => {
     return apiClient.post('/auth/forgot-password', { email, phone });
-  },
-  resetPassword: async (code: string, newPassword: string) => {
-    return apiClient.post('/auth/reset-password', { code, newPassword });
   },
   changePassword: async (oldPassword: string, newPassword: string) => {
     return apiClient.post('/auth/change-password', { oldPassword, newPassword });
@@ -76,8 +101,13 @@ export const authService = {
   refreshToken: async (refreshToken: string) => {
     return apiClient.post('/auth/refresh-token', { refreshToken });
   },
-  verifyFirebasePhone: async (idToken: string, phone?: string, email?: string, password?: string) => {
-    return apiClient.post('/auth/verify-firebase-phone', { idToken, phone, email, password });
+  // Thêm email recovery vào tài khoản
+  addRecoveryEmail: async (email: string) => {
+    return apiClient.post('/auth/add-recovery-email', { email });
+  },
+  // Xác thực email recovery
+  verifyRecoveryEmail: async (code: string, email: string) => {
+    return apiClient.post('/auth/verify-recovery-email', { code, email });
   },
 };
 

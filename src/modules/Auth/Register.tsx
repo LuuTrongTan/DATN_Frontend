@@ -1,38 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import { Form, Input, Button, Card, message, Typography, Space } from 'antd';
-import { LockOutlined, UserOutlined } from '@ant-design/icons';
+import { LockOutlined, PhoneOutlined } from '@ant-design/icons';
 import { useNavigate, Link } from 'react-router-dom';
-import { authService, RegisterRequest } from '../../shares/services/authService';
+import { authService } from '../../shares/services/authService';
 import { 
   sendOTP, 
   verifyOTP, 
   cleanupRecaptcha,
   formatPhoneNumber
 } from '../../shares/services/firebaseService';
-import { detectInputType } from '../../shares/utils';
 import type { ConfirmationResult } from 'firebase/auth';
 
 const { Title, Text } = Typography;
 
 const Register: React.FC = () => {
   const [form] = Form.useForm();
-  const [loading, setLoading] = useState(false);
   const [sendingOTP, setSendingOTP] = useState(false);
   const [verifyingOTP, setVerifyingOTP] = useState(false);
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
   const [otpSent, setOtpSent] = useState(false);
-  const [inputType, setInputType] = useState<'email' | 'phone' | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Don't initialize reCAPTCHA here - it will be initialized when sending OTP
-    // This prevents reCAPTCHA from being rendered multiple times
-    
-    // Cleanup on unmount or when input type changes
+    // Cleanup on unmount
     return () => {
       cleanupRecaptcha();
     };
-  }, [inputType]);
+  }, []);
 
   const handleSendOTP = async (phone: string) => {
     setSendingOTP(true);
@@ -87,22 +81,26 @@ const Register: React.FC = () => {
         // Get Firebase ID token
         const idToken = await userCredential.getIdToken();
         
-        // Verify with backend (include password for registration)
-        const response = await authService.verifyFirebasePhone(idToken, phone, undefined, password);
+        // Register with backend (phone + password + idToken)
+        const response = await authService.register({
+          phone: phone,
+          password: password,
+          idToken: idToken
+        });
         
         if (response.success && response.data) {
           // Store tokens
           localStorage.setItem('token', response.data.token);
           localStorage.setItem('refreshToken', response.data.refreshToken);
           
-          message.success('Đăng ký và xác thực thành công!');
+          message.success('Đăng ký thành công!');
           
-          // Navigate to dashboard or login
+          // Navigate to dashboard or home
           setTimeout(() => {
-            navigate('/dashboard');
+            navigate('/home');
           }, 1000);
         } else {
-          message.error(response.message || 'Xác thực thất bại');
+          message.error(response.message || 'Đăng ký thất bại');
         }
       }
     } catch (error: any) {
@@ -113,6 +111,8 @@ const Register: React.FC = () => {
         errorMessage = 'Mã OTP không đúng.';
       } else if (error.code === 'auth/code-expired') {
         errorMessage = 'Mã OTP đã hết hạn. Vui lòng gửi lại mã.';
+      } else if (error.message) {
+        errorMessage = error.message;
       }
       
       message.error(errorMessage);
@@ -121,85 +121,25 @@ const Register: React.FC = () => {
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    const detectedType = detectInputType(value);
-    setInputType(detectedType);
-    
-    // Reset OTP state when input changes
-    if (detectedType !== 'phone') {
-      setOtpSent(false);
-      setConfirmationResult(null);
-    }
-  };
-
-  const onFinish = async (values: RegisterRequest & { confirmPassword?: string; code?: string; emailOrPhone?: string }) => {
-    const emailOrPhone = values.emailOrPhone || values.email || values.phone;
-    
-    if (!emailOrPhone) {
-      message.error('Vui lòng nhập email hoặc số điện thoại!');
-      return;
-    }
-
-    const detectedType = detectInputType(emailOrPhone);
-    
-    if (!detectedType) {
-      message.error('Vui lòng nhập email hoặc số điện thoại hợp lệ!');
-      return;
-    }
-
-    // Phone registration flow
-    if (detectedType === 'phone') {
-      if (!otpSent) {
-        // Step 1: Send OTP
-        await handleSendOTP(emailOrPhone);
-      } else {
-        // Step 2: Verify OTP and register
-        if (!values.code) {
-          message.error('Vui lòng nhập mã OTP!');
-          return;
-        }
-        await handleVerifyOTP(values.code, emailOrPhone, values.password);
+  const onFinish = async (values: { phone: string; password: string; confirmPassword?: string; code?: string }) => {
+    if (!otpSent) {
+      // Step 1: Send OTP
+      if (!values.phone) {
+        message.error('Vui lòng nhập số điện thoại!');
+        return;
       }
-      return;
-    }
-
-    // Email registration (existing flow)
-    setLoading(true);
-    try {
-      const { confirmPassword, emailOrPhone: _, code: __, ...registerData } = values;
-      const response = await authService.register({
-        ...registerData,
-        email: emailOrPhone,
-      });
-      
-      if (response.success) {
-        // Lưu password vào sessionStorage để tự động đăng nhập sau khi verify
-        // SessionStorage sẽ tự động xóa khi đóng tab, an toàn hơn localStorage
-        sessionStorage.setItem('pendingLoginPassword', values.password);
-        if (response.data?.email) {
-          sessionStorage.setItem('pendingLoginEmail', response.data.email);
-        }
-        if (response.data?.phone) {
-          sessionStorage.setItem('pendingLoginPhone', response.data.phone);
-        }
-        
-        message.success('Đăng ký thành công! Vui lòng xác thực tài khoản.');
-        navigate('/verify', { 
-          state: { 
-            userId: response.data?.userId,
-            email: response.data?.email,
-            phone: response.data?.phone,
-            password: values.password // Lưu password trong state để dùng ngay
-          } 
-        });
-      } else {
-        message.error(response.message || 'Đăng ký thất bại');
+      await handleSendOTP(values.phone);
+    } else {
+      // Step 2: Verify OTP and register
+      if (!values.code) {
+        message.error('Vui lòng nhập mã OTP!');
+        return;
       }
-    } catch (error: any) {
-      message.error(error.message || 'Có lỗi xảy ra khi đăng ký');
-    } finally {
-      setLoading(false);
+      if (!values.password) {
+        message.error('Vui lòng nhập mật khẩu!');
+        return;
+      }
+      await handleVerifyOTP(values.code, values.phone, values.password);
     }
   };
 
@@ -234,70 +174,55 @@ const Register: React.FC = () => {
             autoComplete="off"
           >
             <Form.Item
-              name="emailOrPhone"
-              label="Email hoặc Số điện thoại"
+              name="phone"
+              label="Số điện thoại"
               rules={[
-                { required: true, message: 'Vui lòng nhập email hoặc số điện thoại!' },
-                {
-                  validator: (_, value) => {
-                    if (!value) {
-                      return Promise.resolve(); // Let required rule handle empty value
-                    }
-                    const type = detectInputType(value);
-                    if (!type) {
-                      return Promise.reject(new Error('Email hoặc số điện thoại không hợp lệ!'));
-                    }
-                    return Promise.resolve();
-                  },
-                },
+                { required: true, message: 'Vui lòng nhập số điện thoại!' },
+                { pattern: /^[0-9]{11}$/, message: 'Số điện thoại phải có 11 chữ số!' }
               ]}
             >
               <Input 
-                prefix={<UserOutlined />} 
-                placeholder="Nhập email hoặc số điện thoại"
-                onChange={handleInputChange}
-                disabled={otpSent && inputType === 'phone'}
+                prefix={<PhoneOutlined />} 
+                placeholder="Nhập số điện thoại (ví dụ: 0912345678)"
+                disabled={otpSent}
+                maxLength={11}
               />
             </Form.Item>
 
-            {inputType === 'phone' && (
-              <>
-                {otpSent && (
-                  <Form.Item
-                    name="code"
-                    label="Mã OTP"
-                    rules={[
-                      { required: true, message: 'Vui lòng nhập mã OTP!' },
-                      { pattern: /^[0-9]{6}$/, message: 'Mã OTP phải có 6 chữ số!' }
-                    ]}
-                  >
-                    <Input 
-                      placeholder="Nhập mã OTP 6 chữ số"
-                      maxLength={6}
-                      style={{ textAlign: 'center', fontSize: 20, letterSpacing: 8 }}
-                    />
-                  </Form.Item>
-                )}
-                
-                {!otpSent && (
-                  <Form.Item>
-                    <Button 
-                      type="default"
-                      block
-                      loading={sendingOTP}
-                      onClick={() => {
-                        form.validateFields(['emailOrPhone']).then((values) => {
-                          if (values.emailOrPhone && detectInputType(values.emailOrPhone) === 'phone') {
-                            handleSendOTP(values.emailOrPhone);
-                          }
-                        });
-                      }}
-                    >
-                      Gửi mã OTP
-                    </Button>
-                  </Form.Item>
-                )}
-              </>
+            {otpSent && (
+              <Form.Item
+                name="code"
+                label="Mã OTP"
+                rules={[
+                  { required: true, message: 'Vui lòng nhập mã OTP!' },
+                  { pattern: /^[0-9]{6}$/, message: 'Mã OTP phải có 6 chữ số!' }
+                ]}
+              >
+                <Input 
+                  placeholder="Nhập mã OTP 6 chữ số"
+                  maxLength={6}
+                  style={{ textAlign: 'center', fontSize: 20, letterSpacing: 8 }}
+                />
+              </Form.Item>
+            )}
+            
+            {!otpSent && (
+              <Form.Item>
+                <Button 
+                  type="default"
+                  block
+                  loading={sendingOTP}
+                  onClick={() => {
+                    form.validateFields(['phone']).then((values) => {
+                      if (values.phone) {
+                        handleSendOTP(values.phone);
+                      }
+                    });
+                  }}
+                >
+                  Gửi mã OTP
+                </Button>
+              </Form.Item>
             )}
 
             <Form.Item
@@ -305,13 +230,13 @@ const Register: React.FC = () => {
               label="Mật khẩu"
               rules={[
                 { required: true, message: 'Vui lòng nhập mật khẩu!' },
-                { min: 6, message: 'Mật khẩu phải có ít nhất 6 ký tự!' }
+                { min: 8, message: 'Mật khẩu phải có ít nhất 8 ký tự!' }
               ]}
               hasFeedback
             >
               <Input.Password 
                 prefix={<LockOutlined />} 
-                placeholder="Nhập mật khẩu"
+                placeholder="Nhập mật khẩu (tối thiểu 8 ký tự)"
               />
             </Form.Item>
 
@@ -343,17 +268,16 @@ const Register: React.FC = () => {
                 type="primary" 
                 htmlType="submit" 
                 block 
-                loading={loading || verifyingOTP}
+                loading={verifyingOTP}
                 style={{ height: 45 }}
+                disabled={!otpSent}
               >
-                {inputType === 'phone' && otpSent ? 'Xác thực và đăng ký' : 'Đăng ký'}
+                {otpSent ? 'Xác thực và đăng ký' : 'Vui lòng gửi mã OTP trước'}
               </Button>
             </Form.Item>
             
             {/* reCAPTCHA container for Firebase */}
-            {inputType === 'phone' && (
-              <div id="recaptcha-container"></div>
-            )}
+            <div id="recaptcha-container"></div>
 
             <div style={{ textAlign: 'center' }}>
               <Text type="secondary">
