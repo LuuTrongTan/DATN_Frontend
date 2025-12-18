@@ -79,7 +79,13 @@ const CategoryManagement: React.FC = () => {
     setIsModalVisible(true);
   };
 
-  const handleSubmit = async (values: any) => {
+  interface CategoryFormValues {
+    name: string;
+    description?: string;
+    image_url?: string;
+  }
+
+  const handleSubmit = async (values: CategoryFormValues) => {
     try {
       if (editingCategory) {
         const updateData: UpdateCategoryRequest = {
@@ -103,8 +109,13 @@ const CategoryManagement: React.FC = () => {
       setPreviewImageUrl('');
       form.resetFields();
       dispatch(fetchCategories());
-    } catch (error: any) {
-      message.error(error.message || 'Có lỗi xảy ra');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Có lỗi xảy ra';
+      logger.error('Error submitting category', error instanceof Error ? error : new Error(String(error)), {
+        categoryId: editingCategory?.id,
+        ip: window.location.href,
+      });
+      message.error(errorMessage);
     }
   };
 
@@ -113,9 +124,13 @@ const CategoryManagement: React.FC = () => {
       await adminService.deleteCategory(id);
       message.success('Xóa danh mục thành công');
       dispatch(fetchCategories());
-    } catch (error: any) {
-      logger.error('Error deleting category', error instanceof Error ? error : new Error(String(error)));
-      message.error(error.message || 'Có lỗi xảy ra khi xóa danh mục');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Có lỗi xảy ra khi xóa danh mục';
+      logger.error('Error deleting category', error instanceof Error ? error : new Error(String(error)), {
+        categoryId: id,
+        ip: window.location.href,
+      });
+      message.error(errorMessage);
     }
   };
 
@@ -124,8 +139,13 @@ const CategoryManagement: React.FC = () => {
       // Note: Backend chưa có API toggle status, có thể cần thêm sau
       // Hiện tại chỉ hiển thị thông báo
       message.info('Tính năng này sẽ được thêm sau');
-    } catch (error: any) {
-      message.error(error.message || 'Có lỗi xảy ra');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Có lỗi xảy ra';
+      logger.error('Error toggling category status', error instanceof Error ? error : new Error(String(error)), {
+        categoryId: category.id,
+        ip: window.location.href,
+      });
+      message.error(errorMessage);
     }
   };
 

@@ -47,14 +47,18 @@ code {
   background: transparent !important;
 }
 
-.ant-menu-light .ant-menu-item {
+/* Áp dụng style chung cho item và submenu */
+.admin-sidebar-menu .ant-menu-item,
+.admin-sidebar-menu .ant-menu-submenu-title {
   color: #E65100 !important;
-  border-radius: 8px;
+  border-radius: 12px;
   margin: 4px 8px;
+  padding-inline: 12px !important;
 }
 
 /* Khi sidebar collapsed, giảm margin của menu items và căn giữa icon */
-.ant-layout-sider-collapsed .ant-menu-light .ant-menu-item {
+.ant-layout-sider-collapsed .admin-sidebar-menu .ant-menu-item,
+.ant-layout-sider-collapsed .admin-sidebar-menu .ant-menu-submenu-title {
   margin: 4px 4px !important;
   padding: 0 16px !important;
   display: flex !important;
@@ -62,30 +66,52 @@ code {
   align-items: center !important;
 }
 
-.ant-layout-sider-collapsed .ant-menu-light .ant-menu-item-icon {
+.ant-layout-sider-collapsed .admin-sidebar-menu .ant-menu-item-icon {
   margin-right: 0 !important;
   margin-left: 0 !important;
   display: inline-flex !important;
   width: auto !important;
 }
 
-.ant-layout-sider-collapsed .ant-menu-light .ant-menu-item .ant-menu-title-content {
+/* Tăng kích thước icon trong sidebar (kể cả submenu) */
+.admin-sidebar-menu .ant-menu-item-icon,
+.admin-sidebar-menu .ant-menu-submenu-title > .ant-menu-item-icon {
+  font-size: 18px;
+}
+
+.admin-sidebar-menu .ant-menu-item-icon svg,
+.admin-sidebar-menu .ant-menu-submenu-title > .ant-menu-item-icon svg {
+  font-size: 18px;
+}
+
+.ant-layout-sider-collapsed .admin-sidebar-menu .ant-menu-item .ant-menu-title-content,
+.ant-layout-sider-collapsed .admin-sidebar-menu .ant-menu-submenu-title .ant-menu-title-content {
   display: none !important;
 }
 
-.ant-menu-light .ant-menu-item:hover {
+.admin-sidebar-menu .ant-menu-item:hover,
+.admin-sidebar-menu .ant-menu-item-active,
+.admin-sidebar-menu .ant-menu-item-selected,
+.admin-sidebar-menu .ant-menu-submenu-title:hover,
+.admin-sidebar-menu .ant-menu-submenu-open > .ant-menu-submenu-title {
   background: rgba(255, 152, 0, 0.3) !important;
   color: #BF360C !important;
 }
 
-.ant-menu-light .ant-menu-item-selected {
-  background: rgba(255, 152, 0, 0.4) !important;
-  color: #BF360C !important;
-  font-weight: 600;
+.admin-sidebar-menu .ant-menu-item-selected::after,
+.admin-sidebar-menu .ant-menu-submenu-selected::after {
+  display: none;
 }
 
-.ant-menu-light .ant-menu-item-selected::after {
-  display: none;
+/* Mũi tên submenu nhỏ lại, cùng màu icon */
+.admin-sidebar-menu .ant-menu-submenu-arrow {
+  color: #E65100;
+  font-size: 10px;
+}
+
+/* Giảm indent của menu con để không lệch quá sâu */
+.admin-sidebar-menu .ant-menu-sub.ant-menu-inline {
+  margin-left: 4px;
 }
 
 .ant-menu-light .ant-menu-item-danger {

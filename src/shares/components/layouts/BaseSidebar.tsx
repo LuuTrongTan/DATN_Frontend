@@ -129,6 +129,7 @@ const BaseSidebar: React.FC<BaseSidebarProps> = ({
         <Menu
           theme="light"
           mode="inline"
+          className="admin-sidebar-menu"
           selectedKeys={[location.pathname]}
           items={menuItems}
           onClick={handleMenuClick}

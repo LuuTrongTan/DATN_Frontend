@@ -109,5 +109,14 @@ export const authService = {
   verifyRecoveryEmail: async (code: string, email: string) => {
     return apiClient.post('/auth/verify-recovery-email', { code, email });
   },
+  verifyPassword: async (password: string) => {
+    return apiClient.post('/auth/verify-password', { password });
+  },
+  deactivateAccount: async () => {
+    return apiClient.post('/auth/deactivate', {});
+  },
+  deleteAccount: async () => {
+    return apiClient.delete('/auth/account');
+  },
 };
 

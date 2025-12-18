@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   Card,
   Typography,
@@ -35,6 +35,7 @@ const { Title, Text } = Typography;
 
 const OrderDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const { search } = useLocation();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const orderId = id ? Number(id) : NaN;
@@ -46,6 +47,11 @@ const OrderDetail: React.FC = () => {
   const [reviewingProductId, setReviewingProductId] = useState<number | null>(null);
   const [reviewForm] = Form.useForm();
   const [submittingReview, setSubmittingReview] = useState(false);
+  const [paymentAlert, setPaymentAlert] = useState<{
+    type: 'success' | 'error' | 'warning';
+    message: string;
+    description?: string;
+  } | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -57,6 +63,41 @@ const OrderDetail: React.FC = () => {
         });
     }
   }, [dispatch, id, navigate]);
+
+  // Hiển thị thông báo theo kết quả thanh toán (VNPay callback redirect với query ?payment=)
+  useEffect(() => {
+    const params = new URLSearchParams(search);
+    const paymentResult = params.get('payment');
+
+    if (!paymentResult) {
+      setPaymentAlert(null);
+      return;
+    }
+
+    if (paymentResult === 'success') {
+      setPaymentAlert({
+        type: 'success',
+        message: 'Thanh toán thành công',
+        description: 'Đơn hàng của bạn đã được thanh toán qua VNPay.',
+      });
+    } else if (paymentResult === 'failed') {
+      setPaymentAlert({
+        type: 'error',
+        message: 'Thanh toán thất bại',
+        description:
+          'Giao dịch thanh toán không thành công. Bạn có thể thử lại hoặc chọn phương thức khác.',
+      });
+    } else if (paymentResult === 'error') {
+      setPaymentAlert({
+        type: 'warning',
+        message: 'Có lỗi khi xử lý thanh toán',
+        description:
+          'Hệ thống gặp lỗi trong quá trình xử lý thanh toán. Vui lòng kiểm tra lại trạng thái đơn hàng hoặc liên hệ hỗ trợ.',
+      });
+    } else {
+      setPaymentAlert(null);
+    }
+  }, [search]);
 
   const getStatusColor = (status: OrderStatus) => {
     const colors: Record<OrderStatus, string> = {
@@ -195,6 +236,17 @@ const OrderDetail: React.FC = () => {
       </Button>
 
       <Title level={2}>Chi tiết đơn hàng</Title>
+
+      {paymentAlert && (
+        <div style={{ marginBottom: 16 }}>
+          <Alert
+            type={paymentAlert.type}
+            message={paymentAlert.message}
+            description={paymentAlert.description}
+            showIcon
+          />
+        </div>
+      )}
 
       <Row gutter={[24, 24]}>
         {/* Thông tin đơn hàng */}

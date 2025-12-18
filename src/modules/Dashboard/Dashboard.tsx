@@ -31,43 +31,35 @@ const Dashboard: React.FC = () => {
   const { recentOrders: orders } = useAppSelector((state) => state.orders);
 
   useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch từ Redux
+        await Promise.all([
+          dispatch(fetchCart()),
+          dispatch(fetchProducts()),
+          dispatch(fetchRecentOrders(5)),
+        ]);
+      } catch (error) {
+        logger.error('Error fetching dashboard data', error instanceof Error ? error : new Error(String(error)));
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchDashboardData();
-  }, []);
+  }, [dispatch]);
 
   // Cập nhật stats khi data thay đổi
   useEffect(() => {
-    setStats(prev => ({
-      ...prev,
+    setStats({
       cartItems: cartItems.length,
       totalProducts: totalProducts,
       totalOrders: orders.length,
       totalRevenue: orders.reduce((sum, order) => sum + order.total_amount, 0),
-    }));
+    });
   }, [cartItems, totalProducts, orders]);
-
-  const fetchDashboardData = async () => {
-    try {
-      setLoading(true);
-      
-      // Fetch từ Redux
-      await Promise.all([
-        dispatch(fetchCart()),
-        dispatch(fetchProducts()),
-        dispatch(fetchRecentOrders(5)),
-      ]);
-      
-      // Cập nhật stats từ orders
-      setStats(prev => ({
-        ...prev,
-        totalOrders: orders.length > 0 ? orders.length : 0,
-        totalRevenue: orders.reduce((sum, order) => sum + order.total_amount, 0),
-      }));
-    } catch (error) {
-      logger.error('Error fetching dashboard data', error instanceof Error ? error : new Error(String(error)));
-    } finally {
-      setLoading(false);
-    }
-  };
 
   if (loading) {
     return (

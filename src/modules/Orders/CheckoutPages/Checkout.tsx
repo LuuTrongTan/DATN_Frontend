@@ -24,6 +24,7 @@ import {
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { orderService } from '../../../shares/services/orderService';
+import { paymentService } from '../../../shares/services/paymentService';
 import { addressService, UserAddress } from '../../../shares/services/addressService';
 import { CartItem, PaymentMethod } from '../../../shares/types';
 import { useAppDispatch, useAppSelector } from '../../../shares/stores';
@@ -104,6 +105,9 @@ const Checkout: React.FC = () => {
     return `${address.full_name} - ${address.phone}\n${address.street_address}, ${address.ward}, ${address.district}, ${address.province}`;
   };
 
+  const placeOrderButtonLabel =
+    paymentMethod === 'online' ? 'Đặt hàng & thanh toán VNPay' : 'Đặt hàng (COD)';
+
   const handlePlaceOrder = async (values: { notes?: string }) => {
     if (!selectedAddress) {
       message.error('Vui lòng chọn địa chỉ giao hàng');
@@ -126,9 +130,36 @@ const Checkout: React.FC = () => {
 
       const response = await orderService.createOrder(payload);
       if (response.success && response.data) {
+        const createdOrder = response.data;
+
+        // Nếu chọn thanh toán online -> tạo URL VNPay và redirect
+        if (paymentMethod === 'online') {
+          try {
+            const paymentResponse = await paymentService.createVNPayPayment(createdOrder.id);
+            if (paymentResponse.success && paymentResponse.data?.payment_url) {
+              message.info('Đang chuyển đến cổng thanh toán VNPay...');
+              window.location.href = paymentResponse.data.payment_url;
+              return;
+            }
+            message.warning(
+              paymentResponse.message ||
+                'Không tạo được URL thanh toán online, đơn hàng sẽ được xử lý như COD.'
+            );
+          } catch (error: any) {
+            logger.error(
+              'Error creating VNPay payment',
+              error instanceof Error ? error : new Error(String(error))
+            );
+            message.warning(
+              error.message ||
+                'Không tạo được URL thanh toán online, đơn hàng sẽ được xử lý như COD.'
+            );
+          }
+        }
+
         message.success('Đặt hàng thành công!');
         // Backend thường sẽ clear giỏ hàng sau khi tạo đơn, ở đây chỉ điều hướng
-        navigate(`/orders/${response.data.id}`);
+        navigate(`/orders/${createdOrder.id}`);
       } else {
         message.error(response.message || 'Không thể tạo đơn hàng');
       }
@@ -282,10 +313,10 @@ const Checkout: React.FC = () => {
                   </Radio>
                   <Radio value="online">
                     <Space direction="vertical" size={0}>
-                      <Text strong>Thanh toán online</Text>
+                      <Text strong>Thanh toán online qua VNPay</Text>
                       <Text type="secondary" style={{ fontSize: 12 }}>
-                        Cổng thanh toán online (VNPay/MoMo) sẽ được tích hợp. Hiện tại hệ thống sẽ
-                        xử lý như đơn COD.
+                        Bạn sẽ được chuyển tới cổng thanh toán VNPay để thanh toán an toàn và bảo mật.
+                        Sau khi hoàn tất, hệ thống sẽ tự động cập nhật trạng thái đơn hàng.
                       </Text>
                     </Space>
                   </Radio>
@@ -313,7 +344,7 @@ const Checkout: React.FC = () => {
                       loading={submitting}
                       disabled={!selectedAddress}
                     >
-                      Đặt hàng
+                      {placeOrderButtonLabel}
                     </Button>
                   </Space>
                 </Form.Item>

@@ -38,10 +38,14 @@ export const fetchAdminCategories = createAsyncThunk('adminProducts/fetchCategor
 export const fetchAdminProducts = createAsyncThunk(
   'adminProducts/fetchProducts',
   async (params: { search?: string; category_id?: number; limit?: number }, { getState }) => {
-    const state = getState() as any;
+    const state = getState() as { adminProducts?: { filters?: { search?: string; category_id?: number } } };
     const filters = state.adminProducts?.filters || {};
 
-    const requestParams: any = {
+    const requestParams: {
+      search?: string;
+      category_id?: number;
+      limit: number;
+    } = {
       search: params.search || filters.search || undefined,
       category_id: params.category_id !== undefined ? params.category_id : filters.category_id,
       limit: params.limit || 100,

@@ -1,6 +1,6 @@
 import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { orderService } from '../../../shares/services/orderService';
-import type { Order } from '../../../shares/types';
+import type { Order, ApiResponse, PaginatedResponse } from '../../../shares/types';
 
 export interface OrdersState {
   list: Order[]; // Tất cả orders (cho OrderList)
@@ -30,8 +30,9 @@ export const fetchOrders = createAsyncThunk('orders/fetchOrders', async () => {
   if (!response.success || !response.data) {
     throw new Error(response.message || 'Không thể tải danh sách đơn hàng');
   }
-  // backend trả về { data: { data: Order[] } }
-  return (response.data as any).data || ([] as Order[]);
+  // Backend trả về ApiResponse<PaginatedResponse<Order>>
+  const paginatedData = response.data as PaginatedResponse<Order>;
+  return paginatedData.data || [];
 });
 
 // Fetch recent orders (cho Home/Dashboard)
@@ -42,7 +43,9 @@ export const fetchRecentOrders = createAsyncThunk(
     if (!response.success || !response.data) {
       throw new Error(response.message || 'Không thể tải danh sách đơn hàng');
     }
-    return (response.data as any).data || ([] as Order[]);
+    // Backend trả về ApiResponse<PaginatedResponse<Order>>
+    const paginatedData = response.data as PaginatedResponse<Order>;
+    return paginatedData.data || [];
   }
 );
 
@@ -62,7 +65,9 @@ export const fetchOrderByNumber = createAsyncThunk(
     if (!response.success || !response.data) {
       throw new Error(response.message || 'Không thể tải danh sách đơn hàng');
     }
-    const list: Order[] = (response.data as any).data || [];
+    // Backend trả về ApiResponse<PaginatedResponse<Order>>
+    const paginatedData = response.data as PaginatedResponse<Order>;
+    const list = paginatedData.data || [];
     const found = list.find((o) => o.order_number === orderNumber);
     if (!found) {
       throw new Error('Không tìm thấy đơn hàng');

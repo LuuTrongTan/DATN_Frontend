@@ -56,10 +56,17 @@ export const fetchCategories = createAsyncThunk('products/fetchCategories', asyn
 export const fetchProducts = createAsyncThunk(
   'products/fetchProducts',
   async (_, { getState }) => {
-    const state = getState() as any;
+    const state = getState() as { products: ProductsState };
     const filters: ProductsFilters = state.products.filters;
 
-    const params: any = {
+    const params: {
+      page: number;
+      limit: number;
+      search?: string;
+      category_id?: number;
+      min_price?: number;
+      max_price?: number;
+    } = {
       page: filters.page,
       limit: filters.limit,
     };
@@ -106,9 +113,9 @@ export const fetchProductsByIds = createAsyncThunk(
     const promises = ids.map((id) => productService.getProductById(id));
     const responses = await Promise.all(promises);
 
-    const products = responses
-      .filter((res: any) => res.success && res.data)
-      .map((res: any) => res.data as Product);
+    const products: Product[] = responses
+      .filter((res) => res.success === true && res.data !== undefined)
+      .map((res) => res.data as Product);
 
     return products;
   }
