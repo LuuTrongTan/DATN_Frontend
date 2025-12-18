@@ -1,0 +1,46 @@
+import { apiClient } from '../api';
+import { ProductVariant, ApiResponse } from '../types';
+
+export const variantService = {
+  // Lấy tất cả variants của sản phẩm
+  getVariantsByProduct: async (productId: number): Promise<ApiResponse<ProductVariant[]>> => {
+    return apiClient.get(`/products/${productId}/variants`);
+  },
+
+  // Lấy variant theo ID
+  getVariantById: async (id: number): Promise<ApiResponse<ProductVariant>> => {
+    return apiClient.get(`/products/variants/${id}`);
+  },
+
+  // Tạo variant (admin/staff only)
+  createVariant: async (
+    productId: number,
+    data: {
+      variant_type: string;
+      variant_value: string;
+      price_adjustment?: number;
+      stock_quantity?: number;
+    }
+  ): Promise<ApiResponse<ProductVariant>> => {
+    return apiClient.post(`/products/${productId}/variants`, data);
+  },
+
+  // Cập nhật variant (admin/staff only)
+  updateVariant: async (
+    id: number,
+    data: {
+      variant_type?: string;
+      variant_value?: string;
+      price_adjustment?: number;
+      stock_quantity?: number;
+    }
+  ): Promise<ApiResponse<ProductVariant>> => {
+    return apiClient.put(`/products/variants/${id}`, data);
+  },
+
+  // Xóa variant (admin/staff only)
+  deleteVariant: async (id: number): Promise<ApiResponse> => {
+    return apiClient.delete(`/products/variants/${id}`);
+  },
+};
+

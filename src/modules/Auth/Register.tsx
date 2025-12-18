@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Form, Input, Button, Card, message, Typography, Space } from 'antd';
 import { LockOutlined, PhoneOutlined } from '@ant-design/icons';
 import { useNavigate, Link } from 'react-router-dom';
 import { authService } from '../../shares/services/authService';
+import { useAuth } from '../../shares/contexts/AuthContext';
 import { 
   sendOTP, 
   verifyOTP, 
@@ -10,6 +11,7 @@ import {
   formatPhoneNumber
 } from '../../shares/services/firebaseService';
 import type { ConfirmationResult } from 'firebase/auth';
+import { logger } from '../../shares/utils/logger';
 
 const { Title, Text } = Typography;
 
@@ -20,8 +22,17 @@ const Register: React.FC = () => {
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
   const [otpSent, setOtpSent] = useState(false);
   const navigate = useNavigate();
+  const { login } = useAuth();
+  const recaptchaContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // Ensure container exists and is visible
+    if (recaptchaContainerRef.current) {
+      recaptchaContainerRef.current.style.display = 'block';
+      recaptchaContainerRef.current.style.visibility = 'visible';
+      recaptchaContainerRef.current.style.minHeight = '78px';
+    }
+    
     // Cleanup on unmount
     return () => {
       cleanupRecaptcha();
@@ -37,7 +48,7 @@ const Register: React.FC = () => {
       setOtpSent(true);
       message.success('Đã gửi mã OTP đến số điện thoại của bạn!');
     } catch (error: any) {
-      console.error('Error sending OTP:', error);
+      logger.error('Error sending OTP', error instanceof Error ? error : new Error(String(error)));
       
       // Use error message from firebaseService if available
       let errorMessage = error.message || 'Không thể gửi mã OTP. Vui lòng thử lại.';
@@ -89,13 +100,18 @@ const Register: React.FC = () => {
         });
         
         if (response.success && response.data) {
-          // Store tokens
+          // Store tokens and update auth context
           localStorage.setItem('token', response.data.token);
           localStorage.setItem('refreshToken', response.data.refreshToken);
           
+          // Update auth context to mark user as authenticated
+          if (response.data.user) {
+            login(response.data.token, response.data.user);
+          }
+          
           message.success('Đăng ký thành công!');
           
-          // Navigate to dashboard or home
+          // Navigate to home
           setTimeout(() => {
             navigate('/home');
           }, 1000);
@@ -104,7 +120,7 @@ const Register: React.FC = () => {
         }
       }
     } catch (error: any) {
-      console.error('Error verifying OTP:', error);
+      logger.error('Error verifying OTP', error instanceof Error ? error : new Error(String(error)));
       let errorMessage = 'Mã OTP không đúng hoặc đã hết hạn.';
       
       if (error.code === 'auth/invalid-verification-code') {
@@ -178,14 +194,14 @@ const Register: React.FC = () => {
               label="Số điện thoại"
               rules={[
                 { required: true, message: 'Vui lòng nhập số điện thoại!' },
-                { pattern: /^[0-9]{11}$/, message: 'Số điện thoại phải có 11 chữ số!' }
+                { pattern: /^[0-9]{10}$/, message: 'Số điện thoại phải có 10 chữ số!' }
               ]}
             >
               <Input 
                 prefix={<PhoneOutlined />} 
                 placeholder="Nhập số điện thoại (ví dụ: 0912345678)"
                 disabled={otpSent}
-                maxLength={11}
+                maxLength={10}
               />
             </Form.Item>
 
@@ -276,8 +292,17 @@ const Register: React.FC = () => {
               </Button>
             </Form.Item>
             
-            {/* reCAPTCHA container for Firebase */}
-            <div id="recaptcha-container"></div>
+            {/* reCAPTCHA container for Firebase - Must be visible and exist in DOM */}
+            <div 
+              ref={recaptchaContainerRef}
+              id="recaptcha-container" 
+              style={{ 
+                minHeight: '78px', // Minimum height for reCAPTCHA widget
+                display: 'block',
+                visibility: 'visible',
+                width: '100%'
+              }}
+            ></div>
 
             <div style={{ textAlign: 'center' }}>
               <Text type="secondary">

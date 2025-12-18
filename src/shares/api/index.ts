@@ -1,11 +1,20 @@
 // API configuration and base functions
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3004/api';
+export const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || 'http://localhost:3004/api';
 
 /**
- * Get authentication headers
+ * Lấy token từ storage
+ * (hiện tại dùng localStorage; có thể thay đổi sang cookie/httpOnly trong tương lai)
  */
-const getAuthHeaders = (): HeadersInit => {
-  const token = localStorage.getItem('token');
+export const getAuthToken = (): string | null => {
+  return localStorage.getItem('token');
+};
+
+/**
+ * Get authentication headers cho JSON request
+ */
+export const getAuthHeaders = (): HeadersInit => {
+  const token = getAuthToken();
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
   };
@@ -38,13 +47,25 @@ export class ApiError extends Error {
  * Handle API response
  */
 const handleResponse = async (response: Response) => {
-  const data = await response.json();
+  const contentType = response.headers.get('content-type') || '';
+  let data: any = null;
+  try {
+    if (contentType.includes('application/json')) {
+      data = await response.json();
+    } else {
+      const text = await response.text();
+      data = text ? { message: text } : null;
+    }
+  } catch {
+    // fallback: response body không parse được
+    data = null;
+  }
   
   if (!response.ok) {
-    const errorCode = data.error?.code || data.code;
-    const errorDetails = data.error?.details || data.details;
+    const errorCode = data?.error?.code || data?.code;
+    const errorDetails = data?.error?.details || data?.details;
     throw new ApiError(
-      data.message || 'Có lỗi xảy ra',
+      data?.message || 'Có lỗi xảy ra',
       errorCode,
       errorDetails,
       response.status

@@ -9,6 +9,7 @@ import {
   formatPhoneNumber
 } from '../../shares/services/firebaseService';
 import type { ConfirmationResult } from 'firebase/auth';
+import { logger } from '../../shares/utils/logger';
 
 const { Title, Text } = Typography;
 
@@ -34,7 +35,7 @@ const ForgotPassword: React.FC = () => {
       setOtpSent(true);
       message.success('Đã gửi mã OTP đến số điện thoại của bạn!');
     } catch (error: any) {
-      console.error('Error sending OTP:', error);
+      logger.error('Error sending OTP', error instanceof Error ? error : new Error(String(error)));
       message.error(error.message || 'Không thể gửi mã OTP. Vui lòng thử lại.');
     } finally {
       setSendingOTP(false);
@@ -75,7 +76,7 @@ const ForgotPassword: React.FC = () => {
         }
       }
     } catch (error: any) {
-      console.error('Error verifying OTP:', error);
+      logger.error('Error verifying OTP', error instanceof Error ? error : new Error(String(error)));
       let errorMessage = 'Mã OTP không đúng hoặc đã hết hạn.';
       
       if (error.code === 'auth/invalid-verification-code') {
@@ -364,14 +365,14 @@ const ForgotPassword: React.FC = () => {
                 label="Số điện thoại"
                 rules={[
                   { required: true, message: 'Vui lòng nhập số điện thoại!' },
-                    { pattern: /^[0-9]{11}$/, message: 'Số điện thoại phải có 11 chữ số!' }
+                    { pattern: /^[0-9]{10}$/, message: 'Số điện thoại phải có 10 chữ số!' }
                 ]}
               >
                 <Input 
                   prefix={<PhoneOutlined />} 
                     placeholder="Nhập số điện thoại (ví dụ: 0912345678)"
                     disabled={otpSent}
-                    maxLength={11}
+                    maxLength={10}
                   />
                 </Form.Item>
 

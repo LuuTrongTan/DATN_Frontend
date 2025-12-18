@@ -37,7 +37,7 @@ const CategorySection: React.FC<CategorySectionProps> = ({
                 height: '100%',
                 transition: 'all 0.3s',
               }}
-              bodyStyle={{ padding: 16 }}
+              styles={{ body: { padding: 16 } }}
             >
               <div
                 style={{

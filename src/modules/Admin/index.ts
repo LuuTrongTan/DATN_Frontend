@@ -1,11 +1,13 @@
 // Admin module exports
-export { default as AdminDashboard } from './AdminDashboard';
-export { default as StaffManagement } from './StaffManagement';
-export { default as UserManagement } from './UserManagement';
-export { default as CategoryManagement } from './CategoryManagement';
-export { default as AdminProductManagement } from './AdminProductManagement';
-export { default as AdminOrderManagement } from './AdminOrderManagement';
-export { default as ProductForm } from './ProductForm';
-export { default as InventoryManagement } from './InventoryManagement';
-export { default as StockAlerts } from './StockAlerts';
-export { default as StockHistory } from './StockHistory';
+export { default as AdminDashboard } from './Dashboard/AdminDashboard';
+export { default as StaffManagement } from './Staff/StaffManagement';
+export { default as UserManagement } from './Users/UserManagement';
+export { default as CategoryManagement } from './Categories/CategoryManagement';
+export { default as AdminProductManagement } from './Products/AdminProductManagement';
+export { default as ProductForm } from './Products/ProductForm';
+export { default as AdminOrderManagement } from './Orders/AdminOrderManagement';
+export { default as InventoryManagement } from './Inventory/InventoryManagement';
+export { default as StockAlerts } from './Inventory/StockAlerts';
+export { default as StockHistory } from './Inventory/StockHistory';
+export { default as SalesReport } from './Reports/SalesReport';
+export { default as Statistics } from './Reports/Statistics';

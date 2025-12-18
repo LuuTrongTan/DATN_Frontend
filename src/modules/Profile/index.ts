@@ -1,6 +1,5 @@
 // Profile module exports
-export { default as Profile } from './Profile';
-export { default as ChangePassword } from './ChangePassword';
-export { default as OrderHistory } from './OrderHistory';
-export { default as OrderTracking } from './OrderTracking';
+export { default as Profile } from './Account/Profile';
+export { default as ChangePassword } from './Security/ChangePassword';
+export { default as AddressManagement } from './Addresses/AddressManagement';
 

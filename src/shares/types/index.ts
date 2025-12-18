@@ -36,10 +36,23 @@ export interface Product {
   description: string | null;
   price: number;
   stock_quantity: number;
+  image_url?: string | null; // Single image URL for display
   image_urls: string[] | null;
   video_url: string | null;
   is_active: boolean;
   variants?: ProductVariant[];
+  is_in_wishlist?: boolean; // Indicates if product is in user's wishlist
+  sku?: string | null;
+  barcode?: string | null;
+  weight?: number | null;
+  dimensions?: string | null;
+  brand?: string | null;
+  view_count?: number;
+  sold_count?: number;
+  meta_title?: string | null;
+  meta_description?: string | null;
+  average_rating?: number;
+  review_count?: number;
   created_at: string;
   updated_at: string;
 }
@@ -71,7 +84,7 @@ export interface CartItem {
 // Order Types
 export type PaymentMethod = 'online' | 'cod';
 export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded';
-export type OrderStatus = 'pending' | 'confirmed' | 'processing' | 'shipping' | 'delivered' | 'cancelled';
+export type OrderStatus = 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
 
 export interface Order {
   id: number;
@@ -81,10 +94,21 @@ export interface Order {
   shipping_address: string;
   payment_method: PaymentMethod;
   payment_status: PaymentStatus;
-  order_status: OrderStatus;
-  shipping_fee: number;
+  status: OrderStatus; // Main status field
+  order_status?: OrderStatus; // Legacy alias
+  shipping_fee?: number;
   notes: string | null;
   items?: OrderItem[];
+  customer_name?: string | null;
+  customer_phone?: string | null;
+  customer_email?: string | null;
+  subtotal?: number;
+  discount_amount?: number;
+  tax_amount?: number;
+  delivery_date?: string | null;
+  cancelled_at?: string | null;
+  cancelled_by?: number | null;
+  cancellation_reason?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -114,6 +138,10 @@ export interface Review {
   image_urls: string[] | null;
   video_url: string | null;
   is_approved: boolean;
+  helpful_count?: number;
+  reply?: string | null;
+  replied_at?: string | null;
+  replied_by?: number | null;
   created_at: string;
   updated_at: string;
 }

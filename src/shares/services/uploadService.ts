@@ -1,6 +1,7 @@
 /**
  * Upload Service - Gửi file lên Backend để upload lên Cloudflare
  */
+import { API_BASE_URL, getAuthToken } from '../api';
 
 interface UploadResponse {
   success: boolean;
@@ -30,13 +31,12 @@ export const uploadFile = async (file: File): Promise<string> => {
     formData.append('file', file);
 
     // Get auth token
-    const token = localStorage.getItem('token');
+    const token = getAuthToken();
     const headers: HeadersInit = {};
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3004/api';
     const response = await fetch(`${API_BASE_URL}/upload/single`, {
       method: 'POST',
       headers,
@@ -70,13 +70,12 @@ export const uploadMultipleFiles = async (files: File[]): Promise<string[]> => {
     });
 
     // Get auth token
-    const token = localStorage.getItem('token');
+    const token = getAuthToken();
     const headers: HeadersInit = {};
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3004/api';
     const response = await fetch(`${API_BASE_URL}/upload/multiple`, {
       method: 'POST',
       headers,

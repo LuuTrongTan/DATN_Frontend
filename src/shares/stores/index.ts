@@ -1,3 +1,3 @@
-// Store exports (if using state management like Zustand, Redux, etc.)
-// Will be implemented when needed
-
+// Redux Toolkit store exports & shared selectors
+export * from '../../app/store';
+export * from './cartSelectors';

@@ -6,14 +6,17 @@ import {
   ShoppingCartOutlined,
   FileTextOutlined,
 } from '@ant-design/icons';
-import { orderService } from '../../shares/services/orderService';
-import { cartService } from '../../shares/services/cartService';
-import { productService } from '../../shares/services/productService';
-import { Order, CartItem } from '../../shares/types';
+import { Order } from '../../shares/types';
+import { useAppDispatch, useAppSelector } from '../../shares/stores';
+import { fetchCart } from '../ProductManagement/stores/cartSlice';
+import { fetchProducts } from '../ProductManagement/stores/productsSlice';
+import { fetchRecentOrders } from '../Orders/stores/ordersSlice';
+import { logger } from '../../shares/utils/logger';
 
 const { Title } = Typography;
 
 const Dashboard: React.FC = () => {
+  const dispatch = useAppDispatch();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalProducts: 0,
@@ -21,50 +24,46 @@ const Dashboard: React.FC = () => {
     totalRevenue: 0,
     cartItems: 0,
   });
-  const [recentOrders, setRecentOrders] = useState<Order[]>([]);
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  
+  // Lấy dữ liệu từ Redux
+  const cartItems = useAppSelector((state) => state.cart.items);
+  const { total: totalProducts } = useAppSelector((state) => state.products);
+  const { recentOrders: orders } = useAppSelector((state) => state.orders);
 
   useEffect(() => {
     fetchDashboardData();
   }, []);
 
+  // Cập nhật stats khi data thay đổi
+  useEffect(() => {
+    setStats(prev => ({
+      ...prev,
+      cartItems: cartItems.length,
+      totalProducts: totalProducts,
+      totalOrders: orders.length,
+      totalRevenue: orders.reduce((sum, order) => sum + order.total_amount, 0),
+    }));
+  }, [cartItems, totalProducts, orders]);
+
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
       
-      // Fetch orders
-      const ordersRes = await orderService.getOrders({ limit: 5 });
-      if (ordersRes.success && ordersRes.data) {
-        const orders = ordersRes.data.data || [];
-        setRecentOrders(orders);
-        setStats(prev => ({
-          ...prev,
-          totalOrders: ordersRes.data?.pagination?.total || 0,
-          totalRevenue: orders.reduce((sum, order) => sum + order.total_amount, 0),
-        }));
-      }
-
-      // Fetch cart
-      const cartRes = await cartService.getCart();
-      if (cartRes.success && cartRes.data) {
-        const items = cartRes.data || [];
-        setCartItems(items);
-        setStats(prev => ({
-          ...prev,
-          cartItems: items.length,
-        }));
-      }
-
-      // Fetch products count
-      const productsRes = await productService.getProducts({ limit: 1 });
-      if (productsRes.success && productsRes.data) {
-        setStats(prev => ({
-          ...prev,
-          totalProducts: productsRes.data?.pagination?.total || 0,
-        }));
-      }
+      // Fetch từ Redux
+      await Promise.all([
+        dispatch(fetchCart()),
+        dispatch(fetchProducts()),
+        dispatch(fetchRecentOrders(5)),
+      ]);
+      
+      // Cập nhật stats từ orders
+      setStats(prev => ({
+        ...prev,
+        totalOrders: orders.length > 0 ? orders.length : 0,
+        totalRevenue: orders.reduce((sum, order) => sum + order.total_amount, 0),
+      }));
     } catch (error) {
-      console.error('Error fetching dashboard data:', error);
+      logger.error('Error fetching dashboard data', error instanceof Error ? error : new Error(String(error)));
     } finally {
       setLoading(false);
     }
@@ -149,9 +148,9 @@ const Dashboard: React.FC = () => {
         </Col>
         <Col xs={24} lg={12}>
           <Card title="Đơn hàng gần đây" style={{ minHeight: 400 }}>
-            {recentOrders.length > 0 ? (
+            {orders.length > 0 ? (
               <Space direction="vertical" style={{ width: '100%' }}>
-                {recentOrders.map((order) => (
+                {orders.map((order: Order) => (
                   <div key={order.id} style={{ padding: '8px 0', borderBottom: '1px solid #f0f0f0' }}>
                     <Typography.Text strong>#{order.order_number}</Typography.Text>
                     <br />

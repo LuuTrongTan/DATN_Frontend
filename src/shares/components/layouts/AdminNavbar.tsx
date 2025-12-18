@@ -1,7 +1,5 @@
 import React from 'react';
-import { Layout, Button, Dropdown, Badge, Avatar, Space, Typography } from 'antd';
 import {
-  BellOutlined,
   UserOutlined,
   LogoutOutlined,
 } from '@ant-design/icons';
@@ -9,9 +7,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { authService } from '../../services/authService';
 import { message } from 'antd';
-
-const { Header } = Layout;
-const { Text } = Typography;
+import BaseNavbar from './BaseNavbar';
+import type { MenuProps } from 'antd';
 
 interface AdminNavbarProps {
   collapsed: boolean;
@@ -19,7 +16,7 @@ interface AdminNavbarProps {
 
 const AdminNavbar: React.FC<AdminNavbarProps> = ({ collapsed }) => {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
   const [notifications] = React.useState(0);
 
   const handleLogout = async () => {
@@ -35,7 +32,7 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ collapsed }) => {
     }
   };
 
-  const userMenuItems = [
+  const userMenuItems: MenuProps['items'] = [
     {
       key: 'profile',
       icon: <UserOutlined />,
@@ -54,53 +51,25 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ collapsed }) => {
     },
   ];
 
-  return (
-    <Header
-      style={{
-        padding: '0 24px',
-        background: '#FFDDB3',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        position: 'fixed',
-        top: 0,
-        right: 0,
-        left: collapsed ? 80 : 250,
-        zIndex: 100,
-        transition: 'left 0.2s',
-      }}
-    >
-      <Space size="large" style={{ marginLeft: 'auto' }}>
-        {/* Notifications */}
-        <Badge count={notifications} size="small">
-          <Button
-            type="text"
-            icon={<BellOutlined />}
-            style={{ fontSize: 18 }}
-          />
-        </Badge>
+  const getRoleLabel = (role?: string) => {
+    return role === 'admin' ? 'Quản trị viên' : 'Nhân viên';
+  };
 
-        {/* User Menu */}
-        <Dropdown
-          menu={{ items: userMenuItems }}
-          placement="bottomRight"
-          arrow
-        >
-          <Space style={{ cursor: 'pointer' }}>
-            <Avatar
-              icon={<UserOutlined />}
-              style={{ backgroundColor: '#722ed1' }}
-            />
-            <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
-              <Text strong>{user?.full_name || user?.email || user?.phone || 'Admin'}</Text>
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                {user?.role === 'admin' ? 'Quản trị viên' : 'Nhân viên'}
-              </Text>
-            </div>
-          </Space>
-        </Dropdown>
-      </Space>
-    </Header>
+  return (
+    <BaseNavbar
+      collapsed={collapsed}
+      userMenuItems={userMenuItems}
+      background="#FFF2E5"
+      position="fixed"
+      sidebarWidth={250}
+      sidebarCollapsedWidth={80}
+      showToggleButton={false}
+      showNotifications={true}
+      notificationCount={notifications}
+      roleLabel={getRoleLabel}
+      showCart={false}
+      showWishlist={false}
+    />
   );
 };
 

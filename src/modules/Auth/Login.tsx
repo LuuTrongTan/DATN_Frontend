@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Form, Input, Button, Card, message, Typography, Space } from 'antd';
 import { LockOutlined, UserOutlined } from '@ant-design/icons';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { authService, LoginRequest } from '../../shares/services/authService';
 import { useAuth } from '../../shares/contexts/AuthContext';
 import { detectInputType } from '../../shares/utils';
@@ -12,7 +12,16 @@ const Login: React.FC = () => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { login: setAuth } = useAuth();
+
+  // Prefill từ trang verify (hoặc nơi khác) nếu có
+  useEffect(() => {
+    const state = location.state as { emailOrPhone?: string } | null;
+    if (state?.emailOrPhone) {
+      form.setFieldsValue({ emailOrPhone: state.emailOrPhone });
+    }
+  }, [location.state, form]);
 
   const onFinish = async (values: LoginRequest & { emailOrPhone?: string }) => {
     const emailOrPhone = values.emailOrPhone || values.email || values.phone;
@@ -46,6 +55,9 @@ const Login: React.FC = () => {
         const { token, user } = response.data;
         setAuth(token, user);
         message.success('Đăng nhập thành công!');
+        // Xóa dữ liệu verify tạm thời nếu có
+        sessionStorage.removeItem('pendingLoginEmail');
+        sessionStorage.removeItem('pendingLoginPhone');
         // Redirect based on role
         if (user.role === 'admin' || user.role === 'staff') {
           navigate('/dashboard');
@@ -62,9 +74,7 @@ const Login: React.FC = () => {
         const email = detectedType === 'email' ? emailOrPhone : undefined;
         const phone = detectedType === 'phone' ? emailOrPhone : undefined;
         
-        // Lưu password tạm thời vào sessionStorage để tự động login sau khi verify
-        // SessionStorage sẽ tự động xóa khi đóng tab, an toàn hơn localStorage
-        sessionStorage.setItem('pendingLoginPassword', values.password);
+        // KHÔNG lưu mật khẩu vào storage (rủi ro bảo mật). Chỉ lưu định danh để hỗ trợ verify/resend.
         sessionStorage.setItem('pendingLoginEmail', email || '');
         sessionStorage.setItem('pendingLoginPhone', phone || '');
         

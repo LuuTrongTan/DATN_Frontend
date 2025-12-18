@@ -1,9 +1,5 @@
-import React, { useState } from 'react';
-import { Layout, Button, Dropdown, Badge, Avatar, Space, Typography } from 'antd';
+import React, { useState, useEffect } from 'react';
 import {
-  MenuFoldOutlined,
-  MenuUnfoldOutlined,
-  BellOutlined,
   UserOutlined,
   SettingOutlined,
   LogoutOutlined,
@@ -12,9 +8,11 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { authService } from '../../services/authService';
 import { message } from 'antd';
-
-const { Header } = Layout;
-const { Text } = Typography;
+import BaseNavbar from './BaseNavbar';
+import type { MenuProps } from 'antd';
+import { useAppDispatch, useAppSelector } from '../../stores';
+import { fetchCart } from '../../../modules/ProductManagement/stores/cartSlice';
+import { fetchWishlist } from '../../../modules/ProductManagement/stores/wishlistSlice';
 
 interface NavbarProps {
   collapsed: boolean;
@@ -23,8 +21,25 @@ interface NavbarProps {
 
 const Navbar: React.FC<NavbarProps> = ({ collapsed, onToggle }) => {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { logout, isAuthenticated, user } = useAuth();
+  const dispatch = useAppDispatch();
   const [notifications] = useState(0); // TODO: Implement notification logic
+  
+  // Lấy dữ liệu từ Redux
+  const cartItems = useAppSelector((state) => state.cart.items);
+  const wishlistItems = useAppSelector((state) => state.wishlist.items);
+  
+  // Tính toán số lượng từ Redux
+  const cartCount = cartItems.reduce((sum, item) => sum + (item.quantity || 1), 0);
+  const wishlistCount = wishlistItems.length;
+
+  // Fetch cart và wishlist khi đăng nhập
+  useEffect(() => {
+    if (isAuthenticated) {
+      dispatch(fetchCart());
+      dispatch(fetchWishlist());
+    }
+  }, [isAuthenticated, dispatch]);
 
   const handleLogout = async () => {
     try {
@@ -40,7 +55,7 @@ const Navbar: React.FC<NavbarProps> = ({ collapsed, onToggle }) => {
     }
   };
 
-  const userMenuItems = [
+  const userMenuItems: MenuProps['items'] = [
     {
       key: 'profile',
       icon: <UserOutlined />,
@@ -65,63 +80,29 @@ const Navbar: React.FC<NavbarProps> = ({ collapsed, onToggle }) => {
     },
   ];
 
+  const getRoleLabel = (role?: string) => {
+    if (role === 'admin') return 'Quản trị viên';
+    if (role === 'staff') return 'Nhân viên';
+    return 'Khách hàng';
+  };
+
   return (
-    <Header
-      style={{
-        padding: '0 24px',
-        background: '#fff',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-        position: 'sticky',
-        top: 0,
-        zIndex: 1000,
-      }}
-    >
-      <Button
-        type="text"
-        icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-        onClick={onToggle}
-        style={{
-          fontSize: 16,
-          width: 64,
-          height: 64,
-        }}
-      />
-
-      <Space size="large">
-        {/* Notifications */}
-        <Badge count={notifications} size="small">
-          <Button
-            type="text"
-            icon={<BellOutlined />}
-            style={{ fontSize: 18 }}
-          />
-        </Badge>
-
-        {/* User Menu */}
-        <Dropdown
-          menu={{ items: userMenuItems }}
-          placement="bottomRight"
-          arrow
-        >
-          <Space style={{ cursor: 'pointer' }}>
-            <Avatar
-              icon={<UserOutlined />}
-              src={undefined}
-              style={{ backgroundColor: '#667eea' }}
-            />
-            <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
-              <Text strong>{user?.full_name || user?.email || user?.phone || 'User'}</Text>
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                {user?.role === 'admin' ? 'Quản trị viên' : 'Khách hàng'}
-              </Text>
-            </div>
-          </Space>
-        </Dropdown>
-      </Space>
-    </Header>
+    <BaseNavbar
+      collapsed={collapsed}
+      onToggle={onToggle}
+      userMenuItems={userMenuItems}
+      background="#FFF2E5"
+      position="fixed"
+      // Đã chuyển nút thu/phóng xuống sidebar, nên không hiển thị trên navbar nữa
+      showToggleButton={false}
+      showNotifications={true}
+      notificationCount={notifications}
+      roleLabel={getRoleLabel}
+      showCart={true}
+      cartCount={cartCount}
+      showWishlist={true}
+      wishlistCount={wishlistCount}
+    />
   );
 };
 

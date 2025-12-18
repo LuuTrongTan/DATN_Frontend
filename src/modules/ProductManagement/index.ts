@@ -1,7 +1,9 @@
 // ProductManagement module exports
-export { default as ProductList } from './ProductList';
-export { default as ProductDetail } from './ProductDetail';
-export { default as ProductForm } from './ProductForm';
-export { default as CategoryManagement } from './CategoryManagement';
-export { default as Cart } from './Cart';
+export { default as ProductList } from './List/ProductList';
+export { default as ProductDetail } from './Detail/ProductDetail';
+export { default as ProductSearch } from './Search/ProductSearch';
+export { default as ProductCompare } from './Compare/ProductCompare';
+export { default as ProductReviews } from './Reviews/ProductReviews';
+export { default as Cart } from './CartPages/Cart';
+export { default as Wishlist } from './WishlistPages/Wishlist';
 

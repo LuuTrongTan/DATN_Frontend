@@ -4,8 +4,9 @@ import { RightOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { Product } from '../../../shares/types';
 import ProductCard from './ProductCard';
-import { cartService } from '../../../shares/services/cartService';
 import { message } from 'antd';
+import { useAppDispatch } from '../../../shares/stores';
+import { addToCart } from '../../ProductManagement/stores/cartSlice';
 
 const { Title } = Typography;
 
@@ -25,19 +26,15 @@ const ProductSection: React.FC<ProductSectionProps> = ({
   showViewAll = true,
 }) => {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
 
   const handleAddToCart = async (product: Product) => {
     try {
-      const response = await cartService.addToCart({
+      await dispatch(addToCart({
         product_id: product.id,
         quantity: 1,
-      });
-      
-      if (response.success) {
-        message.success('Đã thêm vào giỏ hàng!');
-      } else {
-        message.error(response.message || 'Có lỗi xảy ra');
-      }
+      })).unwrap();
+      message.success('Đã thêm vào giỏ hàng!');
     } catch (error: any) {
       message.error(error.message || 'Có lỗi xảy ra khi thêm vào giỏ hàng');
     }
@@ -79,9 +76,9 @@ const ProductSection: React.FC<ProductSectionProps> = ({
           </Button>
         )}
       </div>
-      <Row gutter={[16, 16]}>
+      <Row gutter={[12, 20]}>
         {products.map((product) => (
-          <Col xs={12} sm={8} md={6} lg={4} xl={4} key={product.id}>
+          <Col xs={24} sm={12} md={8} lg={6} xl={6} key={product.id}>
             <ProductCard product={product} onAddToCart={handleAddToCart} />
           </Col>
         ))}

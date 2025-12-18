@@ -1,0 +1,122 @@
+import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { wishlistService, WishlistItem } from '../../../shares/services/wishlistService';
+import { cartService } from '../../../shares/services/cartService';
+
+export interface WishlistState {
+  items: WishlistItem[];
+  loading: boolean;
+  error: string | null;
+  checkedProducts: Record<number, boolean>; // Cache để lưu trạng thái wishlist của từng product
+}
+
+const initialState: WishlistState = {
+  items: [],
+  loading: false,
+  error: null,
+  checkedProducts: {},
+};
+
+export const fetchWishlist = createAsyncThunk('wishlist/fetchWishlist', async () => {
+  const response = await wishlistService.getWishlist();
+  if (!response.success || !response.data) {
+    throw new Error(response.message || 'Không thể tải danh sách yêu thích');
+  }
+  return response.data as WishlistItem[];
+});
+
+export const removeFromWishlist = createAsyncThunk(
+  'wishlist/remove',
+  async (productId: number, { dispatch }) => {
+    const response = await wishlistService.removeFromWishlist(productId);
+    if (!response.success) {
+      throw new Error(response.message || 'Không thể xóa khỏi danh sách yêu thích');
+    }
+    await dispatch(fetchWishlist());
+    return;
+  }
+);
+
+export const addWishlistItemToCart = createAsyncThunk(
+  'wishlist/addToCart',
+  async (productId: number) => {
+    const response = await cartService.addToCart({
+      product_id: productId,
+      quantity: 1,
+    });
+    if (!response.success) {
+      throw new Error(response.message || 'Không thể thêm vào giỏ hàng');
+    }
+    return;
+  }
+);
+
+export const addToWishlist = createAsyncThunk(
+  'wishlist/add',
+  async (productId: number, { dispatch }) => {
+    const response = await wishlistService.addToWishlist(productId);
+    if (!response.success) {
+      throw new Error(response.message || 'Không thể thêm vào danh sách yêu thích');
+    }
+    await dispatch(fetchWishlist());
+    return productId;
+  }
+);
+
+export const checkWishlist = createAsyncThunk(
+  'wishlist/check',
+  async (productId: number) => {
+    const response = await wishlistService.checkWishlist(productId);
+    if (!response.success || !response.data) {
+      return false;
+    }
+    return response.data.isInWishlist;
+  }
+);
+
+const wishlistSlice = createSlice({
+  name: 'wishlist',
+  initialState,
+  reducers: {
+    setWishlistItems(state, action: PayloadAction<WishlistItem[]>) {
+      state.items = action.payload;
+    },
+  },
+  extraReducers: (builder) => {
+    builder
+      .addCase(fetchWishlist.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchWishlist.fulfilled, (state, action) => {
+        state.loading = false;
+        state.items = action.payload;
+      })
+      .addCase(fetchWishlist.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message || 'Không thể tải danh sách yêu thích';
+      })
+      .addCase(removeFromWishlist.rejected, (state, action) => {
+        state.error = action.error.message || 'Không thể xóa khỏi danh sách yêu thích';
+      })
+      .addCase(addWishlistItemToCart.rejected, (state, action) => {
+        state.error = action.error.message || 'Không thể thêm vào giỏ hàng';
+      })
+      .addCase(addToWishlist.fulfilled, (state, action) => {
+        state.checkedProducts[action.payload] = true;
+      })
+      .addCase(removeFromWishlist.fulfilled, (state, action) => {
+        // Khi xóa khỏi wishlist, cập nhật checkedProducts
+        const productId = action.meta.arg;
+        state.checkedProducts[productId] = false;
+      })
+      .addCase(checkWishlist.fulfilled, (state, action) => {
+        const productId = action.meta.arg;
+        state.checkedProducts[productId] = action.payload;
+      });
+  },
+});
+
+export const { setWishlistItems } = wishlistSlice.actions;
+export default wishlistSlice.reducer;
+
+

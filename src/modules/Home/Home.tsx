@@ -6,100 +6,65 @@ import {
   DollarOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import { orderService } from '../../shares/services/orderService';
-import { cartService } from '../../shares/services/cartService';
-import { productService } from '../../shares/services/productService';
-import { categoryService } from '../../shares/services/categoryService';
-import { Order, CartItem, Product, Category } from '../../shares/types';
 import { Banner, CategorySection, ProductSection } from './components';
+import { useAppDispatch, useAppSelector } from '../../shares/stores';
+import { fetchCart } from '../ProductManagement/stores/cartSlice';
+import { fetchCategories, fetchProducts } from '../ProductManagement/stores/productsSlice';
+import { fetchRecentOrders } from '../Orders/stores/ordersSlice';
+import { Order } from '../../shares/types';
+import { logger } from '../../shares/utils/logger';
 
 const { Title } = Typography;
 
 const Home: React.FC = () => {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalOrders: 0,
     totalSpent: 0,
     cartItems: 0,
   });
-  const [recentOrders, setRecentOrders] = useState<Order[]>([]);
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
-  const [newProducts, setNewProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
+  
+  // Lấy dữ liệu từ Redux
+  const cartItems = useAppSelector((state) => state.cart.items);
+  const { items: products, categories } = useAppSelector((state) => state.products);
+  const { recentOrders: orders } = useAppSelector((state) => state.orders);
 
   useEffect(() => {
     fetchHomeData();
   }, []);
 
+  // Cập nhật stats khi data thay đổi
+  useEffect(() => {
+    setStats(prev => ({
+      ...prev,
+      cartItems: cartItems.length,
+      totalOrders: orders.length,
+      totalSpent: orders.reduce((sum, order) => sum + order.total_amount, 0),
+    }));
+  }, [cartItems, orders]);
+
   const fetchHomeData = async () => {
     try {
       setLoading(true);
       
-      // Fetch categories
-      try {
-        const categoriesRes = await categoryService.getCategories();
-        if (categoriesRes.success && categoriesRes.data) {
-          setCategories(categoriesRes.data);
-        }
-      } catch (error) {
-        console.error('Error fetching categories:', error);
-        // If categories API doesn't exist, we'll continue without them
-      }
+      // Fetch từ Redux
+      await Promise.all([
+        dispatch(fetchCategories()),
+        dispatch(fetchProducts()),
+        dispatch(fetchCart()),
+        dispatch(fetchRecentOrders(5)),
+      ]);
 
-      // Fetch orders
-      try {
-        const ordersRes = await orderService.getOrders({ limit: 5 });
-        if (ordersRes.success && ordersRes.data) {
-          const orders = ordersRes.data.data || [];
-          setRecentOrders(orders);
-          setStats(prev => ({
-            ...prev,
-            totalOrders: ordersRes.data?.pagination?.total || 0,
-            totalSpent: orders.reduce((sum, order) => sum + order.total_amount, 0),
-          }));
-        }
-      } catch (error) {
-        console.error('Error fetching orders:', error);
-      }
-
-      // Fetch cart
-      try {
-        const cartRes = await cartService.getCart();
-        if (cartRes.success && cartRes.data) {
-          const items = cartRes.data || [];
-          setCartItems(items);
-          setStats(prev => ({
-            ...prev,
-            cartItems: items.length,
-          }));
-        }
-      } catch (error) {
-        console.error('Error fetching cart:', error);
-      }
-
-      // Fetch featured products (first 8 products)
-      try {
-        const featuredRes = await productService.getProducts({ limit: 8 });
-        if (featuredRes.success && featuredRes.data) {
-          setFeaturedProducts(featuredRes.data.data || []);
-        }
-      } catch (error) {
-        console.error('Error fetching featured products:', error);
-      }
-
-      // Fetch new products (latest products)
-      try {
-        const newRes = await productService.getProducts({ limit: 8 });
-        if (newRes.success && newRes.data) {
-          setNewProducts(newRes.data.data || []);
-        }
-      } catch (error) {
-        console.error('Error fetching new products:', error);
-      }
+      // Cập nhật stats từ orders
+      setStats(prev => ({
+        ...prev,
+        totalOrders: orders.length,
+        totalSpent: orders.reduce((sum, order) => sum + order.total_amount, 0),
+      }));
     } catch (error) {
-      console.error('Error fetching home data:', error);
+      logger.error('Error fetching home data', error instanceof Error ? error : new Error(String(error)));
     } finally {
       setLoading(false);
     }
@@ -162,18 +127,18 @@ const Home: React.FC = () => {
       )}
 
       {/* Featured Products Section */}
-      {featuredProducts.length > 0 && (
+      {products.length > 0 && (
         <ProductSection
-          products={featuredProducts}
+          products={products.slice(0, 8)}
           title="Sản phẩm nổi bật"
           viewAllLink="/products"
         />
       )}
 
       {/* New Products Section */}
-      {newProducts.length > 0 && (
+      {products.length > 0 && (
         <ProductSection
-          products={newProducts}
+          products={products.slice(0, 8)}
           title="Sản phẩm mới nhất"
           viewAllLink="/products"
         />
@@ -222,16 +187,16 @@ const Home: React.FC = () => {
             title="Đơn hàng gần đây" 
             style={{ minHeight: 300 }}
             extra={
-              recentOrders.length > 0 && (
+              orders.length > 0 && (
                 <Button type="link" onClick={() => navigate('/orders')}>
                   Xem tất cả
                 </Button>
               )
             }
           >
-            {recentOrders.length > 0 ? (
+            {orders.length > 0 ? (
               <Space direction="vertical" style={{ width: '100%' }}>
-                {recentOrders.map((order) => (
+                {orders.map((order: Order) => (
                   <div key={order.id} style={{ padding: '8px 0', borderBottom: '1px solid #f0f0f0' }}>
                     <Typography.Text strong>#{order.order_number}</Typography.Text>
                     <br />
