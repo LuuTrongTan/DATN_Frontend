@@ -1,4 +1,2 @@
-// Support module exports
-export { default as Support } from './Support';
-export { default as FAQ } from './FAQ';
-
+// Support module đã bị loại bỏ (FAQ và Ticket)
+// File giữ lại để tránh import lỗi, nhưng không export gì.

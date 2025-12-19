@@ -209,6 +209,7 @@ const BaseNavbar: React.FC<BaseNavbarProps> = ({
               type="text"
               icon={<BellOutlined />}
               style={{ fontSize: 'clamp(1rem, 1.125vw, 1.125rem)' }}
+              onClick={() => navigate('/notifications')}
             />
           </Badge>
         )}

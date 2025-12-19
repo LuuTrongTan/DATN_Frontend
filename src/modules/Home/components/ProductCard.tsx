@@ -54,7 +54,10 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
     }
   }, [product, navigate, onAddToCart]);
 
-  const imageUrl = useMemo(() => product.image_urls?.[0] || '/placeholder.png', [product.image_urls]);
+  const imageUrl = useMemo(
+    () => product.image_url || product.image_urls?.[0] || '/placeholder.png',
+    [product.image_url, product.image_urls]
+  );
   const isOutOfStock = useMemo(() => (product.stock_quantity || 0) === 0, [product.stock_quantity]);
 
   return (

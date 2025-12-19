@@ -134,14 +134,18 @@ const StaffManagement: React.FC = () => {
     {
       title: 'Trạng thái',
       key: 'status',
-      render: (_: any, record: User) => (
-        <Space>
-          <Tag color={record.is_active ? 'green' : 'red'}>
-            {record.is_active ? 'Hoạt động' : 'Không hoạt động'}
-          </Tag>
-          {record.is_banned && <Tag color="red">Đã khóa</Tag>}
-        </Space>
-      ),
+      render: (_: any, record: User) => {
+        const isActive = record.status === 'active';
+        const isBanned = record.status === 'banned';
+        return (
+          <Space>
+            <Tag color={isActive ? 'green' : 'red'}>
+              {isActive ? 'Hoạt động' : 'Không hoạt động'}
+            </Tag>
+            {isBanned && <Tag color="red">Đã khóa</Tag>}
+          </Space>
+        );
+      },
     },
     {
       title: 'Ngày tạo',
@@ -192,7 +196,7 @@ const StaffManagement: React.FC = () => {
             <Card>
               <Statistic
                 title="Đang hoạt động"
-                value={filteredStaffs.filter(s => s.is_active).length}
+                value={filteredStaffs.filter(s => s.status === 'active').length}
                 prefix={<CheckCircleOutlined />}
                 valueStyle={{ color: '#52c41a' }}
               />
@@ -202,7 +206,7 @@ const StaffManagement: React.FC = () => {
             <Card>
               <Statistic
                 title="Đã khóa"
-                value={filteredStaffs.filter(s => s.is_banned).length}
+                value={filteredStaffs.filter(s => s.status === 'banned').length}
                 prefix={<CloseCircleOutlined />}
                 valueStyle={{ color: '#ff4d4f' }}
               />

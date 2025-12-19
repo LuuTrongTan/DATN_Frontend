@@ -12,6 +12,4 @@ export * from './reviewService';
 export * from './paymentService';
 export * from './shippingService';
 export * from './variantService';
-export * from './faqService';
-export * from './supportService';
 export * from './firebaseService';

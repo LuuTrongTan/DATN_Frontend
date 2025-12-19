@@ -43,8 +43,9 @@ export interface UpdateUserRequest {
   email?: string;
   phone?: string;
   role?: string;
-  is_banned?: boolean;
-  is_active?: boolean;
+  status?: string;
+  phone_verified?: boolean;
+  email_verified?: boolean;
   password?: string;
 }
 

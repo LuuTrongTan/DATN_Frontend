@@ -96,7 +96,7 @@ const Wishlist: React.FC = () => {
                 cover={
                   <Image
                     alt={item.name}
-                    src={item.image_urls?.[0] || '/placeholder.png'}
+                    src={item.image_url || item.image_urls?.[0] || '/placeholder.png'}
                     height={200}
                     style={{ objectFit: 'cover' }}
                     preview={false}

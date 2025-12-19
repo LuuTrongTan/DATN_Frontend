@@ -22,6 +22,7 @@ const ProductCompare = lazy(() => import('../../modules/ProductManagement/Compar
 const ProductReviews = lazy(() => import('../../modules/ProductManagement/Reviews/ProductReviews'));
 const Cart = lazy(() => import('../../modules/ProductManagement/CartPages/Cart'));
 const Wishlist = lazy(() => import('../../modules/ProductManagement/WishlistPages/Wishlist'));
+const NotificationsPage = lazy(() => import('../../modules/Notifications/NotificationsPage'));
 
 // Profile
 const Profile = lazy(() => import('../../modules/Profile/Account/Profile'));
@@ -34,9 +35,7 @@ const OrderDetail = lazy(() => import('../../modules/Orders/Detail/OrderDetail')
 const OrderTracking = lazy(() => import('../../modules/Orders/Tracking/OrderTracking'));
 const Checkout = lazy(() => import('../../modules/Orders/CheckoutPages/Checkout'));
 
-// Support
-const FAQ = lazy(() => import('../../modules/Support/FAQ'));
-const Support = lazy(() => import('../../modules/Support/Support'));
+// Support flows (FAQ/Support) đã bỏ theo yêu cầu => không import nữa
 
 // Admin
 const AdminDashboard = lazy(() => import('../../modules/Admin/Dashboard/AdminDashboard'));
@@ -179,13 +178,13 @@ const AppRoutes: React.FC = () => {
           element={withMainLayout(<OrderTracking />)}
         />
 
-        <Route path="/faq" element={withMainLayout(<FAQ />)} />
-        <Route path="/support" element={withMainLayout(<Support />)} />
+        {/* FAQ / Support routes đã bỏ theo yêu cầu */}
 
         <Route path="/profile" element={withMainLayout(<Profile />)} />
         <Route path="/profile/change-password" element={withMainLayout(<ChangePassword />)} />
         <Route path="/profile/addresses" element={withMainLayout(<AddressManagement />)} />
         <Route path="/wishlist" element={withMainLayout(<Wishlist />)} />
+        <Route path="/notifications" element={withMainLayout(<NotificationsPage />)} />
 
         {/* Default redirect */}
         <Route path="/" element={<Navigate to="/login" replace />} />

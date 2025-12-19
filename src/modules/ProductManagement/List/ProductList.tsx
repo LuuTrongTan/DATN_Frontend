@@ -120,7 +120,7 @@ const ProductList: React.FC = () => {
                   cover={
                     <Image
                       alt={product.name}
-                      src={product.image_urls?.[0] || '/placeholder.png'}
+                      src={product.image_url || product.image_urls?.[0] || '/placeholder.png'}
                       height={200}
                       style={{ objectFit: 'cover' }}
                       preview={false}

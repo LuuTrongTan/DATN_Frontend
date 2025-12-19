@@ -2,6 +2,7 @@
 
 // User Types
 export type UserRole = 'customer' | 'staff' | 'admin';
+export type UserStatus = 'active' | 'banned' | 'deleted';
 
 export interface User {
   id: number;
@@ -9,9 +10,9 @@ export interface User {
   phone: string | null;
   full_name: string | null;
   role: UserRole;
-  is_verified: boolean;
-  is_active: boolean;
-  is_banned?: boolean;
+  phone_verified: boolean;
+  email_verified: boolean;
+  status: UserStatus;
   created_at: string;
   updated_at: string;
 }
@@ -36,21 +37,15 @@ export interface Product {
   description: string | null;
   price: number;
   stock_quantity: number;
-  image_url?: string | null; // Single image URL for display
-  image_urls: string[] | null;
-  video_url: string | null;
+  image_url?: string | null; // Ảnh chính (từ product_media)
+  image_urls?: string[] | null; // Tất cả ảnh (nếu backend trả về)
+  video_url?: string | null; // Video (nếu backend trả về)
   is_active: boolean;
   variants?: ProductVariant[];
   is_in_wishlist?: boolean; // Indicates if product is in user's wishlist
   sku?: string | null;
-  barcode?: string | null;
-  weight?: number | null;
-  dimensions?: string | null;
-  brand?: string | null;
   view_count?: number;
   sold_count?: number;
-  meta_title?: string | null;
-  meta_description?: string | null;
   average_rating?: number;
   review_count?: number;
   created_at: string;

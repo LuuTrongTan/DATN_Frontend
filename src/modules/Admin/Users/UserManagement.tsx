@@ -73,8 +73,7 @@ const UserManagement: React.FC = () => {
   const handleEdit = (user: User) => {
     setEditingUser(user);
     form.setFieldsValue({
-      is_active: user.is_active,
-      is_banned: user.is_banned,
+      status: user.status,
       role: user.role,
       email: user.email,
     });
@@ -86,8 +85,7 @@ const UserManagement: React.FC = () => {
       if (!editingUser) return;
 
       const updateData: UpdateUserRequest = {
-        is_active: values.is_active,
-        is_banned: values.is_banned,
+        status: values.status,
         role: values.role,
         email: values.email,
       };
@@ -173,14 +171,18 @@ const UserManagement: React.FC = () => {
     {
       title: 'Trạng thái',
       key: 'status',
-      render: (_: any, record: User) => (
-        <Space>
-          <Tag color={record.is_active ? 'green' : 'red'}>
-            {record.is_active ? 'Hoạt động' : 'Không hoạt động'}
-          </Tag>
-          {record.is_banned && <Tag color="red">Đã khóa</Tag>}
-        </Space>
-      ),
+      render: (_: any, record: User) => {
+        const isActive = record.status === 'active';
+        const isBanned = record.status === 'banned';
+        return (
+          <Space>
+            <Tag color={isActive ? 'green' : 'red'}>
+              {isActive ? 'Hoạt động' : 'Không hoạt động'}
+            </Tag>
+            {isBanned && <Tag color="red">Đã khóa</Tag>}
+          </Space>
+        );
+      },
     },
     {
       title: 'Ngày tạo',
@@ -251,7 +253,7 @@ const UserManagement: React.FC = () => {
             <Card>
               <Statistic
                 title="Đã khóa"
-                value={filteredUsers.filter(u => u.is_banned).length}
+                value={filteredUsers.filter(u => u.status === 'banned').length}
                 prefix={<UserDeleteOutlined />}
                 valueStyle={{ color: '#ff4d4f' }}
               />
@@ -338,19 +340,15 @@ const UserManagement: React.FC = () => {
           </Form.Item>
 
           <Form.Item
-            label="Trạng thái hoạt động"
-            name="is_active"
-            valuePropName="checked"
+            label="Trạng thái"
+            name="status"
+            rules={[{ required: true, message: 'Vui lòng chọn trạng thái' }]}
           >
-            <Switch />
-          </Form.Item>
-
-          <Form.Item
-            label="Trạng thái khóa"
-            name="is_banned"
-            valuePropName="checked"
-          >
-            <Switch />
+            <Select>
+              <Option value="active">Hoạt động</Option>
+              <Option value="banned">Đã khóa</Option>
+              <Option value="deleted">Đã xóa</Option>
+            </Select>
           </Form.Item>
 
           <Form.Item

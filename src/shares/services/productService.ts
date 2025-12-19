@@ -49,8 +49,6 @@ export const productService = {
     description?: string;
     price: number;
     stock_quantity: number;
-    image_urls: string[];
-    video_url?: string;
     is_active?: boolean;
   }): Promise<ApiResponse<Product>> => {
     return apiClient.post('/products', data);
@@ -63,8 +61,6 @@ export const productService = {
     description?: string;
     price?: number;
     stock_quantity?: number;
-    image_urls?: string[];
-    video_url?: string;
     is_active?: boolean;
   }): Promise<ApiResponse<Product>> => {
     return apiClient.put(`/products/${id}`, data);

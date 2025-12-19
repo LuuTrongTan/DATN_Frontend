@@ -6,4 +6,3 @@ export * from './Orders';
 export * from './ProductManagement';
 export * from './Profile';
 export * from './Admin';
-export * from './Support';

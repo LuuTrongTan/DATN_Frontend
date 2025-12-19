@@ -52,7 +52,7 @@ const Cart: React.FC = () => {
       render: (_: any, record: CartItem) => (
         <Space>
           <img
-            src={record.product?.image_urls?.[0] || '/placeholder.png'}
+            src={record.product?.image_url || record.product?.image_urls?.[0] || '/placeholder.png'}
             alt={record.product?.name}
             style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 4 }}
           />

@@ -168,7 +168,7 @@ const ProductDetail: React.FC = () => {
     );
   }
 
-  const images = product.image_urls || [];
+  const images = product.image_urls || (product.image_url ? [product.image_url] : []);
   
   // Calculate current price and stock based on selected variant
   const currentPrice = selectedVariant 

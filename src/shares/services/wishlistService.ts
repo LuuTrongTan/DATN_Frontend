@@ -8,6 +8,7 @@ export interface WishlistItem {
   created_at: string;
   name?: string;
   price?: number;
+  image_url?: string | null;
   image_urls?: string[];
   stock_quantity?: number;
   is_active?: boolean;

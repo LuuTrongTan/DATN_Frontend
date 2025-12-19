@@ -188,27 +188,6 @@ const ProductComparePage: React.FC = () => {
       ),
     },
     {
-      key: 'brand',
-      label: 'Thương hiệu',
-      render: (product: Product) => (
-        <Text>{product.brand || 'Không xác định'}</Text>
-      ),
-    },
-    {
-      key: 'weight',
-      label: 'Trọng lượng',
-      render: (product: Product) => (
-        <Text>{product.weight ? `${product.weight} kg` : 'N/A'}</Text>
-      ),
-    },
-    {
-      key: 'dimensions',
-      label: 'Kích thước',
-      render: (product: Product) => (
-        <Text>{product.dimensions || 'N/A'}</Text>
-      ),
-    },
-    {
       key: 'action',
       label: 'Thao tác',
       render: (product: Product) => (
