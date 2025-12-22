@@ -15,6 +15,7 @@ import {
   Switch,
   Tag,
   Select,
+   Upload,
 } from 'antd';
 import {
   PlusOutlined,
@@ -23,8 +24,11 @@ import {
   ReloadOutlined,
   AppstoreOutlined,
   SearchOutlined,
+  UploadOutlined,
 } from '@ant-design/icons';
 import { adminService, CreateCategoryRequest, UpdateCategoryRequest } from '../../../shares/services/adminService';
+import { uploadFile } from '../../../shares/services/uploadService';
+import type { UploadProps } from 'antd';
 import { Category } from '../../../shares/types';
 import { useAppDispatch, useAppSelector } from '../../../shares/stores';
 import { fetchAdminCategories } from '../stores/adminCategoriesSlice';
@@ -45,6 +49,7 @@ const CategoryManagement: React.FC = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [previewImageUrl, setPreviewImageUrl] = useState<string>('');
+  const [imageUploading, setImageUploading] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'deleted'>('all');
   const [form] = Form.useForm();
 
@@ -203,13 +208,41 @@ const CategoryManagement: React.FC = () => {
     }
   };
 
+  const handleImageUpload: UploadProps['beforeUpload'] = async (file) => {
+    try {
+      setImageUploading(true);
+      const url = await uploadFile(file as File);
+      form.setFieldsValue({ image_url: url });
+      setPreviewImageUrl(url);
+      message.success('Upload hình ảnh danh mục thành công');
+    } catch (error: any) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Có lỗi xảy ra khi upload hình ảnh';
+      logger.error(
+        'Error uploading category image',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          fileName: file.name,
+          ip: window.location.href,
+        }
+      );
+      message.error(errorMessage);
+    } finally {
+      setImageUploading(false);
+    }
+    // Ngăn AntD tự upload, vì ta đã xử lý thủ công
+    return false;
+  };
+
   const columns = [
     {
-      title: 'ID',
-      dataIndex: 'id',
-      key: 'id',
+      title: 'Thứ tự',
+      dataIndex: 'display_order',
+      key: 'display_order',
       align: 'center' as const,
-      width: 80,
+      width: 100,
+      render: (value: number | null | undefined) =>
+        typeof value === 'number' ? value : '-',
     },
     {
       title: 'Hình ảnh',
@@ -309,6 +342,12 @@ const CategoryManagement: React.FC = () => {
 
         return (
           <Space>
+            <Switch
+              checkedChildren="Bật"
+              unCheckedChildren="Tắt"
+              checked={record.is_active}
+              onChange={() => handleToggleStatus(record)}
+            />
             <Button
               type="link"
               icon={<EditOutlined />}
@@ -316,12 +355,6 @@ const CategoryManagement: React.FC = () => {
             >
               Sửa
             </Button>
-            <Switch
-              checkedChildren="Bật"
-              unCheckedChildren="Tắt"
-              checked={record.is_active}
-              onChange={() => handleToggleStatus(record)}
-            />
             <Popconfirm
               title="Bạn có chắc chắn muốn xóa danh mục này?"
               onConfirm={() => handleDelete(record.id)}
@@ -487,16 +520,30 @@ const CategoryManagement: React.FC = () => {
           </Form.Item>
 
           <Form.Item
-            label="URL hình ảnh"
+            label="Hình ảnh danh mục"
             name="image_url"
             rules={[
               { type: 'url', message: 'Vui lòng nhập URL hợp lệ', warningOnly: true },
             ]}
           >
-            <Input 
-              placeholder="Nhập URL hình ảnh (ví dụ: https://example.com/image.jpg)"
-              onChange={(e) => setPreviewImageUrl(e.target.value)}
-            />
+            <Space.Compact style={{ width: '100%' }}>
+              <Input
+                placeholder="URL hình (ví dụ: https://example.com/image.jpg)"
+                onChange={(e) => setPreviewImageUrl(e.target.value)}
+              />
+              <Upload
+                showUploadList={false}
+                beforeUpload={handleImageUpload}
+                accept="image/*"
+              >
+                <Button
+                  icon={<UploadOutlined />}
+                  loading={imageUploading}
+                >
+                  Upload
+                </Button>
+              </Upload>
+            </Space.Compact>
           </Form.Item>
 
           {previewImageUrl && (

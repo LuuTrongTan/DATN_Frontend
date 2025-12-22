@@ -56,9 +56,20 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
         icon: <ShoppingOutlined />,
         label: 'Danh mục',
         children: categories.map((category) => ({
-          // Chỉ dùng slug cho URL (không kèm id)
           key: `/products?category_slug=${category.slug || ''}`,
           label: category.name,
+          icon: category.image_url ? (
+            <img
+              src={category.image_url}
+              alt={category.name}
+              style={{
+                width: 20,
+                height: 20,
+                objectFit: 'cover',
+                borderRadius: 4,
+              }}
+            />
+          ) : undefined,
         })),
       });
     }
