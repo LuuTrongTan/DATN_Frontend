@@ -34,6 +34,7 @@ import {
 } from '../stores/productsSlice';
 import { Product } from '../../../shares/types';
 import ProductCard from '../../Home/components/ProductCard';
+import { useEffectOnce } from '../../../shares/hooks';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -56,7 +57,8 @@ const ProductSearchPage: React.FC = () => {
   const [sortBy, setSortBy] = useState(searchParams.get('sort') || 'newest');
 
   // Khởi tạo categories và sync URL -> Redux khi mount
-  useEffect(() => {
+  // Sử dụng useEffectOnce để tránh gọi API 2 lần trong StrictMode
+  useEffectOnce(() => {
     dispatch(fetchCategories());
     
     // Khởi tạo filters từ URL params

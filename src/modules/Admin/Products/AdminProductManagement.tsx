@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Table,
   Button,
@@ -28,6 +28,7 @@ import { Product, Category } from '../../../shares/types';
 import { useNavigate } from 'react-router-dom';
 import ProductForm from './ProductForm';
 import { logger } from '../../../shares/utils/logger';
+import { useEffectOnce } from '../../../shares/hooks';
 import { useAppDispatch, useAppSelector } from '../../../shares/stores';
 import { fetchAdminProducts, fetchAdminCategories, setSearch, setCategory } from '../stores/adminProductsSlice';
 
@@ -35,20 +36,36 @@ const { Title } = Typography;
 const { Search } = Input;
 const { Option } = Select;
 
+// Dùng biến module-level để chặn StrictMode gọi lại fetch lần đầu
+let initialProductsFetched = false;
+
 const AdminProductManagement: React.FC = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { items: products, categories, loading, filters } = useAppSelector((state) => state.adminProducts);
+  const { items: products, categories, categoriesLoading, loading, filters } = useAppSelector((state) => state.adminProducts);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<number | undefined>();
   const [isModalVisible, setIsModalVisible] = useState(false);
 
-  useEffect(() => {
-    dispatch(fetchAdminCategories());
-    dispatch(fetchAdminProducts({ limit: 100 }));
-  }, [dispatch]);
+  // Sử dụng useEffectOnce để tránh gọi API 2 lần trong StrictMode
+  // Chỉ gọi fetchAdminCategories nếu categories chưa có trong store
+  useEffectOnce(() => {
+    if (categories.length === 0 && !categoriesLoading) {
+      dispatch(fetchAdminCategories());
+    }
+    if (!initialProductsFetched) {
+      initialProductsFetched = true;
+      dispatch(fetchAdminProducts({ limit: 100 }));
+    }
+  });
 
+  // Bỏ qua lần chạy đầu (đã fetch ở useEffectOnce) để tránh duplicate trong StrictMode
+  const hasRunFilterEffect = useRef(false);
   useEffect(() => {
+    if (!hasRunFilterEffect.current) {
+      hasRunFilterEffect.current = true;
+      return;
+    }
     dispatch(setSearch(searchQuery));
     dispatch(setCategory(selectedCategory));
     dispatch(fetchAdminProducts({ 
@@ -95,6 +112,7 @@ const AdminProductManagement: React.FC = () => {
       title: 'ID',
       dataIndex: 'id',
       key: 'id',
+      align: 'center' as const,
       width: 80,
     },
     {
@@ -118,11 +136,13 @@ const AdminProductManagement: React.FC = () => {
       title: 'Tên sản phẩm',
       dataIndex: 'name',
       key: 'name',
+      align: 'center' as const,
     },
     {
       title: 'Danh mục',
       dataIndex: 'category_name',
       key: 'category_name',
+      align: 'center' as const,
       render: (categoryName: string | null, record: Product) =>
         categoryName || record.category?.name || '-',
     },
@@ -140,6 +160,7 @@ const AdminProductManagement: React.FC = () => {
       title: 'Tồn kho',
       dataIndex: 'stock_quantity',
       key: 'stock_quantity',
+      align: 'center' as const,
       render: (quantity: number) => (
         <Tag color={quantity > 0 ? 'green' : 'red'}>
           {quantity}
@@ -150,6 +171,7 @@ const AdminProductManagement: React.FC = () => {
       title: 'Trạng thái',
       dataIndex: 'is_active',
       key: 'is_active',
+      align: 'center' as const,
       width: 120,
       render: (isActive: boolean, record: Product) => (
         <Switch
@@ -164,12 +186,14 @@ const AdminProductManagement: React.FC = () => {
       title: 'Ngày tạo',
       dataIndex: 'created_at',
       key: 'created_at',
+      align: 'center' as const,
       width: 120,
       render: (text: string) => new Date(text).toLocaleDateString('vi-VN'),
     },
     {
       title: 'Thao tác',
       key: 'action',
+      align: 'center' as const,
       width: 200,
       fixed: 'right' as const,
       render: (_: any, record: Product) => (
@@ -229,16 +253,16 @@ const AdminProductManagement: React.FC = () => {
         </div>
 
         <Space direction="vertical" size="large" style={{ width: '100%', marginBottom: 16 }}>
-          <Space>
+          <Space style={{ width: '100%', flexWrap: 'wrap' }}>
             <Search
               placeholder="Tìm kiếm sản phẩm..."
               allowClear
-              style={{ width: 300 }}
+              style={{ width: '100%', maxWidth: 320 }}
               onSearch={(value) => setSearchQuery(value)}
               enterButton
             />
             <Select
-              style={{ width: 200 }}
+              style={{ width: '100%', maxWidth: 260 }}
               placeholder="Lọc theo danh mục"
               allowClear
               value={selectedCategory}
@@ -267,7 +291,7 @@ const AdminProductManagement: React.FC = () => {
           dataSource={products}
           loading={loading}
           rowKey="id"
-          scroll={{ x: 1200 }}
+          scroll={{ x: 'max-content' }}
           pagination={{
             pageSize: 20,
             showSizeChanger: true,
@@ -281,7 +305,7 @@ const AdminProductManagement: React.FC = () => {
         open={isModalVisible}
         onCancel={() => setIsModalVisible(false)}
         footer={null}
-        width={900}
+        width="80%"
         destroyOnClose
         styles={{
           body: {

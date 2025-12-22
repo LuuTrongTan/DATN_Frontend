@@ -52,8 +52,8 @@ const Login: React.FC = () => {
       const response = await authService.login(loginData);
       
       if (response.success && response.data) {
-        const { token, user } = response.data;
-        setAuth(token, user);
+        const { token, refreshToken, user } = response.data;
+        setAuth(token, user, refreshToken);
         message.success('Đăng nhập thành công!');
         // Xóa dữ liệu verify tạm thời nếu có
         sessionStorage.removeItem('pendingLoginEmail');

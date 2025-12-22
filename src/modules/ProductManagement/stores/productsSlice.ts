@@ -45,13 +45,17 @@ const initialState: ProductsState = {
   compareLoading: false,
 };
 
-export const fetchCategories = createAsyncThunk('products/fetchCategories', async () => {
-  const response = await categoryService.getCategories();
-  if (!response.success || !response.data) {
-    throw new Error(response.message || 'Không thể tải danh mục');
+export const fetchCategories = createAsyncThunk(
+  'products/fetchCategories',
+  async () => {
+    // Luôn gọi API để đảm bảo dữ liệu danh mục mới nhất cho user
+    const response = await categoryService.getCategories();
+    if (!response.success || !response.data) {
+      throw new Error(response.message || 'Không thể tải danh mục');
+    }
+    return response.data as Category[];
   }
-  return response.data as Category[];
-});
+);
 
 export const fetchProducts = createAsyncThunk(
   'products/fetchProducts',

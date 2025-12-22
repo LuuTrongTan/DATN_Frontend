@@ -7,12 +7,14 @@ import {
   Modal,
   Form,
   Input,
+  InputNumber,
   message,
   Card,
   Popconfirm,
   Image,
   Switch,
   Tag,
+  Select,
 } from 'antd';
 import {
   PlusOutlined,
@@ -20,14 +22,13 @@ import {
   DeleteOutlined,
   ReloadOutlined,
   AppstoreOutlined,
-  CheckCircleOutlined,
-  CloseCircleOutlined,
   SearchOutlined,
 } from '@ant-design/icons';
 import { adminService, CreateCategoryRequest, UpdateCategoryRequest } from '../../../shares/services/adminService';
 import { Category } from '../../../shares/types';
 import { useAppDispatch, useAppSelector } from '../../../shares/stores';
-import { fetchCategories } from '../../ProductManagement/stores/productsSlice';
+import { fetchAdminCategories } from '../stores/adminCategoriesSlice';
+import { useEffectOnce } from '../../../shares/hooks';
 import { logger } from '../../../shares/utils/logger';
 
 const { Title } = Typography;
@@ -36,37 +37,63 @@ const { Search } = Input;
 
 const CategoryManagement: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { categories, categoriesLoading } = useAppSelector((state) => state.products);
+  const { items: categories, loading: categoriesLoading } = useAppSelector(
+    (state) => state.adminCategories
+  );
   const [filteredCategories, setFilteredCategories] = useState<Category[]>([]);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [previewImageUrl, setPreviewImageUrl] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'deleted'>('all');
   const [form] = Form.useForm();
 
-  useEffect(() => {
-    dispatch(fetchCategories());
+  // Sử dụng useEffectOnce để tránh gọi API 2 lần trong StrictMode
+  useEffectOnce(() => {
+    dispatch(fetchAdminCategories({ includeDeleted: true }));
   }, [dispatch]);
 
   useEffect(() => {
+    let data = categories;
+
     if (searchQuery) {
-      const filtered = categories.filter(cat =>
-        cat.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (cat.description && cat.description.toLowerCase().includes(searchQuery.toLowerCase()))
+      const q = searchQuery.toLowerCase();
+      data = data.filter(
+        (cat) =>
+          cat.name.toLowerCase().includes(q) ||
+          (cat.description && cat.description.toLowerCase().includes(q))
       );
-      setFilteredCategories(filtered);
-    } else {
-      setFilteredCategories(categories);
     }
-  }, [searchQuery, categories]);
+
+    if (statusFilter === 'active') {
+      data = data.filter((cat) => !cat.deleted_at && cat.is_active);
+    } else if (statusFilter === 'inactive') {
+      data = data.filter((cat) => !cat.deleted_at && !cat.is_active);
+    } else if (statusFilter === 'deleted') {
+      data = data.filter((cat) => !!cat.deleted_at);
+    }
+
+    setFilteredCategories(data);
+  }, [searchQuery, statusFilter, categories]);
 
 
   const handleEdit = (category: Category) => {
     setEditingCategory(category);
+    const fallbackSlug =
+      category.slug ||
+      category.name
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, '-')
+        .replace(/[^a-z0-9-]/g, '');
     form.setFieldsValue({
       name: category.name,
+      slug: fallbackSlug,
       description: category.description,
       image_url: category.image_url,
+      parent_id: category.parent_id ?? null,
+      is_active: category.is_active,
+      display_order: category.display_order ?? undefined,
     });
     setPreviewImageUrl(category.image_url || '');
     setIsModalVisible(true);
@@ -81,8 +108,12 @@ const CategoryManagement: React.FC = () => {
 
   interface CategoryFormValues {
     name: string;
+    slug: string;
     description?: string;
     image_url?: string;
+    parent_id?: number | null;
+    display_order?: number;
+    is_active?: boolean;
   }
 
   const handleSubmit = async (values: CategoryFormValues) => {
@@ -90,16 +121,24 @@ const CategoryManagement: React.FC = () => {
       if (editingCategory) {
         const updateData: UpdateCategoryRequest = {
           name: values.name,
+          slug: values.slug || undefined,
           description: values.description,
           image_url: values.image_url || undefined,
+          parent_id: values.parent_id ?? null,
+          display_order: values.display_order,
+          is_active: values.is_active,
         };
         await adminService.updateCategory(editingCategory.id, updateData);
         message.success('Cập nhật danh mục thành công');
       } else {
         const createData: CreateCategoryRequest = {
           name: values.name,
+          slug: values.slug,
           description: values.description,
           image_url: values.image_url || undefined,
+          parent_id: values.parent_id ?? null,
+          display_order: values.display_order,
+          is_active: values.is_active,
         };
         await adminService.createCategory(createData);
         message.success('Tạo danh mục thành công');
@@ -108,7 +147,7 @@ const CategoryManagement: React.FC = () => {
       setEditingCategory(null);
       setPreviewImageUrl('');
       form.resetFields();
-      dispatch(fetchCategories());
+      dispatch(fetchAdminCategories({ includeDeleted: true }));
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Có lỗi xảy ra';
       logger.error('Error submitting category', error instanceof Error ? error : new Error(String(error)), {
@@ -123,7 +162,7 @@ const CategoryManagement: React.FC = () => {
     try {
       await adminService.deleteCategory(id);
       message.success('Xóa danh mục thành công');
-      dispatch(fetchCategories());
+      dispatch(fetchAdminCategories({ includeDeleted: true }));
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Có lỗi xảy ra khi xóa danh mục';
       logger.error('Error deleting category', error instanceof Error ? error : new Error(String(error)), {
@@ -134,11 +173,26 @@ const CategoryManagement: React.FC = () => {
     }
   };
 
+  const handleRestore = async (id: number) => {
+    try {
+      await adminService.restoreCategory(id);
+      message.success('Khôi phục danh mục thành công');
+      dispatch(fetchAdminCategories({ includeDeleted: true }));
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Có lỗi xảy ra khi khôi phục danh mục';
+      logger.error('Error restoring category', error instanceof Error ? error : new Error(String(error)), {
+        categoryId: id,
+        ip: window.location.href,
+      });
+      message.error(errorMessage);
+    }
+  };
+
   const handleToggleStatus = async (category: Category) => {
     try {
-      // Note: Backend chưa có API toggle status, có thể cần thêm sau
-      // Hiện tại chỉ hiển thị thông báo
-      message.info('Tính năng này sẽ được thêm sau');
+      await adminService.updateCategory(category.id, { is_active: !category.is_active });
+      message.success('Cập nhật trạng thái danh mục thành công');
+      dispatch(fetchAdminCategories({ includeDeleted: true }));
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Có lỗi xảy ra';
       logger.error('Error toggling category status', error instanceof Error ? error : new Error(String(error)), {
@@ -154,12 +208,14 @@ const CategoryManagement: React.FC = () => {
       title: 'ID',
       dataIndex: 'id',
       key: 'id',
+      align: 'center' as const,
       width: 80,
     },
     {
       title: 'Hình ảnh',
       dataIndex: 'image_url',
       key: 'image_url',
+      align: 'center' as const,
       width: 100,
       render: (url: string) => (
         url ? (
@@ -181,6 +237,25 @@ const CategoryManagement: React.FC = () => {
       title: 'Tên danh mục',
       dataIndex: 'name',
       key: 'name',
+      align: 'center' as const,
+    },
+    {
+      title: 'Slug',
+      dataIndex: 'slug',
+      key: 'slug',
+      align: 'center' as const,
+      render: (text: string) => text || '-',
+    },
+    {
+      title: 'Danh mục cha',
+      dataIndex: 'parent_id',
+      key: 'parent_id',
+      align: 'center' as const,
+      render: (parentId: number | null) => {
+        if (!parentId) return '-';
+        const parent = categories.find((c) => c.id === parentId);
+        return parent?.name || `ID ${parentId}`;
+      },
     },
     {
       title: 'Mô tả',
@@ -193,47 +268,77 @@ const CategoryManagement: React.FC = () => {
       title: 'Trạng thái',
       dataIndex: 'is_active',
       key: 'is_active',
+      align: 'center' as const,
       width: 120,
-      render: (isActive: boolean, record: Category) => (
-        <Tag color={isActive ? 'green' : 'red'}>
-          {isActive ? 'Hoạt động' : 'Không hoạt động'}
-        </Tag>
-      ),
+      render: (_: boolean, record: Category) => {
+        if (record.deleted_at) {
+          return <Tag color="default">Đã xóa</Tag>;
+        }
+        return (
+          <Tag color={record.is_active ? 'green' : 'red'}>
+            {record.is_active ? 'Hoạt động' : 'Không hoạt động'}
+          </Tag>
+        );
+      },
     },
     {
       title: 'Ngày tạo',
       dataIndex: 'created_at',
       key: 'created_at',
+      align: 'center' as const,
       render: (text: string) => new Date(text).toLocaleDateString('vi-VN'),
     },
     {
       title: 'Thao tác',
       key: 'action',
-      render: (_: any, record: Category) => (
-        <Space>
-          <Button
-            type="link"
-            icon={<EditOutlined />}
-            onClick={() => handleEdit(record)}
-          >
-            Sửa
-          </Button>
-          <Popconfirm
-            title="Bạn có chắc chắn muốn xóa danh mục này?"
-            onConfirm={() => handleDelete(record.id)}
-            okText="Xóa"
-            cancelText="Hủy"
-          >
+      align: 'center' as const,
+      render: (_: any, record: Category) => {
+        if (record.deleted_at) {
+          return (
+            <Space>
+              <Button
+                type="link"
+                icon={<ReloadOutlined />}
+                onClick={() => handleRestore(record.id)}
+              >
+                Khôi phục
+              </Button>
+            </Space>
+          );
+        }
+
+        return (
+          <Space>
             <Button
               type="link"
-              danger
-              icon={<DeleteOutlined />}
+              icon={<EditOutlined />}
+              onClick={() => handleEdit(record)}
             >
-              Xóa
+              Sửa
             </Button>
-          </Popconfirm>
-        </Space>
-      ),
+            <Switch
+              checkedChildren="Bật"
+              unCheckedChildren="Tắt"
+              checked={record.is_active}
+              onChange={() => handleToggleStatus(record)}
+            />
+            <Popconfirm
+              title="Bạn có chắc chắn muốn xóa danh mục này?"
+              onConfirm={() => handleDelete(record.id)}
+              okText="Xóa"
+              cancelText="Hủy"
+            >
+              <Button
+                type="link"
+                danger
+                icon={<DeleteOutlined />}
+              >
+                Xóa
+              </Button>
+            </Popconfirm>
+          </Space>
+        );
+      },
     },
   ];
 
@@ -245,7 +350,10 @@ const CategoryManagement: React.FC = () => {
             <AppstoreOutlined /> Quản lý danh mục
           </Title>
           <Space>
-            <Button icon={<ReloadOutlined />} onClick={() => dispatch(fetchCategories())}>
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={() => dispatch(fetchAdminCategories({ includeDeleted: true }))}
+            >
               Làm mới
             </Button>
             <Button
@@ -259,15 +367,30 @@ const CategoryManagement: React.FC = () => {
         </div>
 
         <Space direction="vertical" size="large" style={{ width: '100%', marginBottom: 16 }}>
-          <Search
-            placeholder="Tìm kiếm danh mục..."
-            allowClear
-            style={{ width: 300 }}
-            prefix={<SearchOutlined />}
-            onSearch={(value) => setSearchQuery(value)}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            enterButton
-          />
+          <Space style={{ width: '100%', flexWrap: 'wrap' }}>
+            <Search
+              placeholder="Tìm kiếm danh mục..."
+              allowClear
+              style={{ width: '100%', maxWidth: 320 }}
+              prefix={<SearchOutlined />}
+              onSearch={(value) => setSearchQuery(value)}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              enterButton
+            />
+            <Select
+              style={{ width: '100%', maxWidth: 220 }}
+              placeholder="Lọc theo trạng thái"
+              allowClear
+              value={statusFilter === 'all' ? undefined : statusFilter}
+              onChange={(value) =>
+                setStatusFilter((value as 'active' | 'inactive' | 'deleted') || 'all')
+              }
+            >
+              <Select.Option value="active">Hoạt động</Select.Option>
+              <Select.Option value="inactive">Không hoạt động</Select.Option>
+              <Select.Option value="deleted">Đã xóa</Select.Option>
+            </Select>
+          </Space>
         </Space>
 
         <Table
@@ -275,6 +398,7 @@ const CategoryManagement: React.FC = () => {
           dataSource={filteredCategories}
           loading={categoriesLoading}
           rowKey="id"
+          scroll={{ x: 'max-content' }}
           pagination={{
             pageSize: 20,
             showSizeChanger: true,
@@ -293,7 +417,7 @@ const CategoryManagement: React.FC = () => {
           form.resetFields();
         }}
         onOk={() => form.submit()}
-        width={700}
+        width="60%"
         destroyOnClose
         okText={editingCategory ? 'Cập nhật' : 'Tạo mới'}
         cancelText="Hủy"
@@ -315,10 +439,51 @@ const CategoryManagement: React.FC = () => {
           </Form.Item>
 
           <Form.Item
+            label="Slug"
+            name="slug"
+            rules={[
+              { required: true, message: 'Vui lòng nhập slug' },
+              { pattern: /^[a-z0-9-]+$/, message: 'Slug chỉ chứa a-z, 0-9 và dấu gạch ngang' },
+            ]}
+          >
+            <Input placeholder="ví dụ: dien-thoai" />
+          </Form.Item>
+
+          <Form.Item
             label="Mô tả"
             name="description"
           >
             <TextArea rows={4} placeholder="Nhập mô tả danh mục" maxLength={500} showCount />
+          </Form.Item>
+
+          <Form.Item
+            label="Danh mục cha"
+            name="parent_id"
+          >
+            <Select
+              placeholder="Chọn danh mục cha (tuỳ chọn)"
+              allowClear
+              options={categories.map((cat) => ({
+                label: cat.name,
+                value: cat.id,
+              }))}
+            />
+          </Form.Item>
+
+          <Form.Item
+            label="Thứ tự hiển thị"
+            name="display_order"
+          >
+            <InputNumber style={{ width: '100%' }} min={0} placeholder="0" />
+          </Form.Item>
+
+          <Form.Item
+            label="Trạng thái"
+            name="is_active"
+            valuePropName="checked"
+            initialValue={true}
+          >
+            <Switch checkedChildren="Hoạt động" unCheckedChildren="Không hoạt động" />
           </Form.Item>
 
           <Form.Item

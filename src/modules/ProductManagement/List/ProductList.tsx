@@ -12,6 +12,7 @@ import {
   setSearch,
 } from '../stores/productsSlice';
 import { fetchWishlist, addToWishlist, removeFromWishlist } from '../stores/wishlistSlice';
+import { useEffectOnce } from '../../../shares/hooks';
 
 const { Title, Text } = Typography;
 
@@ -25,7 +26,8 @@ const ProductList: React.FC = () => {
   // Tạo Set từ wishlist items để kiểm tra nhanh
   const wishlistProductIds = new Set(wishlistItems.map(item => item.product_id));
 
-  useEffect(() => {
+  // Sử dụng useEffectOnce để tránh gọi API 2 lần trong StrictMode
+  useEffectOnce(() => {
     dispatch(fetchCategories());
     dispatch(fetchProducts());
     dispatch(fetchWishlist());

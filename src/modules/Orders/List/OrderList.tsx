@@ -5,6 +5,9 @@ import { Order, OrderStatus, PaymentStatus } from '../../../shares/types';
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../../shares/stores';
 import { fetchOrders } from '../stores/ordersSlice';
+import { useEffectOnce } from '../../../shares/hooks';
+import { orderService } from '../../../shares/services/orderService';
+import { message, Popconfirm } from 'antd';
 
 const { Title, Text } = Typography;
 
@@ -12,8 +15,10 @@ const OrderList: React.FC = () => {
   const dispatch = useAppDispatch();
   const { list: orders, listLoading: loading } = useAppSelector((state) => state.orders);
   const navigate = useNavigate();
+  const [cancellingId, setCancellingId] = React.useState<number | null>(null);
 
-  useEffect(() => {
+  // Sử dụng useEffectOnce để tránh gọi API 2 lần trong StrictMode
+  useEffectOnce(() => {
     dispatch(fetchOrders());
   }, [dispatch]);
 
@@ -22,7 +27,7 @@ const OrderList: React.FC = () => {
       pending: 'orange',
       confirmed: 'blue',
       processing: 'cyan',
-      shipped: 'purple',
+      shipping: 'purple',
       delivered: 'green',
       cancelled: 'red',
     };
@@ -44,7 +49,7 @@ const OrderList: React.FC = () => {
       pending: 'Chờ xác nhận',
       confirmed: 'Đã xác nhận',
       processing: 'Đang xử lý',
-      shipped: 'Đang giao hàng',
+      shipping: 'Đang giao hàng',
       delivered: 'Đã giao hàng',
       cancelled: 'Đã hủy',
     };
@@ -88,9 +93,10 @@ const OrderList: React.FC = () => {
       title: 'Trạng thái',
       dataIndex: 'status',
       key: 'status',
-      render: (status: OrderStatus) => (
-        <Tag color={getStatusColor(status)}>{getStatusLabel(status)}</Tag>
-      ),
+      render: (_: any, record: Order) => {
+        const status = (record as any).order_status || (record as any).status;
+        return <Tag color={getStatusColor(status as OrderStatus)}>{getStatusLabel(status as OrderStatus)}</Tag>;
+      },
     },
     {
       title: 'Thanh toán',
@@ -104,12 +110,44 @@ const OrderList: React.FC = () => {
       title: 'Thao tác',
       key: 'action',
       render: (_: any, record: Order) => (
-        <Button
-          icon={<EyeOutlined />}
-          onClick={() => navigate(`/orders/${record.id}`)}
-        >
-          Xem chi tiết
-        </Button>
+        <Space>
+          <Button
+            icon={<EyeOutlined />}
+            onClick={() => navigate(`/orders/${record.id}`)}
+          >
+            Xem chi tiết
+          </Button>
+          {(() => {
+            const status = (record as any).order_status || (record as any).status;
+            const canCancel =
+              ['pending', 'confirmed', 'processing'].includes(status) &&
+              record.payment_status !== 'paid';
+            if (!canCancel) return null;
+            return (
+              <Popconfirm
+                title="Hủy đơn hàng?"
+                okText="Hủy đơn"
+                cancelText="Đóng"
+                onConfirm={async () => {
+                  try {
+                    setCancellingId(record.id);
+                    await orderService.cancelOrder(record.id);
+                    message.success('Đã hủy đơn hàng');
+                    dispatch(fetchOrders());
+                  } catch (error: any) {
+                    message.error(error.message || 'Hủy đơn thất bại');
+                  } finally {
+                    setCancellingId(null);
+                  }
+                }}
+              >
+                <Button danger loading={cancellingId === record.id} size="small">
+                  Hủy đơn
+                </Button>
+              </Popconfirm>
+            );
+          })()}
+        </Space>
       ),
     },
   ];

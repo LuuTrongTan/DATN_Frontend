@@ -30,6 +30,7 @@ import { Order, OrderItem, OrderStatus, PaymentStatus } from '../../../shares/ty
 import { useAppDispatch, useAppSelector } from '../../../shares/stores';
 import { fetchOrderById } from '../stores/ordersSlice';
 import { createReview } from '../../ProductManagement/stores/reviewsSlice';
+import { orderService } from '../../../shares/services/orderService';
 
 const { Title, Text } = Typography;
 
@@ -52,6 +53,7 @@ const OrderDetail: React.FC = () => {
     message: string;
     description?: string;
   } | null>(null);
+  const [cancelling, setCancelling] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -104,7 +106,7 @@ const OrderDetail: React.FC = () => {
       pending: 'orange',
       confirmed: 'blue',
       processing: 'cyan',
-      shipped: 'purple',
+      shipping: 'purple',
       delivered: 'green',
       cancelled: 'red',
     };
@@ -126,7 +128,7 @@ const OrderDetail: React.FC = () => {
       pending: 'Chờ xác nhận',
       confirmed: 'Đã xác nhận',
       processing: 'Đang xử lý',
-      shipped: 'Đang giao hàng',
+      shipping: 'Đang giao hàng',
       delivered: 'Đã giao hàng',
       cancelled: 'Đã hủy',
     };
@@ -144,7 +146,7 @@ const OrderDetail: React.FC = () => {
   };
 
   const getStatusTimeline = (status: OrderStatus) => {
-    const statuses: OrderStatus[] = ['pending', 'confirmed', 'processing', 'shipped', 'delivered'];
+    const statuses: OrderStatus[] = ['pending', 'confirmed', 'processing', 'shipping', 'delivered'];
     const currentIndex = statuses.indexOf(status);
     
     return statuses.map((s, index) => ({
@@ -223,7 +225,11 @@ const OrderDetail: React.FC = () => {
     },
   ];
 
-  const displayStatus = order.status || order.order_status;
+  const displayStatus = (order as any).order_status || (order as any).status || order.order_status;
+
+  const canCancel =
+    ['pending', 'confirmed', 'processing'].includes(displayStatus as OrderStatus) &&
+    order.payment_status !== 'paid';
 
   return (
     <div>
@@ -234,6 +240,27 @@ const OrderDetail: React.FC = () => {
       >
         Quay lại
       </Button>
+      {canCancel && (
+        <Button
+          danger
+          style={{ marginLeft: 8, marginBottom: 24 }}
+          loading={cancelling}
+          onClick={async () => {
+            try {
+              setCancelling(true);
+              await orderService.cancelOrder(order.id);
+              message.success('Đã hủy đơn hàng');
+              dispatch(fetchOrderById(order.id));
+            } catch (error: any) {
+              message.error(error.message || 'Hủy đơn thất bại');
+            } finally {
+              setCancelling(false);
+            }
+          }}
+        >
+          Hủy đơn
+        </Button>
+      )}
 
       <Title level={2}>Chi tiết đơn hàng</Title>
 

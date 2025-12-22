@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   Table,
   Button,
@@ -28,10 +28,14 @@ import {
 } from '@ant-design/icons';
 import { adminService, UpdateUserRequest } from '../../../shares/services/adminService';
 import { User } from '../../../shares/types';
+import { useEffectOnce } from '../../../shares/hooks';
 
 const { Title } = Typography;
 const { Search } = Input;
 const { Option } = Select;
+
+// Dùng biến global để track request đang pending (tránh StrictMode gọi 2 lần)
+let globalFetchingUsers = false;
 
 const UserManagement: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -43,8 +47,15 @@ const UserManagement: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
 
+  // Sử dụng useEffectOnce để tránh gọi API 2 lần trong StrictMode (lần fetch đầu tiên)
+  useEffectOnce(() => {
+    fetchUsers();
+  });
+
+  // Gọi lại khi roleFilter thay đổi
   useEffect(() => {
     fetchUsers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roleFilter]);
 
   useEffect(() => {
@@ -52,6 +63,13 @@ const UserManagement: React.FC = () => {
   }, [searchQuery, users]);
 
   const fetchUsers = async () => {
+    // Tránh gọi trùng lặp (ngay cả trong StrictMode) - dùng biến global
+    if (globalFetchingUsers) {
+      return;
+    }
+
+    globalFetchingUsers = true;
+
     try {
       setLoading(true);
       const response = await adminService.getUsers({
@@ -67,6 +85,10 @@ const UserManagement: React.FC = () => {
       message.error(error.message || 'Có lỗi xảy ra khi tải danh sách người dùng');
     } finally {
       setLoading(false);
+      // Reset flag sau một khoảng thời gian ngắn để cho phép gọi lại
+      setTimeout(() => {
+        globalFetchingUsers = false;
+      }, 100);
     }
   };
 

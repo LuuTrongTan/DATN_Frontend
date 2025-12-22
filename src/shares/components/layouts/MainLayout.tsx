@@ -79,20 +79,22 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         {/* Nút mở sidebar khi user thường đang ẩn sidebar hoàn toàn */}
         {!isStaffOrAdmin && collapsed && (
           <Button
-            type="primary"
-            shape="circle"
+            type="text"
+            size="small"
             icon={<DoubleRightOutlined />}
             onClick={() => setCollapsed(false)}
+            className="sidebar-toggle-btn"
             style={{
               position: 'fixed',
-              left: '1.25rem', // dịch sang phải một chút
-              top: '11vh',     // hạ xuống dưới một chút
+              left: '1.25rem',
+              top: '11vh',
               zIndex: 20,
-              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-              // Nền vàng đậm hơn navbar một chút, icon màu đen
-              background: '#FFD27F',
-              borderColor: '#FFC566',
-              color: '#000000',
+              borderRadius: '12px',
+              color: '#667eea',
+              background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%)',
+              border: '1px solid rgba(102, 126, 234, 0.2)',
+              transition: 'all 0.3s ease',
+              boxShadow: '0 2px 8px rgba(102, 126, 234, 0.1)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -103,7 +105,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         {/* Content - Phần nội dung chính */}
         <Content
           style={{
-            margin: '2vh 1.5vw',
+            margin: '2vh 1.5vw 2vh 0.5vw',
             padding: 'clamp(1rem, 1.5vw, 1.5rem)',
             minHeight: '35vh',
             background: '#fff',

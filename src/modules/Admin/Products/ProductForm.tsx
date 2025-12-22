@@ -38,6 +38,7 @@ import { uploadFile, uploadMultipleFiles } from '../../../shares/services/upload
 import { logger } from '../../../shares/utils/logger';
 import { useAppDispatch, useAppSelector } from '../../../shares/stores';
 import { fetchCategories } from '../../ProductManagement/stores/productsSlice';
+import { useEffectOnce } from '../../../shares/hooks';
 
 const { Title } = Typography;
 const { TextArea } = Input;
@@ -69,7 +70,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const dispatch = useAppDispatch();
-  const { categories } = useAppSelector((state) => state.products);
+  const { categories, categoriesLoading } = useAppSelector((state) => state.products);
   const [loading, setLoading] = useState(false);
   const [imageItems, setImageItems] = useState<ImageItem[]>([]);
   const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -86,8 +87,18 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
   const [variantDraftForm] = Form.useForm();
   const isEditMode = Boolean(id && !onSuccess); // Nếu có onSuccess thì là modal mode (tạo mới)
 
+  // Chỉ gọi fetchCategories một lần khi component mount, và chỉ khi categories chưa có trong store
+  // Sử dụng useEffectOnce để đảm bảo chỉ chạy một lần, ngay cả trong StrictMode
+  useEffectOnce(() => {
+    // Chỉ gọi nếu categories chưa có và không đang loading
+    // Nếu categories đã có rồi (từ lần trước hoặc component khác), không cần gọi lại
+    if (categories.length === 0 && !categoriesLoading) {
+      dispatch(fetchCategories());
+    }
+  });
+
+  // Tách logic fetch product và variants ra useEffect riêng
   useEffect(() => {
-    dispatch(fetchCategories());
     if (isEditMode) {
       fetchProduct();
       fetchVariants();
@@ -97,7 +108,8 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
       setVariants([]);
       setVariantDrafts([]);
     }
-  }, [id, dispatch, isEditMode]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, isEditMode]);
 
   const fetchProduct = async () => {
     try {

@@ -24,8 +24,12 @@ export interface UpdateOrderStatusRequest {
 
 export interface CreateCategoryRequest {
   name: string;
+  slug: string;
   description?: string;
   image_url?: string;
+  parent_id?: number | null;
+  display_order?: number;
+  is_active?: boolean;
 }
 
 export interface UpdateCategoryRequest extends Partial<CreateCategoryRequest> {}
@@ -61,11 +65,35 @@ export const adminService = {
   updateOrderStatus: async (orderId: number, data: UpdateOrderStatusRequest): Promise<any> => {
     return apiClient.put(`/admin/orders/${orderId}/status`, data);
   },
+  getAdminProducts: async (params?: { search?: string; category_id?: number; include_deleted?: boolean; limit?: number }) => {
+    const query = new URLSearchParams();
+    if (params?.search) query.set('search', params.search);
+    if (params?.category_id) query.set('category_id', String(params.category_id));
+    if (params?.include_deleted) query.set('include_deleted', 'true');
+    if (params?.limit) query.set('limit', String(params.limit));
+    const qs = query.toString();
+    return apiClient.get(`/admin/products${qs ? `?${qs}` : ''}`);
+  },
+  getCategories: async (params?: { include_deleted?: boolean }): Promise<any> => {
+    const query = new URLSearchParams();
+    if (params?.include_deleted) query.set('include_deleted', 'true');
+    const qs = query.toString();
+    return apiClient.get(`/admin/categories${qs ? `?${qs}` : ''}`);
+  },
+  getCategoryById: async (categoryId: number, params?: { include_deleted?: boolean }): Promise<any> => {
+    const query = new URLSearchParams();
+    if (params?.include_deleted) query.set('include_deleted', 'true');
+    const qs = query.toString();
+    return apiClient.get(`/admin/categories/${categoryId}${qs ? `?${qs}` : ''}`);
+  },
   createCategory: async (data: CreateCategoryRequest): Promise<any> => {
     return apiClient.post('/admin/categories', data);
   },
   updateCategory: async (categoryId: number, data: UpdateCategoryRequest): Promise<any> => {
     return apiClient.put(`/admin/categories/${categoryId}`, data);
+  },
+  restoreCategory: async (categoryId: number): Promise<any> => {
+    return apiClient.post(`/admin/categories/${categoryId}/restore`, {});
   },
   deleteCategory: async (categoryId: number): Promise<any> => {
     return apiClient.delete(`/admin/categories/${categoryId}`);

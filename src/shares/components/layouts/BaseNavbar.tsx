@@ -9,7 +9,7 @@ import {
   ShoppingCartOutlined,
   HeartOutlined,
 } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import type { MenuProps } from 'antd';
 
@@ -60,10 +60,16 @@ const BaseNavbar: React.FC<BaseNavbarProps> = ({
   wishlistCount = 0,
 }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const [dimensions, setDimensions] = React.useState({
     width: typeof window !== 'undefined' ? window.innerWidth : 1920,
   });
+
+  // Kiểm tra trang hiện tại để highlight icon tương ứng
+  const isCartActive = location.pathname === '/cart';
+  const isWishlistActive = location.pathname === '/wishlist';
+  const isNotificationsActive = location.pathname === '/notifications';
 
   React.useEffect(() => {
     const handleResize = () => {
@@ -111,18 +117,31 @@ const BaseNavbar: React.FC<BaseNavbarProps> = ({
     }
   };
 
+  // Sử dụng gradient mặc định nếu background không được chỉ định hoặc là màu cũ
+  // Gradient màu hồng/cam nhạt
+  const getNavbarBackground = () => {
+    if (background && background !== '#FFF2E5') {
+      return background;
+    }
+    // Gradient màu hồng/cam nhạt
+    return 'linear-gradient(135deg, rgba(255, 182, 193, 0.85) 0%, rgba(255, 218, 185, 0.85) 100%)';
+  };
+
   const innerNavbarStyle: React.CSSProperties = {
     width: 'calc(100% - 3vw)', // gần full width, chừa 1.5vw mỗi bên
     maxWidth: '100%',
     margin: '0',
     padding: '0 1.5vw',
-    background,
+    background: getNavbarBackground(), // Gradient hiện đại hoặc màu tùy chỉnh
     borderRadius: '999px', // bo tròn dạng pill
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+    boxShadow: '0 8px 24px rgba(255, 182, 193, 0.2), 0 4px 12px rgba(255, 218, 185, 0.15)',
     height: '100%',
+    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+    backdropFilter: 'blur(10px)',
   };
 
   return (
@@ -135,11 +154,15 @@ const BaseNavbar: React.FC<BaseNavbarProps> = ({
             type="text"
             icon={collapsed ? <DoubleRightOutlined /> : <DoubleLeftOutlined />}
             onClick={onToggle}
+            className="navbar-toggle-btn"
             style={{
               fontSize: 'clamp(0.875rem, 1vw, 1rem)',
               width: '4vw',
               minWidth: '3rem',
               height: '100%',
+              color: '#000000',
+              borderRadius: '12px',
+              transition: 'all 0.3s ease',
             }}
           />
         )}
@@ -161,6 +184,7 @@ const BaseNavbar: React.FC<BaseNavbarProps> = ({
             enterButton={<SearchOutlined />}
             size="large"
             onSearch={handleSearch}
+            className="navbar-search"
             style={{
               width: '100%',
               maxWidth: '40vw',
@@ -174,14 +198,21 @@ const BaseNavbar: React.FC<BaseNavbarProps> = ({
       <Space size="large">
         {/* Wishlist */}
         {showWishlist && (
-          <Badge count={wishlistCount} size="small" offset={[-2, 2]}>
+          <Badge 
+            count={wishlistCount} 
+            size="small" 
+            offset={[-2, 2]}
+          >
             <Button
               type="text"
               icon={<HeartOutlined />}
               onClick={() => navigate('/wishlist')}
+              className={`navbar-icon-btn ${isWishlistActive ? 'navbar-icon-active' : ''}`}
               style={{ 
                 fontSize: 'clamp(1rem, 1.125vw, 1.125rem)',
-                color: wishlistCount > 0 ? '#ff4d4f' : undefined,
+                color: '#000000',
+                borderRadius: '12px',
+                transition: 'all 0.3s ease',
               }}
             />
           </Badge>
@@ -189,14 +220,21 @@ const BaseNavbar: React.FC<BaseNavbarProps> = ({
 
         {/* Cart */}
         {showCart && (
-          <Badge count={cartCount} size="small" offset={[-2, 2]}>
+          <Badge 
+            count={cartCount} 
+            size="small" 
+            offset={[-2, 2]}
+          >
             <Button
               type="text"
               icon={<ShoppingCartOutlined />}
               onClick={() => navigate('/cart')}
+              className={`navbar-icon-btn ${isCartActive ? 'navbar-icon-active' : ''}`}
               style={{ 
                 fontSize: 'clamp(1rem, 1.125vw, 1.125rem)',
-                color: cartCount > 0 ? '#1890ff' : undefined,
+                color: '#000000',
+                borderRadius: '12px',
+                transition: 'all 0.3s ease',
               }}
             />
           </Badge>
@@ -204,11 +242,20 @@ const BaseNavbar: React.FC<BaseNavbarProps> = ({
 
         {/* Notifications */}
         {showNotifications && (
-          <Badge count={notificationCount} size="small">
+          <Badge 
+            count={notificationCount} 
+            size="small"
+          >
             <Button
               type="text"
               icon={<BellOutlined />}
-              style={{ fontSize: 'clamp(1rem, 1.125vw, 1.125rem)' }}
+              className={`navbar-icon-btn ${isNotificationsActive ? 'navbar-icon-active' : ''}`}
+              style={{ 
+                fontSize: 'clamp(1rem, 1.125vw, 1.125rem)',
+                color: '#000000',
+                borderRadius: '12px',
+                transition: 'all 0.3s ease',
+              }}
               onClick={() => navigate('/notifications')}
             />
           </Badge>
@@ -220,21 +267,42 @@ const BaseNavbar: React.FC<BaseNavbarProps> = ({
           placement="bottomRight"
           arrow
         >
-          <Space style={{ cursor: 'pointer' }}>
+          <Space 
+            className="navbar-user-info"
+            style={{ 
+              cursor: 'pointer',
+              padding: '4px 8px',
+              borderRadius: '12px',
+              transition: 'all 0.3s ease',
+              margin: '0',
+            }}
+          >
             <Avatar
               icon={<UserOutlined />}
               size={{ xs: 32, sm: 36, md: 40, lg: 44, xl: 48, xxl: 52 }}
               style={{ 
-                backgroundColor: user?.role === 'admin' ? '#722ed1' : '#667eea',
+                backgroundColor: '#d9d9d9',
                 fontSize: 'clamp(1rem, 1.25vw, 1.25rem)',
+                transition: 'all 0.3s ease',
               }}
             />
             <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
-              <Text strong style={{ fontSize: 'clamp(0.875rem, 1vw, 1rem)' }}>
+              <Text 
+                strong 
+                style={{ 
+                  fontSize: 'clamp(0.875rem, 1vw, 1rem)',
+                  color: '#000000',
+                }}
+              >
                 {user?.full_name || user?.email || user?.phone || 
                  (user?.role === 'admin' ? 'Admin' : 'User')}
               </Text>
-              <Text type="secondary" style={{ fontSize: 'clamp(0.75rem, 0.875vw, 0.875rem)' }}>
+              <Text 
+                style={{ 
+                  fontSize: 'clamp(0.75rem, 0.875vw, 0.875rem)',
+                  color: 'rgba(0, 0, 0, 0.7)',
+                }}
+              >
                 {getRoleLabel()}
               </Text>
             </div>

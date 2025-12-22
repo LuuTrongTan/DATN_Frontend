@@ -27,6 +27,7 @@ import { adminService, StatisticsResponse } from '../../../shares/services/admin
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import { logger } from '../../../shares/utils/logger';
+import { useEffectOnce } from '../../../shares/hooks';
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
@@ -39,12 +40,16 @@ const Statistics: React.FC = () => {
     dayjs(),
   ]);
 
-  useEffect(() => {
+  // Sử dụng useEffectOnce để tránh gọi API 2 lần trong StrictMode
+  useEffectOnce(() => {
     fetchStatistics();
   }, []);
 
   const fetchStatistics = async () => {
     try {
+      // Tránh gọi API khi đang loading và đã có data (tránh duplicate calls)
+      if (loading && statistics !== null) return;
+      
       setLoading(true);
       const params: any = {};
       

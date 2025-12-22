@@ -100,13 +100,9 @@ const Register: React.FC = () => {
         });
         
         if (response.success && response.data) {
-          // Store tokens and update auth context
-          localStorage.setItem('token', response.data.token);
-          localStorage.setItem('refreshToken', response.data.refreshToken);
-          
-          // Update auth context to mark user as authenticated
+          // Update auth context with tokens and user data
           if (response.data.user) {
-            login(response.data.token, response.data.user);
+            login(response.data.token, response.data.user, response.data.refreshToken);
           }
           
           message.success('Đăng ký thành công!');

@@ -31,5 +31,10 @@ export const orderService = {
   }): Promise<ApiResponse<Order>> => {
     return apiClient.post('/orders', data);
   },
+
+  // Cancel order
+  cancelOrder: async (id: number): Promise<ApiResponse<{ order_id: number }>> => {
+    return apiClient.post(`/orders/${id}/cancel`, {});
+  },
 };
 

@@ -1,6 +1,5 @@
 import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { productService } from '../../../shares/services/productService';
-import { categoryService } from '../../../shares/services/categoryService';
+import { adminService } from '../../../shares/services/adminService';
 import type { Product, Category } from '../../../shares/types';
 
 export interface AdminProductsState {
@@ -27,19 +26,27 @@ const initialState: AdminProductsState = {
   },
 };
 
-export const fetchAdminCategories = createAsyncThunk('adminProducts/fetchCategories', async () => {
-  const response = await categoryService.getCategories();
-  if (!response.success || !response.data) {
-    throw new Error(response.message || 'Không thể tải danh mục');
+export const fetchAdminCategories = createAsyncThunk(
+  'adminProducts/fetchCategories',
+  async () => {
+    const response = await adminService.getCategories({ include_deleted: true });
+    if (!response.success || !response.data) {
+      throw new Error(response.message || 'Không thể tải danh mục (admin)');
+    }
+    return response.data as Category[];
   }
-  return response.data as Category[];
-});
+);
 
 export const fetchAdminProducts = createAsyncThunk(
   'adminProducts/fetchProducts',
   async (params: { search?: string; category_id?: number; limit?: number }, { getState }) => {
-    const state = getState() as { adminProducts?: { filters?: { search?: string; category_id?: number } } };
+    const state = getState() as { adminProducts?: { filters?: { search?: string; category_id?: number }, loading?: boolean, items?: Product[] } };
     const filters = state.adminProducts?.filters || {};
+
+    // Nếu đang loading thì trả về dữ liệu hiện có để tránh gọi trùng lặp (StrictMode/hai mount)
+    if (state.adminProducts?.loading) {
+      return state.adminProducts.items || [];
+    }
 
     const requestParams: {
       search?: string;
@@ -51,12 +58,17 @@ export const fetchAdminProducts = createAsyncThunk(
       limit: params.limit || 100,
     };
 
-    const response = await productService.getProducts(requestParams);
-    if (!response.success || !response.data) {
-      throw new Error(response.message || 'Không thể tải sản phẩm');
+    const response = await adminService.getAdminProducts({
+      search: requestParams.search,
+      category_id: requestParams.category_id,
+      include_deleted: true,
+      limit: requestParams.limit,
+    });
+    if (!response || !response.success || !response.data) {
+      throw new Error(response?.message || 'Không thể tải sản phẩm (admin)');
     }
 
-    return response.data.data || [];
+    return (response.data as Product[]) || [];
   }
 );
 

@@ -12,19 +12,24 @@ export interface RegisterRequest {
   idToken: string; // Firebase ID token (bắt buộc)
 }
 
+export interface User {
+  id: string; // UUID từ database
+  email?: string;
+  phone?: string;
+  full_name?: string;
+  role: string;
+  email_verified?: boolean;
+  phone_verified?: boolean;
+  created_at?: string;
+}
+
 export interface LoginResponse {
   success: boolean;
   message: string;
   data?: {
     token: string;
     refreshToken: string;
-    user: {
-      id: number;
-      email?: string;
-      phone?: string;
-      full_name?: string;
-      role: string;
-    };
+    user: User;
   };
   error?: {
     code?: string;
@@ -38,12 +43,19 @@ export interface RegisterResponse {
   data?: {
     token: string;
     refreshToken: string;
-    user: {
-      id: number;
-      email?: string;
-      phone?: string;
-      role: string;
-    };
+    user: User;
+  };
+}
+
+export interface AuthResponse {
+  success: boolean;
+  message: string;
+  data?: {
+    user: User;
+  };
+  error?: {
+    code?: string;
+    details?: any;
   };
 }
 
@@ -95,7 +107,7 @@ export const authService = {
   getCurrentUser: async () => {
     return apiClient.get('/auth/me');
   },
-  updateProfile: async (data: { full_name?: string; phone?: string }) => {
+  updateProfile: async (data: { full_name?: string; phone?: string; email?: string }) => {
     return apiClient.put('/auth/profile', data);
   },
   refreshToken: async (refreshToken: string) => {

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   Card,
   Table,
@@ -19,8 +19,12 @@ import {
   EditOutlined,
 } from '@ant-design/icons';
 import { inventoryService, type StockHistory as StockHistoryRecord } from '../../../shares/services/inventoryService';
+import { useEffectOnce } from '../../../shares/hooks';
 
 const { Title } = Typography;
+
+// Dùng biến global để track request đang pending (tránh StrictMode gọi 2 lần)
+let globalFetchingStockHistory = false;
 
 const StockHistory: React.FC = () => {
   const [history, setHistory] = useState<StockHistoryRecord[]>([]);
@@ -36,11 +40,25 @@ const StockHistory: React.FC = () => {
     type?: 'in' | 'out' | 'adjustment';
   }>({});
 
+  // Sử dụng useEffectOnce để tránh gọi API 2 lần trong StrictMode (lần fetch đầu tiên)
+  useEffectOnce(() => {
+    fetchHistory();
+  });
+
+  // Gọi lại khi pagination.page hoặc filters thay đổi
   useEffect(() => {
     fetchHistory();
-  }, [pagination.page, filters]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pagination.page, filters.product_id, filters.variant_id, filters.type]);
 
   const fetchHistory = async () => {
+    // Tránh gọi trùng lặp (ngay cả trong StrictMode) - dùng biến global
+    if (globalFetchingStockHistory) {
+      return;
+    }
+
+    globalFetchingStockHistory = true;
+
     try {
       setLoading(true);
       const response = await inventoryService.getStockHistory({
@@ -59,6 +77,10 @@ const StockHistory: React.FC = () => {
       message.error(error.message || 'Có lỗi xảy ra khi tải lịch sử');
     } finally {
       setLoading(false);
+      // Reset flag sau một khoảng thời gian ngắn để cho phép gọi lại
+      setTimeout(() => {
+        globalFetchingStockHistory = false;
+      }, 100);
     }
   };
 

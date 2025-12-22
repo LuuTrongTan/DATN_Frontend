@@ -13,6 +13,7 @@ import { fetchCategories, fetchProducts } from '../ProductManagement/stores/prod
 import { fetchRecentOrders } from '../Orders/stores/ordersSlice';
 import { Order } from '../../shares/types';
 import { logger } from '../../shares/utils/logger';
+import { useEffectOnce } from '../../shares/hooks';
 
 const { Title } = Typography;
 
@@ -31,7 +32,8 @@ const Home: React.FC = () => {
   const { items: products, categories } = useAppSelector((state) => state.products);
   const { recentOrders: orders } = useAppSelector((state) => state.orders);
 
-  useEffect(() => {
+  // Sử dụng useEffectOnce để tránh gọi API 2 lần trong StrictMode
+  useEffectOnce(() => {
     const fetchHomeData = async () => {
       try {
         setLoading(true);
@@ -193,7 +195,18 @@ const Home: React.FC = () => {
                     <Typography.Text strong>#{order.order_number}</Typography.Text>
                     <br />
                     <Typography.Text type="secondary">
-                      {order.order_status} | {order.total_amount.toLocaleString('vi-VN')} VNĐ
+                      {(() => {
+                        const status = (order as any).order_status || (order as any).status || order.order_status;
+                        const map: Record<string, string> = {
+                          pending: 'Chờ xử lý',
+                          confirmed: 'Đã xác nhận',
+                          processing: 'Đang xử lý',
+                          shipping: 'Đang giao hàng',
+                          delivered: 'Đã giao hàng',
+                          cancelled: 'Đã hủy',
+                        };
+                        return map[status] || status || '-';
+                      })()} | {order.total_amount.toLocaleString('vi-VN')} VNĐ
                     </Typography.Text>
                   </div>
                 ))}

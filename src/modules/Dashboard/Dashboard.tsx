@@ -12,6 +12,7 @@ import { fetchCart } from '../ProductManagement/stores/cartSlice';
 import { fetchProducts } from '../ProductManagement/stores/productsSlice';
 import { fetchRecentOrders } from '../Orders/stores/ordersSlice';
 import { logger } from '../../shares/utils/logger';
+import { useEffectOnce } from '../../shares/hooks';
 
 const { Title } = Typography;
 
@@ -30,7 +31,8 @@ const Dashboard: React.FC = () => {
   const { total: totalProducts } = useAppSelector((state) => state.products);
   const { recentOrders: orders } = useAppSelector((state) => state.orders);
 
-  useEffect(() => {
+  // Sử dụng useEffectOnce để tránh gọi API 2 lần trong StrictMode
+  useEffectOnce(() => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
@@ -146,9 +148,20 @@ const Dashboard: React.FC = () => {
                   <div key={order.id} style={{ padding: '8px 0', borderBottom: '1px solid #f0f0f0' }}>
                     <Typography.Text strong>#{order.order_number}</Typography.Text>
                     <br />
-                    <Typography.Text type="secondary">
-                      {order.order_status} | {order.total_amount.toLocaleString('vi-VN')} VNĐ
-                    </Typography.Text>
+                  <Typography.Text type="secondary">
+                    {(() => {
+                      const status = (order as any).order_status || (order as any).status || order.order_status;
+                      const map: Record<string, string> = {
+                        pending: 'Chờ xử lý',
+                        confirmed: 'Đã xác nhận',
+                        processing: 'Đang xử lý',
+                        shipping: 'Đang giao hàng',
+                        delivered: 'Đã giao hàng',
+                        cancelled: 'Đã hủy',
+                      };
+                      return map[status] || status || '-';
+                    })()} | {order.total_amount.toLocaleString('vi-VN')} VNĐ
+                  </Typography.Text>
                   </div>
                 ))}
               </Space>

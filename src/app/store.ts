@@ -7,6 +7,7 @@ import productsReducer from '../modules/ProductManagement/stores/productsSlice';
 import reviewsReducer from '../modules/ProductManagement/stores/reviewsSlice';
 import adminOrdersReducer from '../modules/Admin/stores/adminOrdersSlice';
 import adminProductsReducer from '../modules/Admin/stores/adminProductsSlice';
+import adminCategoriesReducer from '../modules/Admin/stores/adminCategoriesSlice';
 
 // TODO: import and add your slices here, for example:
 // import cartReducer from '../modules/ProductManagement/stores/cartSlice';
@@ -20,6 +21,7 @@ export const store = configureStore({
     reviews: reviewsReducer,
     adminOrders: adminOrdersReducer,
     adminProducts: adminProductsReducer,
+    adminCategories: adminCategoriesReducer,
   },
   // Bạn có thể cấu hình thêm middleware, devTools... nếu cần
 });

@@ -36,7 +36,7 @@ export const inventoryService = {
     quantity: number;
     reason?: string;
   }): Promise<ApiResponse> => {
-    return apiClient.post('/inventory/stock-in', data);
+    return apiClient.post('/admin/inventory/stock-in', data);
   },
 
   stockAdjustment: async (data: {
@@ -45,7 +45,7 @@ export const inventoryService = {
     new_quantity: number;
     reason?: string;
   }): Promise<ApiResponse> => {
-    return apiClient.post('/inventory/stock-adjustment', data);
+    return apiClient.post('/admin/inventory/stock-adjustment', data);
   },
 
   getStockHistory: async (params?: {
@@ -63,7 +63,7 @@ export const inventoryService = {
     if (params?.limit) queryParams.append('limit', params.limit.toString());
 
     const query = queryParams.toString();
-    return apiClient.get(`/inventory/history${query ? `?${query}` : ''}`);
+    return apiClient.get(`/admin/inventory/history${query ? `?${query}` : ''}`);
   },
 
   getStockAlerts: async (params?: {
@@ -77,12 +77,12 @@ export const inventoryService = {
     if (params?.limit) queryParams.append('limit', params.limit.toString());
 
     const query = queryParams.toString();
-    return apiClient.get(`/inventory/alerts${query ? `?${query}` : ''}`);
+    return apiClient.get(`/admin/inventory/alerts${query ? `?${query}` : ''}`);
   },
 
   markAlertAsNotified: async (id: number): Promise<ApiResponse<StockAlert>> => {
     // API không cần payload; gửi object rỗng để phù hợp chữ ký put
-    return apiClient.put(`/inventory/alerts/${id}/notify`, {});
+    return apiClient.put(`/admin/inventory/alerts/${id}/notify`, {});
   },
 };
 

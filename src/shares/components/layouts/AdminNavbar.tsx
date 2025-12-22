@@ -59,7 +59,6 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ collapsed }) => {
     <BaseNavbar
       collapsed={collapsed}
       userMenuItems={userMenuItems}
-      background="#FFF2E5"
       position="fixed"
       sidebarWidth={250}
       sidebarCollapsedWidth={80}

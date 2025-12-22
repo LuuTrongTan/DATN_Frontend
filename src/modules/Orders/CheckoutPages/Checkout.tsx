@@ -30,6 +30,7 @@ import { CartItem, PaymentMethod } from '../../../shares/types';
 import { useAppDispatch, useAppSelector } from '../../../shares/stores';
 import { fetchCart } from '../../ProductManagement/stores/cartSlice';
 import { logger } from '../../../shares/utils/logger';
+import { useEffectOnce } from '../../../shares/hooks';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -45,7 +46,8 @@ const Checkout: React.FC = () => {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cod');
   const [form] = Form.useForm();
 
-  useEffect(() => {
+  // Sử dụng useEffectOnce để tránh gọi API 2 lần trong StrictMode
+  useEffectOnce(() => {
     dispatch(fetchCart());
     fetchAddresses();
   }, [dispatch]);

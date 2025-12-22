@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   Table,
   Button,
@@ -40,11 +40,15 @@ import {
   setSearchFilter as setAdminSearchFilter,
   updateAdminOrderStatus,
 } from '../stores/adminOrdersSlice';
+import { useEffectOnce } from '../../../shares/hooks';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
 const { Search } = Input;
 const { Option } = Select;
+
+// Dùng biến global để track request đang pending (tránh StrictMode gọi 2 lần)
+let globalFetchingAdminOrders = false;
 
 const AdminOrderManagement: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -57,8 +61,29 @@ const AdminOrderManagement: React.FC = () => {
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [form] = Form.useForm();
 
+  // Sử dụng useEffectOnce để tránh gọi API 2 lần trong StrictMode (lần fetch đầu tiên)
+  useEffectOnce(() => {
+    if (!globalFetchingAdminOrders) {
+      globalFetchingAdminOrders = true;
+      dispatch(fetchAdminOrders()).finally(() => {
+        setTimeout(() => {
+          globalFetchingAdminOrders = false;
+        }, 100);
+      });
+    }
+  });
+
+  // Gọi lại khi filters thay đổi
   useEffect(() => {
-    dispatch(fetchAdminOrders());
+    if (!globalFetchingAdminOrders) {
+      globalFetchingAdminOrders = true;
+      dispatch(fetchAdminOrders()).finally(() => {
+        setTimeout(() => {
+          globalFetchingAdminOrders = false;
+        }, 100);
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, filters.status, filters.paymentMethod, filters.search]);
 
   const handleViewDetail = async (order: Order) => {
@@ -105,29 +130,29 @@ const AdminOrderManagement: React.FC = () => {
     }
   };
 
-  const getStatusColor = (status: OrderStatus) => {
-    const colorMap: Record<OrderStatus, string> = {
-      pending: 'orange',
-      confirmed: 'blue',
-      processing: 'cyan',
-      shipped: 'purple',
-      delivered: 'green',
-      cancelled: 'red',
-    };
-    return colorMap[status] || 'default';
+const getStatusColor = (status: OrderStatus) => {
+  const colorMap: Record<OrderStatus, string> = {
+    pending: 'orange',
+    confirmed: 'blue',
+    processing: 'cyan',
+    shipping: 'purple',
+    delivered: 'green',
+    cancelled: 'red',
   };
+  return colorMap[status] || 'default';
+};
 
-  const getStatusLabel = (status: OrderStatus) => {
-    const labelMap: Record<OrderStatus, string> = {
-      pending: 'Chờ xử lý',
-      confirmed: 'Đã xác nhận',
-      processing: 'Đang xử lý',
-      shipped: 'Đang giao hàng',
-      delivered: 'Đã giao hàng',
-      cancelled: 'Đã hủy',
-    };
-    return labelMap[status] || status;
+const getStatusLabel = (status: OrderStatus) => {
+  const labelMap: Record<OrderStatus, string> = {
+    pending: 'Chờ xử lý',
+    confirmed: 'Đã xác nhận',
+    processing: 'Đang xử lý',
+    shipping: 'Đang giao hàng',
+    delivered: 'Đã giao hàng',
+    cancelled: 'Đã hủy',
   };
+  return labelMap[status] || status;
+};
 
   const getPaymentStatusColor = (status: string) => {
     const colorMap: Record<string, string> = {
@@ -144,12 +169,14 @@ const AdminOrderManagement: React.FC = () => {
       title: 'Mã đơn hàng',
       dataIndex: 'order_number',
       key: 'order_number',
+      align: 'center' as const,
       render: (text: string) => <Typography.Text strong>#{text}</Typography.Text>,
     },
     {
       title: 'Khách hàng',
       dataIndex: 'user_id',
       key: 'user_id',
+      align: 'center' as const,
       width: 100,
       render: (userId: number) => (
         <Tag color="blue">User #{userId}</Tag>
@@ -159,6 +186,7 @@ const AdminOrderManagement: React.FC = () => {
       title: 'Địa chỉ giao hàng',
       dataIndex: 'shipping_address',
       key: 'shipping_address',
+      align: 'center' as const,
       ellipsis: true,
       render: (address: string) => address || '-',
     },
@@ -166,12 +194,14 @@ const AdminOrderManagement: React.FC = () => {
       title: 'Tổng tiền',
       dataIndex: 'total_amount',
       key: 'total_amount',
+      align: 'center' as const,
       render: (amount: number) => `${amount.toLocaleString('vi-VN')} VNĐ`,
     },
     {
       title: 'Trạng thái đơn hàng',
       dataIndex: 'order_status',
       key: 'order_status',
+      align: 'center' as const,
       render: (status: OrderStatus) => (
         <Tag color={getStatusColor(status)}>
           {getStatusLabel(status)}
@@ -182,6 +212,7 @@ const AdminOrderManagement: React.FC = () => {
       title: 'Trạng thái thanh toán',
       dataIndex: 'payment_status',
       key: 'payment_status',
+      align: 'center' as const,
       render: (status: string) => (
         <Tag color={getPaymentStatusColor(status)}>
           {status === 'pending' ? 'Chờ thanh toán' :
@@ -195,6 +226,7 @@ const AdminOrderManagement: React.FC = () => {
       title: 'Phương thức thanh toán',
       dataIndex: 'payment_method',
       key: 'payment_method',
+      align: 'center' as const,
       render: (method: string) => (
         <Tag>{method === 'online' ? 'Online' : 'COD'}</Tag>
       ),
@@ -203,11 +235,13 @@ const AdminOrderManagement: React.FC = () => {
       title: 'Ngày tạo',
       dataIndex: 'created_at',
       key: 'created_at',
+      align: 'center' as const,
       render: (text: string) => new Date(text).toLocaleDateString('vi-VN'),
     },
     {
       title: 'Thao tác',
       key: 'action',
+      align: 'center' as const,
       width: 200,
       fixed: 'right' as const,
       render: (_: any, record: Order) => (
@@ -279,7 +313,7 @@ const AdminOrderManagement: React.FC = () => {
                 <Option value="pending">Chờ xử lý</Option>
                 <Option value="confirmed">Đã xác nhận</Option>
                 <Option value="processing">Đang xử lý</Option>
-                <Option value="shipped">Đang giao hàng</Option>
+                <Option value="shipping">Đang giao hàng</Option>
                 <Option value="delivered">Đã giao hàng</Option>
                 <Option value="cancelled">Đã hủy</Option>
               </Select>
@@ -350,7 +384,7 @@ const AdminOrderManagement: React.FC = () => {
           dataSource={orders}
           loading={loading}
           rowKey="id"
-          scroll={{ x: 1400 }}
+          scroll={{ x: 'max-content' }}
           pagination={{
             pageSize: 20,
             showSizeChanger: true,
@@ -368,7 +402,7 @@ const AdminOrderManagement: React.FC = () => {
           form.resetFields();
         }}
         onOk={() => form.submit()}
-        width={600}
+        width="50%"
       >
         {editingOrder && (
           <div style={{ marginBottom: 16 }}>

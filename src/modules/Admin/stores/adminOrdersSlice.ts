@@ -31,6 +31,10 @@ export const fetchAdminOrders = createAsyncThunk<Order[], void, { state: any }>(
   'adminOrders/fetchAll',
   async (_, { getState }) => {
     const state = getState() as { adminOrders: AdminOrdersState };
+    // Nếu đang loading, trả về orders hiện có để tránh duplicate requests
+    if (state.adminOrders?.loading) {
+      return state.adminOrders.items || [];
+    }
     const { status, paymentMethod, search } = state.adminOrders?.filters || {};
 
     const response = await adminService.getAllOrders({

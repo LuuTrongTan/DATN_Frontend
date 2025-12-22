@@ -61,7 +61,7 @@ const OrderTrackingPage: React.FC = () => {
     const statusMap: Record<string, number> = {
       pending: 0,
       processing: 1,
-      shipped: 2,
+      shipping: 2,
       delivered: 3,
       cancelled: -1,
     };
@@ -72,7 +72,7 @@ const OrderTrackingPage: React.FC = () => {
     const iconMap: Record<string, React.ReactNode> = {
       pending: <ClockCircleOutlined />,
       processing: <InboxOutlined />,
-      shipped: <TruckOutlined />,
+      shipping: <TruckOutlined />,
       delivered: <CheckCircleOutlined />,
       cancelled: <CloseCircleOutlined />,
     };
@@ -83,7 +83,7 @@ const OrderTrackingPage: React.FC = () => {
     const colorMap: Record<string, string> = {
       pending: 'blue',
       processing: 'orange',
-      shipped: 'cyan',
+      shipping: 'cyan',
       delivered: 'green',
       cancelled: 'red',
     };
@@ -94,7 +94,7 @@ const OrderTrackingPage: React.FC = () => {
     const textMap: Record<string, string> = {
       pending: 'Chờ xử lý',
       processing: 'Đang xử lý',
-      shipped: 'Đang giao hàng',
+      shipping: 'Đang giao hàng',
       delivered: 'Đã giao hàng',
       cancelled: 'Đã hủy',
     };

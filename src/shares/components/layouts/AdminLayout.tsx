@@ -57,7 +57,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
         {/* Content - Phần nội dung chính */}
         <Content
           style={{
-            margin: '2vh 1.5vw',
+            margin: '2vh 1.5vw 2vh 0.5vw',
             padding: 'clamp(1rem, 1.5vw, 1.5rem)',
             minHeight: '35vh',
             background: '#fff',

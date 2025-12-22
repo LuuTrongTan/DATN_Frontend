@@ -50,10 +50,12 @@ code {
 /* Áp dụng style chung cho item và submenu */
 .admin-sidebar-menu .ant-menu-item,
 .admin-sidebar-menu .ant-menu-submenu-title {
-  color: #E65100 !important;
+  color: #495057 !important;
   border-radius: 12px;
   margin: 4px 8px;
   padding-inline: 12px !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  font-weight: 500;
 }
 
 /* Khi sidebar collapsed, giảm margin của menu items và căn giữa icon */
@@ -77,11 +79,18 @@ code {
 .admin-sidebar-menu .ant-menu-item-icon,
 .admin-sidebar-menu .ant-menu-submenu-title > .ant-menu-item-icon {
   font-size: 18px;
+  transition: all 0.3s ease;
 }
 
 .admin-sidebar-menu .ant-menu-item-icon svg,
 .admin-sidebar-menu .ant-menu-submenu-title > .ant-menu-item-icon svg {
   font-size: 18px;
+}
+
+.admin-sidebar-menu .ant-menu-item:hover .ant-menu-item-icon,
+.admin-sidebar-menu .ant-menu-item-selected .ant-menu-item-icon {
+  transform: scale(1.1);
+  color: #ff3c3c !important;
 }
 
 .ant-layout-sider-collapsed .admin-sidebar-menu .ant-menu-item .ant-menu-title-content,
@@ -94,8 +103,25 @@ code {
 .admin-sidebar-menu .ant-menu-item-selected,
 .admin-sidebar-menu .ant-menu-submenu-title:hover,
 .admin-sidebar-menu .ant-menu-submenu-open > .ant-menu-submenu-title {
-  background: rgba(255, 152, 0, 0.3) !important;
-  color: #BF360C !important;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 182, 193, 0.3) 0%,
+    rgba(255, 218, 185, 0.3) 100%
+  ) !important; /* hồng/cam nhạt giống navbar */
+  color: #ff3c3c !important;
+  transform: translateX(4px);
+  box-shadow: 0 4px 12px rgba(255, 182, 193, 0.3) !important;
+}
+
+.admin-sidebar-menu .ant-menu-item-selected {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 182, 193, 0.4) 0%,
+    rgba(255, 218, 185, 0.4) 100%
+  ) !important;
+  color: #ff3c3c !important;
+  font-weight: 600;
+  border-left: 3px solid #ff3c3c;
 }
 
 .admin-sidebar-menu .ant-menu-item-selected::after,
@@ -105,8 +131,14 @@ code {
 
 /* Mũi tên submenu nhỏ lại, cùng màu icon */
 .admin-sidebar-menu .ant-menu-submenu-arrow {
-  color: #E65100;
+  color: #ff3c3c;
   font-size: 10px;
+  transition: all 0.3s ease;
+}
+
+.admin-sidebar-menu .ant-menu-submenu-title:hover .ant-menu-submenu-arrow {
+  color: #ff3c3c !important;
+  transform: scale(1.1);
 }
 
 /* Giảm indent của menu con để không lệch quá sâu */
@@ -116,9 +148,295 @@ code {
 
 .ant-menu-light .ant-menu-item-danger {
   color: #d32f2f !important;
+  transition: all 0.3s ease !important;
 }
 
 .ant-menu-light .ant-menu-item-danger:hover {
-  background: rgba(211, 47, 47, 0.1) !important;
+  background: linear-gradient(135deg, rgba(211, 47, 47, 0.15) 0%, rgba(198, 40, 40, 0.15) 100%) !important;
+  transform: translateX(4px);
+  box-shadow: 0 4px 12px rgba(211, 47, 47, 0.2) !important;
+}
+
+/* Sidebar toggle button hover */
+.sidebar-toggle-btn:hover {
+  background: rgba(255, 60, 60, 0.25) !important; /* đỏ nhạt giống hover icon navbar */
+  color: #ff3c3c !important;
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(255, 182, 193, 0.3) !important;
+}
+
+.sidebar-toggle-btn:active {
+  transform: scale(0.95);
+}
+
+/* Sidebar logout menu styling */
+.sidebar-logout-menu .ant-menu-item {
+  margin: 4px 8px !important;
+  border-radius: 12px !important;
+}
+
+/* ========== NAVBAR STYLES ========== */
+
+/* Navbar toggle button hover effect */
+.navbar-toggle-btn:hover {
+  background: rgba(255, 60, 60, 0.4) !important; /* Màu đỏ hơn */
+  transform: scale(1.05);
+}
+
+/* Navbar icon buttons hover effect */
+.navbar-icon-btn:hover {
+  background: rgba(255, 60, 60, 0.4) !important; /* Màu đỏ hơn */
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 60, 60, 0.4) !important;
+}
+
+.navbar-icon-btn:active {
+  transform: translateY(0);
+}
+
+/* Navbar icon active state - khi đang ở trang tương ứng */
+.navbar-icon-active {
+  background: rgba(255, 60, 60, 0.25) !important; /* Màu đỏ nhạt hơn */
+  box-shadow: 0 0 15px rgba(255, 60, 60, 0.3), 0 4px 12px rgba(255, 60, 60, 0.2) !important;
+  transform: scale(1.05);
+  position: relative;
+  border: 1px solid rgba(255, 60, 60, 0.5) !important;
+}
+
+.navbar-icon-active::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(255, 60, 60, 0.3), rgba(255, 60, 60, 0.15));
+  z-index: -1;
+  animation: iconGlow 2s ease-in-out infinite;
+}
+
+@keyframes iconGlow {
+  0%, 100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
+.navbar-icon-active .anticon {
+  filter: drop-shadow(0 0 6px rgba(255, 60, 60, 0.5));
+  animation: iconPulse 2s ease-in-out infinite;
+  color: #ffffff !important;
+}
+
+@keyframes iconPulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.15);
+  }
+}
+
+
+/* Navbar search input styling */
+.navbar-search .ant-input {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  border-radius: 12px !important;
+  transition: all 0.3s ease;
+}
+
+.navbar-search .ant-input:hover {
+  background: rgba(255, 255, 255, 1) !important;
+  border-color: rgba(255, 255, 255, 0.5) !important;
+  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.2);
+}
+
+.navbar-search .ant-input:focus {
+  background: rgba(255, 255, 255, 1) !important;
+  border-color: rgba(255, 255, 255, 0.8) !important;
+  box-shadow: 0 4px 16px rgba(255, 255, 255, 0.3);
+}
+
+.navbar-search .ant-input-group-addon {
+  background: rgba(255, 255, 255, 0.2) !important;
+  border: none !important;
+  border-radius: 0 12px 12px 0 !important;
+}
+
+.navbar-search .ant-input-group-addon .ant-btn {
+  background: rgba(255, 255, 255, 0.3) !important;
+  border: none !important;
+  color: #ffffff !important;
+  transition: all 0.3s ease;
+}
+
+.navbar-search .ant-input-group-addon .ant-btn:hover {
+  background: rgba(255, 255, 255, 0.5) !important;
+  transform: scale(1.05);
+}
+
+/* Navbar user info hover effect - nhẹ nhàng */
+.navbar-user-info:hover {
+  background: rgba(255, 255, 255, 0.15) !important;
+  transform: none;
+}
+
+.navbar-user-info:hover .ant-avatar {
+  transform: none;
+  box-shadow: none !important;
+}
+
+/* Badge styling improvements */
+.ant-badge-count {
+  font-weight: 600 !important;
+  font-size: 11px !important;
+  min-width: 18px !important;
+  height: 18px !important;
+  line-height: 18px !important;
+  padding: 0 6px !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+/* Dropdown menu styling */
+.ant-dropdown-menu {
+  border-radius: 12px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important;
+  padding: 8px !important;
+  border: 1px solid rgba(0, 0, 0, 0.06) !important;
+}
+
+.ant-dropdown-menu-item {
+  border-radius: 8px !important;
+  margin: 2px 0 !important;
+  transition: all 0.2s ease !important;
+}
+
+.ant-dropdown-menu-item:hover {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%) !important;
+  transform: translateX(4px);
+}
+
+/* ========== PROFILE PAGE STYLES ========== */
+
+.profile-page {
+  background: linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%);
+  min-height: calc(100vh - 8vh);
+}
+
+.profile-page .ant-tabs-tab {
+  border-radius: 12px 12px 0 0 !important;
+  transition: all 0.3s ease !important;
+  font-weight: 500 !important;
+}
+
+.profile-page .ant-tabs-tab:hover {
+  color: #ff3c3c !important;
+}
+
+.profile-page .ant-tabs-tab-active {
+  color: #ff3c3c !important;
+  font-weight: 600 !important;
+}
+
+.profile-page .ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: #ff3c3c !important;
+}
+
+.profile-page .ant-tabs-ink-bar {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 182, 193, 0.9) 0%,
+    rgba(255, 218, 185, 0.9) 100%
+  ) !important;
+  height: 3px !important;
+}
+
+.profile-page .ant-input:focus,
+.profile-page .ant-input-focused {
+  border-color: #ff3c3c !important;
+  box-shadow: 0 0 0 2px rgba(255, 60, 60, 0.25) !important;
+}
+
+.profile-page .ant-input:hover {
+  border-color: #ff3c3c !important;
+}
+
+.profile-page .ant-input-affix-wrapper:focus,
+.profile-page .ant-input-affix-wrapper-focused {
+  border-color: #ff3c3c !important;
+  box-shadow: 0 0 0 2px rgba(255, 60, 60, 0.25) !important;
+}
+
+.profile-page .ant-input-affix-wrapper:hover {
+  border-color: #ff3c3c !important;
+}
+
+.profile-page .ant-card {
+  border-radius: 16px !important;
+  transition: all 0.3s ease !important;
+}
+
+.profile-page .ant-card:hover {
+  box-shadow: 0 8px 24px rgba(255, 182, 193, 0.35) !important;
+  transform: translateY(-2px);
+}
+
+.profile-page .ant-modal-content {
+  border-radius: 16px !important;
+}
+
+.profile-page .ant-modal-header {
+  border-radius: 16px 16px 0 0 !important;
+  border-bottom: 1px solid #f0f0f0 !important;
+}
+
+.profile-page .ant-btn-primary {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 182, 193, 1) 0%,
+    rgba(255, 218, 185, 1) 100%
+  ) !important;
+  border: none !important;
+  transition: all 0.3s ease !important;
+}
+
+.profile-page .ant-btn-primary:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 158, 171, 1) 0%,
+    rgba(255, 204, 160, 1) 100%
+  ) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 182, 193, 0.6) !important;
+}
+
+.profile-page .ant-btn-primary:active {
+  transform: translateY(0);
+}
+
+.profile-page .ant-empty {
+  padding: 40px 0 !important;
+}
+
+.profile-page .ant-tag {
+  border-radius: 8px !important;
+  padding: 4px 12px !important;
+  font-weight: 500 !important;
 }
 

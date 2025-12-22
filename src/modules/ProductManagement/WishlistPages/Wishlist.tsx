@@ -22,6 +22,7 @@ import {
 } from '@ant-design/icons';
 import { useAppDispatch, useAppSelector } from '../../../shares/stores';
 import { addWishlistItemToCart, fetchWishlist, removeFromWishlist } from '../stores/wishlistSlice';
+import { useEffectOnce } from '../../../shares/hooks';
 
 const { Title, Text } = Typography;
 
@@ -30,7 +31,8 @@ const Wishlist: React.FC = () => {
   const dispatch = useAppDispatch();
   const { items: wishlistItems, loading } = useAppSelector((state) => state.wishlist);
 
-  useEffect(() => {
+  // Sử dụng useEffectOnce để tránh gọi API 2 lần trong StrictMode
+  useEffectOnce(() => {
     dispatch(fetchWishlist());
   }, [dispatch]);
 

@@ -13,6 +13,7 @@ export const paymentService = {
   getPaymentStatus: async (order_id: number): Promise<ApiResponse<{
     payment_status: string;
     payment_method: string;
+    order_status?: string;
   }>> => {
     return apiClient.get(`/payment/status/${order_id}`);
   },

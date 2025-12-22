@@ -62,6 +62,27 @@ const handleResponse = async (response: Response) => {
   }
   
   if (!response.ok) {
+    // Handle 401 Unauthorized - token invalid or expired
+    if (response.status === 401) {
+      // Clear invalid token and user data
+      localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
+      
+      // Trigger storage event to notify AuthContext
+      window.dispatchEvent(new Event('storage'));
+      
+      // Redirect to login if not already on auth pages
+      const currentPath = window.location.pathname;
+      const authPaths = ['/login', '/register', '/forgot-password', '/verify'];
+      if (!authPaths.includes(currentPath)) {
+        // Use setTimeout to avoid redirect during render
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 0);
+      }
+    }
+    
     const errorCode = data?.error?.code || data?.code;
     const errorDetails = data?.error?.details || data?.details;
     throw new ApiError(
@@ -77,11 +98,14 @@ const handleResponse = async (response: Response) => {
 
 export const apiClient = {
   get: async (endpoint: string) => {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    const url = `${API_BASE_URL}${endpoint}`;
+    console.log('[apiClient] GET request to:', url);
+    const response = await fetch(url, {
       method: 'GET',
       headers: getAuthHeaders(),
       credentials: 'include',
     });
+    console.log('[apiClient] GET response status:', response.status, 'for:', url);
     return handleResponse(response);
   },
   post: async (endpoint: string, data: any) => {

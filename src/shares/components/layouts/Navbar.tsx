@@ -91,7 +91,6 @@ const Navbar: React.FC<NavbarProps> = ({ collapsed, onToggle }) => {
       collapsed={collapsed}
       onToggle={onToggle}
       userMenuItems={userMenuItems}
-      background="#FFF2E5"
       position="fixed"
       // Đã chuyển nút thu/phóng xuống sidebar, nên không hiển thị trên navbar nữa
       showToggleButton={false}

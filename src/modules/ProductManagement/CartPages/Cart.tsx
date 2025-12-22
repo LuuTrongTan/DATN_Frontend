@@ -6,6 +6,7 @@ import { message } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../../shares/stores';
 import { fetchCart, removeCartItem, updateCartItemQuantity } from '../stores/cartSlice';
+import { useEffectOnce } from '../../../shares/hooks';
 
 const { Title, Text } = Typography;
 
@@ -14,7 +15,8 @@ const Cart: React.FC = () => {
   const { items: cartItems, loading } = useAppSelector((state) => state.cart);
   const navigate = useNavigate();
 
-  useEffect(() => {
+  // Sử dụng useEffectOnce để tránh gọi API 2 lần trong StrictMode
+  useEffectOnce(() => {
     dispatch(fetchCart());
   }, [dispatch]);
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   Card,
   Table,
@@ -17,8 +17,12 @@ import {
   ReloadOutlined,
 } from '@ant-design/icons';
 import { inventoryService, StockAlert } from '../../../shares/services/inventoryService';
+import { useEffectOnce } from '../../../shares/hooks';
 
 const { Title } = Typography;
+
+// Dùng biến global để track request đang pending (tránh StrictMode gọi 2 lần)
+let globalFetchingStockAlerts = false;
 
 const StockAlerts: React.FC = () => {
   const [alerts, setAlerts] = useState<StockAlert[]>([]);
@@ -28,12 +32,27 @@ const StockAlerts: React.FC = () => {
     limit: 20,
     total: 0,
   });
-
-  useEffect(() => {
+  // Sử dụng useEffectOnce để tránh gọi API 2 lần trong StrictMode (lần fetch đầu tiên)
+  useEffectOnce(() => {
     fetchAlerts();
+  });
+
+  // Gọi lại khi pagination.page thay đổi
+  useEffect(() => {
+    if (pagination.page !== 1) {
+      fetchAlerts();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pagination.page]);
 
   const fetchAlerts = async () => {
+    // Tránh gọi trùng lặp (ngay cả trong StrictMode) - dùng biến global
+    if (globalFetchingStockAlerts) {
+      return;
+    }
+
+    globalFetchingStockAlerts = true;
+
     try {
       setLoading(true);
       const response = await inventoryService.getStockAlerts({
@@ -51,6 +70,10 @@ const StockAlerts: React.FC = () => {
       message.error(error.message || 'Có lỗi xảy ra khi tải cảnh báo');
     } finally {
       setLoading(false);
+      // Reset flag sau một khoảng thời gian ngắn để cho phép gọi lại
+      setTimeout(() => {
+        globalFetchingStockAlerts = false;
+      }, 100);
     }
   };
 

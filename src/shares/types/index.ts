@@ -21,9 +21,13 @@ export interface User {
 export interface Category {
   id: number;
   name: string;
+  slug?: string;
+  parent_id?: number | null;
   image_url: string | null;
   description: string | null;
   is_active: boolean;
+  display_order?: number | null;
+  deleted_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -79,7 +83,8 @@ export interface CartItem {
 // Order Types
 export type PaymentMethod = 'online' | 'cod';
 export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded';
-export type OrderStatus = 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+// Backend dùng 'shipping' (không phải 'shipped')
+export type OrderStatus = 'pending' | 'confirmed' | 'processing' | 'shipping' | 'delivered' | 'cancelled';
 
 export interface Order {
   id: number;
@@ -89,8 +94,8 @@ export interface Order {
   shipping_address: string;
   payment_method: PaymentMethod;
   payment_status: PaymentStatus;
-  status: OrderStatus; // Main status field
-  order_status?: OrderStatus; // Legacy alias
+  status: OrderStatus; // Main status field (keep for backward compat)
+  order_status?: OrderStatus; // Alias (backend trả order_status)
   shipping_fee?: number;
   notes: string | null;
   items?: OrderItem[];

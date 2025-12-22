@@ -10,6 +10,7 @@ export * from './wishlistService';
 export * from './inventoryService';
 export * from './reviewService';
 export * from './paymentService';
+export * from './provincesService';
 export * from './shippingService';
 export * from './variantService';
 export * from './firebaseService';

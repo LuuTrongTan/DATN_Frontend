@@ -12,6 +12,7 @@ import { adminService, StatisticsResponse } from '../../../shares/services/admin
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import { logger } from '../../../shares/utils/logger';
+import { useEffectOnce } from '../../../shares/hooks';
 
 const { Title } = Typography;
 const { RangePicker } = DatePicker;
@@ -21,12 +22,16 @@ const AdminDashboard: React.FC = () => {
   const [statistics, setStatistics] = useState<StatisticsResponse | null>(null);
   const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
 
-  useEffect(() => {
+  // Sử dụng useEffectOnce để tránh gọi API 2 lần trong StrictMode
+  useEffectOnce(() => {
     fetchStatistics();
   }, []);
 
   const fetchStatistics = async () => {
     try {
+      // Tránh gọi API khi đang loading (tránh duplicate calls)
+      if (loading && statistics !== null) return;
+      
       setLoading(true);
       const params: any = {};
       

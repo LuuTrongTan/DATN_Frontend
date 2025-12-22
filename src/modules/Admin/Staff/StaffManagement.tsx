@@ -26,6 +26,7 @@ import {
 } from '@ant-design/icons';
 import { adminService, CreateStaffRequest } from '../../../shares/services/adminService';
 import { User } from '../../../shares/types';
+import { useEffectOnce } from '../../../shares/hooks';
 
 const { Title } = Typography;
 const { Search } = Input;
@@ -39,7 +40,8 @@ const StaffManagement: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [form] = Form.useForm();
 
-  useEffect(() => {
+  // Sử dụng useEffectOnce để tránh gọi API 2 lần trong StrictMode
+  useEffectOnce(() => {
     fetchStaffs();
   }, []);
 
