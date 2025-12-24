@@ -7,6 +7,7 @@ export const productService = {
     page?: number;
     limit?: number;
     category_id?: number;
+    category_slug?: string;
     search?: string;
     min_price?: number;
     max_price?: number;
@@ -15,6 +16,7 @@ export const productService = {
     if (params?.page) queryParams.append('page', params.page.toString());
     if (params?.limit) queryParams.append('limit', params.limit.toString());
     if (params?.category_id) queryParams.append('category_id', params.category_id.toString());
+    if (params?.category_slug) queryParams.append('category_slug', params.category_slug);
     if (params?.search) queryParams.append('search', params.search);
     if (params?.min_price) queryParams.append('min_price', params.min_price.toString());
     if (params?.max_price) queryParams.append('max_price', params.max_price.toString());

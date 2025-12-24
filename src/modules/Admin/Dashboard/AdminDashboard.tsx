@@ -13,8 +13,8 @@ import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import { logger } from '../../../shares/utils/logger';
 import { useEffectOnce } from '../../../shares/hooks';
+import AdminPageContent from '../../../shares/components/layouts/AdminPageContent';
 
-const { Title } = Typography;
 const { RangePicker } = DatePicker;
 
 const AdminDashboard: React.FC = () => {
@@ -66,14 +66,6 @@ const AdminDashboard: React.FC = () => {
     }, 100);
   };
 
-  if (loading) {
-    return (
-      <div style={{ textAlign: 'center', padding: '50px' }}>
-        <Spin size="large" />
-      </div>
-    );
-  }
-
   const totalOrders = statistics?.orders?.total ? parseInt(statistics.orders.total) : 0;
   const totalRevenue = statistics?.orders?.revenue ? parseFloat(statistics.orders.revenue) : 0;
   const deliveredOrders = statistics?.orders?.delivered ? parseInt(statistics.orders.delivered) : 0;
@@ -81,9 +73,9 @@ const AdminDashboard: React.FC = () => {
   const deliveryRate = totalOrders > 0 ? ((deliveredOrders / totalOrders) * 100).toFixed(1) : '0';
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <Title level={2} style={{ margin: 0 }}>Tổng quan hệ thống</Title>
+    <AdminPageContent
+      title="Tổng quan hệ thống"
+      extra={(
         <Space>
           <RangePicker
             value={dateRange}
@@ -91,15 +83,23 @@ const AdminDashboard: React.FC = () => {
             format="DD/MM/YYYY"
             placeholder={['Từ ngày', 'Đến ngày']}
           />
-          <Button type="primary" onClick={handleApplyFilter}>
+          <Button type="primary" onClick={handleApplyFilter} loading={loading}>
             Áp dụng
           </Button>
-          <Button onClick={handleResetFilter}>
+          <Button onClick={handleResetFilter} disabled={loading}>
             Đặt lại
           </Button>
         </Space>
-      </div>
+      )}
+    >
+      {loading && (
+        <div style={{ textAlign: 'center', padding: 50 }}>
+          <Spin size="large" />
+        </div>
+      )}
 
+      {!loading && (
+        <>
       <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
         <Col xs={24} sm={12} lg={6}>
           <Card>
@@ -126,7 +126,7 @@ const AdminDashboard: React.FC = () => {
         <Col xs={24} sm={12} lg={6}>
           <Card>
             <Statistic
-              title="Tổng người dùng"
+              title="Tổng khách hàng"
               value={totalUsers}
               prefix={<UserOutlined />}
               valueStyle={{ color: '#722ed1' }}
@@ -203,7 +203,9 @@ const AdminDashboard: React.FC = () => {
           </Card>
         </Col>
       </Row>
-    </div>
+      </>
+      )}
+    </AdminPageContent>
   );
 };
 

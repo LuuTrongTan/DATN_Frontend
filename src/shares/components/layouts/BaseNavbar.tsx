@@ -8,12 +8,12 @@ import {
   SearchOutlined,
   ShoppingCartOutlined,
   HeartOutlined,
+  HomeOutlined,
+  FileTextOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import type { MenuProps } from 'antd';
-
-const { Search } = Input;
 
 const { Header } = Layout;
 const { Text } = Typography;
@@ -37,6 +37,10 @@ interface BaseNavbarProps {
   cartCount?: number;
   showWishlist?: boolean;
   wishlistCount?: number;
+  showHome?: boolean;
+  homePath?: string;
+  showOrders?: boolean;
+  ordersPath?: string;
 }
 
 const BaseNavbar: React.FC<BaseNavbarProps> = ({
@@ -58,6 +62,10 @@ const BaseNavbar: React.FC<BaseNavbarProps> = ({
   cartCount = 0,
   showWishlist = true,
   wishlistCount = 0,
+  showHome = true,
+  homePath = '/home',
+  showOrders = false,
+  ordersPath = '/orders',
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -65,11 +73,14 @@ const BaseNavbar: React.FC<BaseNavbarProps> = ({
   const [dimensions, setDimensions] = React.useState({
     width: typeof window !== 'undefined' ? window.innerWidth : 1920,
   });
+  const [searchValue, setSearchValue] = React.useState('');
 
   // Kiểm tra trang hiện tại để highlight icon tương ứng
   const isCartActive = location.pathname === '/cart';
   const isWishlistActive = location.pathname === '/wishlist';
   const isNotificationsActive = location.pathname === '/notifications';
+  const isHomeActive = location.pathname === homePath;
+  const isOrdersActive = location.pathname.startsWith(ordersPath);
 
   React.useEffect(() => {
     const handleResize = () => {
@@ -147,8 +158,22 @@ const BaseNavbar: React.FC<BaseNavbarProps> = ({
   return (
     <Header style={headerStyle}>
       <div style={innerNavbarStyle}>
-      {/* Left: Toggle button (nếu có) */}
-      <div style={{ display: 'flex', alignItems: 'center', minWidth: '3rem' }}>
+      {/* Left: Home icon + Toggle button (nếu có) */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: '3rem' }}>
+        {showHome && (
+          <Button
+            type="text"
+            icon={<HomeOutlined />}
+            onClick={() => navigate(homePath)}
+            className={`navbar-icon-btn ${isHomeActive ? 'navbar-icon-active' : ''}`}
+            style={{
+              fontSize: 'clamp(1rem, 1.125vw, 1.125rem)',
+              color: '#000000',
+              borderRadius: '12px',
+              transition: 'all 0.3s ease',
+            }}
+          />
+        )}
         {showToggleButton && onToggle && (
           <Button
             type="text"
@@ -178,44 +203,58 @@ const BaseNavbar: React.FC<BaseNavbarProps> = ({
         }}
       >
         {showSearchBar && (
-          <Search
-            placeholder={searchPlaceholder}
-            allowClear
-            enterButton={<SearchOutlined />}
-            size="large"
-            onSearch={handleSearch}
-            className="navbar-search"
-            style={{
-              width: '100%',
-              maxWidth: '40vw',
-              minWidth: '15rem',
-            }}
-          />
+          <Space.Compact style={{ width: '100%', maxWidth: '40vw', minWidth: '15rem' }}>
+            <Input
+              placeholder={searchPlaceholder}
+              allowClear
+              size="large"
+              value={searchValue}
+              onChange={(e) => setSearchValue(e.target.value)}
+              onPressEnter={(e) => handleSearch(e.currentTarget.value)}
+              className="navbar-search"
+            />
+            <Button
+              type="primary"
+              icon={<SearchOutlined />}
+              size="large"
+              onClick={() => handleSearch(searchValue)}
+            />
+          </Space.Compact>
         )}
       </div>
 
       {/* Right: Icon + User */}
       <Space size="large">
+        {/* Orders */}
+        {showOrders && (
+          <Button
+            type="text"
+            icon={<FileTextOutlined />}
+            onClick={() => navigate(ordersPath)}
+            className={`navbar-icon-btn ${isOrdersActive ? 'navbar-icon-active' : ''}`}
+            style={{
+              fontSize: 'clamp(1rem, 1.125vw, 1.125rem)',
+              color: '#000000',
+              borderRadius: '12px',
+              transition: 'all 0.3s ease',
+            }}
+          />
+        )}
+
         {/* Wishlist */}
         {showWishlist && (
-          <Badge 
-            count={wishlistCount} 
-            size="small" 
-            offset={[-2, 2]}
-          >
-            <Button
-              type="text"
-              icon={<HeartOutlined />}
-              onClick={() => navigate('/wishlist')}
-              className={`navbar-icon-btn ${isWishlistActive ? 'navbar-icon-active' : ''}`}
-              style={{ 
-                fontSize: 'clamp(1rem, 1.125vw, 1.125rem)',
-                color: '#000000',
-                borderRadius: '12px',
-                transition: 'all 0.3s ease',
-              }}
-            />
-          </Badge>
+          <Button
+            type="text"
+            icon={<HeartOutlined />}
+            onClick={() => navigate('/wishlist')}
+            className={`navbar-icon-btn ${isWishlistActive ? 'navbar-icon-active' : ''}`}
+            style={{ 
+              fontSize: 'clamp(1rem, 1.125vw, 1.125rem)',
+              color: '#000000',
+              borderRadius: '12px',
+              transition: 'all 0.3s ease',
+            }}
+          />
         )}
 
         {/* Cart */}
@@ -223,7 +262,7 @@ const BaseNavbar: React.FC<BaseNavbarProps> = ({
           <Badge 
             count={cartCount} 
             size="small" 
-            offset={[-2, 2]}
+            offset={[10, -10]}
           >
             <Button
               type="text"
@@ -245,6 +284,7 @@ const BaseNavbar: React.FC<BaseNavbarProps> = ({
           <Badge 
             count={notificationCount} 
             size="small"
+            offset={[10, -10]}
           >
             <Button
               type="text"

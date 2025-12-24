@@ -78,13 +78,15 @@ code {
 /* Tăng kích thước icon trong sidebar (kể cả submenu) */
 .admin-sidebar-menu .ant-menu-item-icon,
 .admin-sidebar-menu .ant-menu-submenu-title > .ant-menu-item-icon {
-  font-size: 18px;
+  font-size: 26px !important;
   transition: all 0.3s ease;
 }
 
 .admin-sidebar-menu .ant-menu-item-icon svg,
 .admin-sidebar-menu .ant-menu-submenu-title > .ant-menu-item-icon svg {
-  font-size: 18px;
+  font-size: 26px !important;
+  width: 26px !important;
+  height: 26px !important;
 }
 
 .admin-sidebar-menu .ant-menu-item:hover .ant-menu-item-icon,
@@ -101,13 +103,24 @@ code {
 .admin-sidebar-menu .ant-menu-item:hover,
 .admin-sidebar-menu .ant-menu-item-active,
 .admin-sidebar-menu .ant-menu-item-selected,
-.admin-sidebar-menu .ant-menu-submenu-title:hover,
-.admin-sidebar-menu .ant-menu-submenu-open > .ant-menu-submenu-title {
+.admin-sidebar-menu .ant-menu-submenu-title:hover {
   background: linear-gradient(
     135deg,
     rgba(255, 182, 193, 0.3) 0%,
     rgba(255, 218, 185, 0.3) 100%
   ) !important; /* hồng/cam nhạt giống navbar */
+  color: #ff3c3c !important;
+  transform: translateX(4px);
+  box-shadow: 0 4px 12px rgba(255, 182, 193, 0.3) !important;
+}
+
+/* Chỉ highlight submenu title khi có submenu item được selected */
+.admin-sidebar-menu .ant-menu-submenu-selected > .ant-menu-submenu-title {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 182, 193, 0.3) 0%,
+    rgba(255, 218, 185, 0.3) 100%
+  ) !important;
   color: #ff3c3c !important;
   transform: translateX(4px);
   box-shadow: 0 4px 12px rgba(255, 182, 193, 0.3) !important;
@@ -141,9 +154,72 @@ code {
   transform: scale(1.1);
 }
 
-/* Giảm indent của menu con để không lệch quá sâu */
+/* Wrapper cho submenu với màu giống sidebar */
 .admin-sidebar-menu .ant-menu-sub.ant-menu-inline {
-  margin-left: 4px;
+  margin-left: 12px !important;
+  margin-right: 8px !important;
+  margin-top: 4px !important;
+  margin-bottom: 4px !important;
+  padding: 8px 4px !important;
+  width: calc(100% - 20px) !important;
+  max-width: calc(100% - 20px) !important;
+  box-sizing: border-box !important;
+  /* Cùng màu với sidebar */
+  background: linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%) !important;
+  border-radius: 8px !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+/* Điều chỉnh padding của các item con trong submenu để không bị lồi ra quá */
+.admin-sidebar-menu .ant-menu-sub.ant-menu-inline .ant-menu-item {
+  padding-left: 16px !important;
+  margin: 2px 4px !important;
+  padding-inline: 12px 12px !important;
+}
+
+/* Hover effect cho submenu items */
+.admin-sidebar-menu .ant-menu-sub.ant-menu-inline .ant-menu-item:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 182, 193, 0.2) 0%,
+    rgba(255, 218, 185, 0.2) 100%
+  ) !important;
+  color: #ff3c3c !important;
+  transform: translateX(2px);
+  box-shadow: 0 2px 8px rgba(255, 182, 193, 0.25) !important;
+}
+
+
+/* Đảm bảo submenu không bị overflow ra ngoài sidebar */
+.admin-sidebar-menu .ant-menu-sub {
+  max-width: 100% !important;
+  overflow: hidden !important;
+}
+
+/* Điều chỉnh text trong submenu items để không bị tràn */
+.admin-sidebar-menu .ant-menu-sub .ant-menu-item .ant-menu-title-content {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+/* Icon trong submenu items - tăng kích thước để dễ nhìn */
+.admin-sidebar-menu .ant-menu-sub .ant-menu-item .ant-menu-item-icon {
+  font-size: 24px !important;
+  margin-right: 8px !important;
+}
+
+.admin-sidebar-menu .ant-menu-sub .ant-menu-item .ant-menu-item-icon svg {
+  font-size: 24px !important;
+  width: 24px !important;
+  height: 24px !important;
+}
+
+.admin-sidebar-menu .ant-menu-sub .ant-menu-item .ant-menu-item-icon img {
+  width: 24px !important;
+  height: 24px !important;
 }
 
 .ant-menu-light .ant-menu-item-danger {
@@ -438,5 +514,68 @@ code {
   border-radius: 8px !important;
   padding: 4px 12px !important;
   font-weight: 500 !important;
+}
+
+/* ========== ADMIN ACCOUNTS (USERS/STAFF) PAGE STYLES ========== */
+
+.admin-page-content {
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  background: #ffffff;
+  padding: 0;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+.admin-page-content:hover {
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.15);
+}
+
+.admin-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px 24px 0 24px;
+  margin-bottom: 24px;
+  gap: 16px;
+}
+
+.admin-page-content-body {
+  padding: 0 24px 24px 24px;
+}
+
+.admin-accounts-tabs .ant-tabs-nav {
+  margin-bottom: 24px !important;
+}
+
+.admin-accounts-tabs .ant-tabs-tab {
+  border-radius: 999px !important;
+  padding: 8px 20px !important;
+  font-weight: 500 !important;
+  background: #f3f4f6;
+  transition: all 0.25s ease !important;
+}
+
+.admin-accounts-tabs .ant-tabs-tab:hover {
+  color: #ff3c3c !important;
+  background: #e5e7eb;
+}
+
+.admin-accounts-tabs .ant-tabs-tab-active {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 182, 193, 0.95) 0%,
+    rgba(255, 218, 185, 0.95) 100%
+  ) !important;
+  box-shadow: 0 6px 16px rgba(255, 182, 193, 0.4);
+}
+
+.admin-accounts-tabs .ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: #ffffff !important;
+  font-weight: 600 !important;
+}
+
+.admin-accounts-tabs .ant-tabs-ink-bar {
+  background: transparent !important; /* Ẩn gạch chân mặc định để giao diện gọn hơn */
 }
 

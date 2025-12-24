@@ -20,6 +20,7 @@ export const variantService = {
       variant_value: string;
       price_adjustment?: number;
       stock_quantity?: number;
+      image_urls?: string[]; // NEW: Hỗ trợ nhiều ảnh cho variant
     }
   ): Promise<ApiResponse<ProductVariant>> => {
     return apiClient.post(`/products/${productId}/variants`, data);
@@ -33,6 +34,7 @@ export const variantService = {
       variant_value?: string;
       price_adjustment?: number;
       stock_quantity?: number;
+      image_urls?: string[]; // NEW: Hỗ trợ nhiều ảnh cho variant
     }
   ): Promise<ApiResponse<ProductVariant>> => {
     return apiClient.put(`/products/variants/${id}`, data);

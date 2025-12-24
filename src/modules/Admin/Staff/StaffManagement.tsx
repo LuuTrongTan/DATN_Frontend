@@ -14,6 +14,7 @@ import {
   Row,
   Col,
   Statistic,
+  Tooltip,
 } from 'antd';
 import {
   PlusOutlined,
@@ -28,10 +29,18 @@ import { adminService, CreateStaffRequest } from '../../../shares/services/admin
 import { User } from '../../../shares/types';
 import { useEffectOnce } from '../../../shares/hooks';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
 const { Search } = Input;
 
-const StaffManagement: React.FC = () => {
+interface StaffManagementProps {
+  showTitle?: boolean;
+  withCard?: boolean;
+}
+
+const StaffManagement: React.FC<StaffManagementProps> = ({
+  showTitle = true,
+  withCard = true,
+}) => {
   const [staffs, setStaffs] = useState<User[]>([]);
   const [filteredStaffs, setFilteredStaffs] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
@@ -113,7 +122,25 @@ const StaffManagement: React.FC = () => {
       title: 'ID',
       dataIndex: 'id',
       key: 'id',
-      width: 80,
+      width: 100,
+      render: (id: number) => (
+        <Tooltip title={id}>
+          <Text
+            copyable={{ text: String(id) }}
+            style={{
+              cursor: 'pointer',
+              maxWidth: 140,
+              display: 'inline-block',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              verticalAlign: 'middle',
+            }}
+          >
+            {id}
+          </Text>
+        </Tooltip>
+      ),
     },
     {
       title: 'Email',
@@ -157,93 +184,106 @@ const StaffManagement: React.FC = () => {
     },
   ];
 
-  return (
-    <div>
-      <Card>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+  const mainContent = (
+    <>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 24,
+        }}
+      >
+        {showTitle && (
           <Title level={2} style={{ margin: 0 }}>
             <TeamOutlined /> Quản lý nhân viên
           </Title>
-          <Space>
-            <Button icon={<ReloadOutlined />} onClick={fetchStaffs}>
-              Làm mới
-            </Button>
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => {
-                form.resetFields();
-                setIsModalVisible(true);
-                setNewStaffPassword('');
-              }}
-            >
-              Tạo nhân viên mới
-            </Button>
-          </Space>
-        </div>
-
-        {/* Thống kê nhanh */}
-        <Row gutter={16} style={{ marginBottom: 24 }}>
-          <Col xs={24} sm={8} md={8}>
-            <Card>
-              <Statistic
-                title="Tổng nhân viên"
-                value={filteredStaffs.length}
-                prefix={<TeamOutlined />}
-                valueStyle={{ color: '#1890ff' }}
-              />
-            </Card>
-          </Col>
-          <Col xs={24} sm={8} md={8}>
-            <Card>
-              <Statistic
-                title="Đang hoạt động"
-                value={filteredStaffs.filter(s => s.status === 'active').length}
-                prefix={<CheckCircleOutlined />}
-                valueStyle={{ color: '#52c41a' }}
-              />
-            </Card>
-          </Col>
-          <Col xs={24} sm={8} md={8}>
-            <Card>
-              <Statistic
-                title="Đã khóa"
-                value={filteredStaffs.filter(s => s.status === 'banned').length}
-                prefix={<CloseCircleOutlined />}
-                valueStyle={{ color: '#ff4d4f' }}
-              />
-            </Card>
-          </Col>
-        </Row>
-
-        <Space direction="vertical" size="large" style={{ width: '100%', marginBottom: 16 }}>
-          <Search
-            placeholder="Tìm kiếm theo email, số điện thoại, tên..."
-            allowClear
-            prefix={<SearchOutlined />}
-            onSearch={(value) => setSearchQuery(value)}
-            onChange={(e) => {
-              if (!e.target.value) {
-                setSearchQuery('');
-              }
+        )}
+        <Space>
+          <Button icon={<ReloadOutlined />} onClick={fetchStaffs}>
+            Làm mới
+          </Button>
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => {
+              form.resetFields();
+              setIsModalVisible(true);
+              setNewStaffPassword('');
             }}
-            style={{ width: 400 }}
-            enterButton
-          />
+          >
+            Tạo nhân viên mới
+          </Button>
         </Space>
+      </div>
 
-        <Table
-          columns={columns}
-          dataSource={filteredStaffs}
-          loading={loading}
-          rowKey="id"
-          pagination={{
-            pageSize: 20,
-            showSizeChanger: true,
-            showTotal: (total) => `Tổng ${total} nhân viên`,
+      {/* Thống kê nhanh */}
+      <Row gutter={16} style={{ marginBottom: 24 }}>
+        <Col xs={24} sm={8} md={8}>
+          <Card>
+            <Statistic
+              title="Tổng nhân viên"
+              value={filteredStaffs.length}
+              prefix={<TeamOutlined />}
+              valueStyle={{ color: '#1890ff' }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={8} md={8}>
+          <Card>
+            <Statistic
+              title="Đang hoạt động"
+              value={filteredStaffs.filter(s => s.status === 'active').length}
+              prefix={<CheckCircleOutlined />}
+              valueStyle={{ color: '#52c41a' }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={8} md={8}>
+          <Card>
+            <Statistic
+              title="Đã khóa"
+              value={filteredStaffs.filter(s => s.status === 'banned').length}
+              prefix={<CloseCircleOutlined />}
+              valueStyle={{ color: '#ff4d4f' }}
+            />
+          </Card>
+        </Col>
+      </Row>
+
+      <Space direction="vertical" size="large" style={{ width: '100%', marginBottom: 16 }}>
+        <Search
+          placeholder="Tìm kiếm theo email, số điện thoại, tên..."
+          allowClear
+          prefix={<SearchOutlined />}
+          onSearch={(value) => setSearchQuery(value)}
+          onChange={(e) => {
+            if (!e.target.value) {
+              setSearchQuery('');
+            }
           }}
+          style={{ width: 400 }}
+          enterButton
         />
-      </Card>
+      </Space>
+
+      <Table
+        columns={columns}
+        dataSource={filteredStaffs}
+        loading={loading}
+        rowKey="id"
+        pagination={{
+          pageSize: 20,
+          showSizeChanger: true,
+          showTotal: (total) => `Tổng ${total} nhân viên`,
+        }}
+      />
+    </>
+  );
+
+  return (
+    <>
+      {withCard ? <Card>{mainContent}</Card> : mainContent}
 
       <Modal
         title={newStaffPassword ? "Tài khoản đã được tạo" : "Tạo tài khoản nhân viên mới"}
@@ -350,7 +390,7 @@ const StaffManagement: React.FC = () => {
           </Form>
         )}
       </Modal>
-    </div>
+    </>
   );
 };
 

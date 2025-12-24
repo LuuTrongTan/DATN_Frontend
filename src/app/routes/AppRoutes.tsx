@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { MainLayout, AdminLayout } from '../../shares/components/layouts';
 import Loading from '../../shares/components/Loading';
 import { ProtectedRoute, RoleProtectedRoute, PublicRoute } from './RouteGuards';
+import { useAuth } from '../../shares/contexts/AuthContext';
 
 // Auth
 const Login = lazy(() => import('../../modules/Auth/Login'));
@@ -11,7 +12,6 @@ const ForgotPassword = lazy(() => import('../../modules/Auth/ForgotPassword'));
 const VerifyAccount = lazy(() => import('../../modules/Auth/VerifyAccount'));
 
 // Main
-const Dashboard = lazy(() => import('../../modules/Dashboard/Dashboard'));
 const Home = lazy(() => import('../../modules/Home/Home'));
 
 // ProductManagement
@@ -34,6 +34,7 @@ const OrderList = lazy(() => import('../../modules/Orders/List/OrderList'));
 const OrderDetail = lazy(() => import('../../modules/Orders/Detail/OrderDetail'));
 const OrderTracking = lazy(() => import('../../modules/Orders/Tracking/OrderTracking'));
 const Checkout = lazy(() => import('../../modules/Orders/CheckoutPages/Checkout'));
+const PlaceOrder = lazy(() => import('../../modules/Orders/CheckoutPages/PlaceOrder'));
 
 // Support flows (FAQ/Support) đã bỏ theo yêu cầu => không import nữa
 
@@ -45,34 +46,13 @@ const AdminProductManagement = lazy(
 const ProductForm = lazy(() => import('../../modules/Admin/Products/ProductForm'));
 const CategoryManagement = lazy(() => import('../../modules/Admin/Categories/CategoryManagement'));
 const AdminOrderManagement = lazy(() => import('../../modules/Admin/Orders/AdminOrderManagement'));
-const UserManagement = lazy(() => import('../../modules/Admin/Users/UserManagement'));
-const StaffManagement = lazy(() => import('../../modules/Admin/Staff/StaffManagement'));
-const SalesReport = lazy(() => import('../../modules/Admin/Reports/SalesReport'));
-const Statistics = lazy(() => import('../../modules/Admin/Reports/Statistics'));
-const InventoryManagement = lazy(
-  () => import('../../modules/Admin/Inventory/InventoryManagement')
+const AdminAccountsManagement = lazy(
+  () => import('../../modules/Admin/Users/AdminAccountsManagement')
 );
-const StockAlerts = lazy(() => import('../../modules/Admin/Inventory/StockAlerts'));
-const StockHistory = lazy(() => import('../../modules/Admin/Inventory/StockHistory'));
+// Inventory module tạm thời không dùng nên bỏ route
 
 const AppRoutes: React.FC = () => {
-  const withMainLayout = (node: React.ReactNode) => (
-    <ProtectedRoute>
-      <MainLayout>{node}</MainLayout>
-    </ProtectedRoute>
-  );
-
-  const withAdminLayout = (node: React.ReactNode, allowedRoles: string[]) => (
-    <RoleProtectedRoute allowedRoles={allowedRoles}>
-      <AdminLayout>{node}</AdminLayout>
-    </RoleProtectedRoute>
-  );
-
-  const withStaffDashboardLayout = (node: React.ReactNode) => (
-    <RoleProtectedRoute allowedRoles={['admin', 'staff']}>
-      <MainLayout>{node}</MainLayout>
-    </RoleProtectedRoute>
-  );
+  const { user } = useAuth();
 
   return (
     <Suspense fallback={<Loading />}>
@@ -111,84 +91,86 @@ const AppRoutes: React.FC = () => {
           }
         />
 
-        {/* Admin Routes */}
+        {/* Admin Routes - layout cha cố định */}
         <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
         <Route
-          path="/admin/dashboard"
-          element={withAdminLayout(<AdminDashboard />, ['admin', 'staff'])}
-        />
-        <Route
-          path="/admin/products"
-          element={withAdminLayout(<AdminProductManagement />, ['admin', 'staff'])}
-        />
-        <Route
-          path="/admin/products/new"
-          element={withAdminLayout(<ProductForm />, ['admin', 'staff'])}
-        />
-        <Route
-          path="/admin/products/:id/edit"
-          element={withAdminLayout(<ProductForm />, ['admin', 'staff'])}
-        />
-        <Route
-          path="/admin/categories"
-          element={withAdminLayout(<CategoryManagement />, ['admin', 'staff'])}
-        />
-        <Route
-          path="/admin/orders"
-          element={withAdminLayout(<AdminOrderManagement />, ['admin', 'staff'])}
-        />
-        <Route path="/admin/users" element={withAdminLayout(<UserManagement />, ['admin'])} />
-        <Route path="/admin/staff" element={withAdminLayout(<StaffManagement />, ['admin'])} />
-        <Route path="/admin/reports" element={withAdminLayout(<SalesReport />, ['admin'])} />
-        <Route
-          path="/admin/statistics"
-          element={withAdminLayout(<Statistics />, ['admin'])}
-        />
-        <Route
-          path="/admin/inventory"
-          element={withAdminLayout(<InventoryManagement />, ['admin', 'staff'])}
-        />
-        <Route
-          path="/admin/inventory/alerts"
-          element={withAdminLayout(<StockAlerts />, ['admin', 'staff'])}
-        />
-        <Route
-          path="/admin/inventory/history"
-          element={withAdminLayout(<StockHistory />, ['admin', 'staff'])}
-        />
+          element={
+            <RoleProtectedRoute allowedRoles={['admin', 'staff']}>
+              <AdminLayout />
+            </RoleProtectedRoute>
+          }
+        >
+          <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          <Route path="/admin/products" element={<AdminProductManagement />} />
+          <Route path="/admin/products/new" element={<ProductForm />} />
+          <Route path="/admin/products/:id/edit" element={<ProductForm />} />
+          <Route path="/admin/categories" element={<CategoryManagement />} />
+          <Route path="/admin/orders" element={<AdminOrderManagement />} />
+          <Route
+            path="/admin/accounts"
+            element={
+              <RoleProtectedRoute allowedRoles={['admin']}>
+                <AdminAccountsManagement />
+              </RoleProtectedRoute>
+            }
+          />
+        </Route>
 
-        {/* Protected Routes */}
-        <Route path="/dashboard" element={withStaffDashboardLayout(<Dashboard />)} />
-        <Route path="/home" element={withMainLayout(<Home />)} />
-
-        <Route path="/products" element={withMainLayout(<ProductList />)} />
-        <Route path="/products/search" element={withMainLayout(<ProductSearch />)} />
-        <Route path="/products/compare" element={withMainLayout(<ProductCompare />)} />
-        <Route path="/products/:id" element={withMainLayout(<ProductDetail />)} />
-        <Route path="/products/:id/reviews" element={withMainLayout(<ProductReviews />)} />
-
-        <Route path="/cart" element={withMainLayout(<Cart />)} />
-        <Route path="/checkout" element={withMainLayout(<Checkout />)} />
-
-        <Route path="/orders" element={withMainLayout(<OrderList />)} />
-        <Route path="/orders/:id" element={withMainLayout(<OrderDetail />)} />
-        <Route path="/orders/:id/tracking" element={withMainLayout(<OrderTracking />)} />
+        {/* Protected Routes - Main layout cố định */}
         <Route
-          path="/orders/tracking/:orderNumber"
-          element={withMainLayout(<OrderTracking />)}
+          element={
+            <ProtectedRoute>
+              <MainLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route path="/home" element={<Home />} />
+
+          <Route path="/products" element={<ProductList />} />
+          <Route path="/products/search" element={<ProductSearch />} />
+          <Route path="/products/compare" element={<ProductCompare />} />
+          <Route path="/products/:id" element={<ProductDetail />} />
+          <Route path="/products/:id/reviews" element={<ProductReviews />} />
+
+          <Route path="/cart" element={<Cart />} />
+          <Route path="/checkout" element={<Checkout />} />
+          <Route path="/place-order" element={<PlaceOrder />} />
+
+          <Route path="/orders" element={<OrderList />} />
+          <Route path="/orders/:id" element={<OrderDetail />} />
+          <Route path="/orders/:id/tracking" element={<OrderTracking />} />
+          <Route path="/orders/tracking/:orderNumber" element={<OrderTracking />} />
+
+          {/* FAQ / Support routes đã bỏ theo yêu cầu */}
+
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/profile/change-password" element={<ChangePassword />} />
+          <Route path="/profile/addresses" element={<AddressManagement />} />
+          <Route path="/wishlist" element={<Wishlist />} />
+          <Route path="/notifications" element={<NotificationsPage />} />
+        </Route>
+
+        {/* Default redirect: tùy theo role để vào đúng home + sidebar */}
+        <Route
+          path="/"
+          element={
+            user
+              ? user.role === 'admin' || user.role === 'staff'
+                ? <Navigate to="/admin/dashboard" replace />
+                : <Navigate to="/home" replace />
+              : <Navigate to="/login" replace />
+          }
         />
-
-        {/* FAQ / Support routes đã bỏ theo yêu cầu */}
-
-        <Route path="/profile" element={withMainLayout(<Profile />)} />
-        <Route path="/profile/change-password" element={withMainLayout(<ChangePassword />)} />
-        <Route path="/profile/addresses" element={withMainLayout(<AddressManagement />)} />
-        <Route path="/wishlist" element={withMainLayout(<Wishlist />)} />
-        <Route path="/notifications" element={withMainLayout(<NotificationsPage />)} />
-
-        {/* Default redirect */}
-        <Route path="/" element={<Navigate to="/login" replace />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        <Route
+          path="*"
+          element={
+            user
+              ? user.role === 'admin' || user.role === 'staff'
+                ? <Navigate to="/admin/dashboard" replace />
+                : <Navigate to="/home" replace />
+              : <Navigate to="/login" replace />
+          }
+        />
       </Routes>
     </Suspense>
   );

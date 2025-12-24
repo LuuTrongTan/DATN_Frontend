@@ -6,22 +6,44 @@ export interface CartState {
   items: CartItem[];
   loading: boolean;
   error: string | null;
+  lastFetched: number | null; // Timestamp của lần fetch cuối cùng
 }
 
 const initialState: CartState = {
   items: [],
   loading: false,
   error: null,
+  lastFetched: null,
 };
 
-export const fetchCart = createAsyncThunk('cart/fetchCart', async () => {
-  const response = await cartService.getCart();
-  if (!response.success || !response.data) {
-    throw new Error(response.message || 'Không thể tải giỏ hàng');
+export const fetchCart = createAsyncThunk<
+  CartItem[],
+  void,
+  { state: { cart: CartState } }
+>('cart/fetchCart', async (_, { rejectWithValue }) => {
+  try {
+    console.log('Fetching cart from API...');
+    const response = await cartService.getCart();
+    console.log('Cart API response:', response);
+    
+    if (!response.success) {
+      console.error('Cart API error:', response.message);
+      return rejectWithValue(response.message || 'Không thể tải giỏ hàng');
+    }
+    
+    if (!response.data) {
+      console.warn('Cart API returned no data');
+      return [];
+    }
+    
+    const cartData: any = response.data;
+    const items = Array.isArray(cartData) ? cartData : cartData.items || [];
+    console.log('Cart items received:', items);
+    return items as CartItem[];
+  } catch (error: any) {
+    console.error('Cart fetch exception:', error);
+    return rejectWithValue(error.message || 'Lỗi khi tải giỏ hàng');
   }
-  const cartData: any = response.data;
-  const items = Array.isArray(cartData) ? cartData : cartData.items || [];
-  return items as CartItem[];
 });
 
 export const updateCartItemQuantity = createAsyncThunk(
@@ -76,14 +98,18 @@ const cartSlice = createSlice({
       .addCase(fetchCart.pending, (state) => {
         state.loading = true;
         state.error = null;
+        console.log('Cart fetch pending...');
       })
       .addCase(fetchCart.fulfilled, (state, action) => {
         state.loading = false;
         state.items = action.payload;
+        state.lastFetched = Date.now();
+        console.log('Cart fetch fulfilled, items count:', action.payload.length);
       })
       .addCase(fetchCart.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message || 'Không thể tải giỏ hàng';
+        console.error('Cart fetch rejected:', action.error);
       })
       .addCase(updateCartItemQuantity.rejected, (state, action) => {
         state.error = action.error.message || 'Không thể cập nhật giỏ hàng';

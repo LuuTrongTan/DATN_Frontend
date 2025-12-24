@@ -15,12 +15,16 @@ import {
   Empty,
   Spin,
   Divider,
+  Image,
+  Alert,
 } from 'antd';
 import {
   ShoppingCartOutlined,
   HomeOutlined,
   CreditCardOutlined,
   CheckCircleOutlined,
+  ArrowLeftOutlined,
+  PlusOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { orderService } from '../../../shares/services/orderService';
@@ -28,29 +32,37 @@ import { paymentService } from '../../../shares/services/paymentService';
 import { addressService, UserAddress } from '../../../shares/services/addressService';
 import { CartItem, PaymentMethod } from '../../../shares/types';
 import { useAppDispatch, useAppSelector } from '../../../shares/stores';
-import { fetchCart } from '../../ProductManagement/stores/cartSlice';
+import { fetchCart, clearCart } from '../../ProductManagement/stores/cartSlice';
 import { logger } from '../../../shares/utils/logger';
-import { useEffectOnce } from '../../../shares/hooks';
+import { getAuthToken } from '../../../shares/api';
 
 const { Title, Text, Paragraph } = Typography;
 
-const Checkout: React.FC = () => {
+const PlaceOrder: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const cartItems = useAppSelector((state) => state.cart.items as CartItem[]);
+  const { loading: cartLoading } = useAppSelector((state) => state.cart);
   const [addresses, setAddresses] = useState<UserAddress[]>([]);
-  const [loadingCart, setLoadingCart] = useState(true);
   const [loadingAddresses, setLoadingAddresses] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cod');
   const [form] = Form.useForm();
 
-  // Sử dụng useEffectOnce để tránh gọi API 2 lần trong StrictMode
-  useEffectOnce(() => {
+  // Fetch cart và addresses khi component mount
+  useEffect(() => {
+    const token = getAuthToken();
+    if (!token) {
+      message.warning('Vui lòng đăng nhập để đặt hàng');
+      navigate('/login');
+      return;
+    }
+
+    console.log('PlaceOrder component mounted, fetching cart and addresses...');
     dispatch(fetchCart());
     fetchAddresses();
-  }, [dispatch]);
+  }, [dispatch, navigate]);
 
   const fetchAddresses = async () => {
     try {
@@ -86,10 +98,9 @@ const Checkout: React.FC = () => {
     [cartItems]
   );
 
-  // Tạm thời dùng phí ship cố định / miễn phí theo ngưỡng
+  // Tính phí vận chuyển: miễn phí cho đơn từ 500.000 VNĐ
   const shippingFee = useMemo(() => {
     if (subtotal === 0) return 0;
-    // Miễn phí ship cho đơn từ 500.000 VNĐ
     return subtotal >= 500_000 ? 0 : 30_000;
   }, [subtotal]);
 
@@ -107,9 +118,6 @@ const Checkout: React.FC = () => {
     return `${address.full_name} - ${address.phone}\n${address.street_address}, ${address.ward}, ${address.district}, ${address.province}`;
   };
 
-  const placeOrderButtonLabel =
-    paymentMethod === 'online' ? 'Đặt hàng & thanh toán VNPay' : 'Đặt hàng (COD)';
-
   const handlePlaceOrder = async (values: { notes?: string }) => {
     if (!selectedAddress) {
       message.error('Vui lòng chọn địa chỉ giao hàng');
@@ -118,6 +126,7 @@ const Checkout: React.FC = () => {
 
     if (cartItems.length === 0) {
       message.error('Giỏ hàng của bạn đang trống');
+      navigate('/cart');
       return;
     }
 
@@ -130,9 +139,12 @@ const Checkout: React.FC = () => {
         notes: values.notes || undefined,
       };
 
+      console.log('Placing order with payload:', payload);
       const response = await orderService.createOrder(payload);
+      
       if (response.success && response.data) {
         const createdOrder = response.data;
+        console.log('Order created successfully:', createdOrder);
 
         // Kiểm tra order ID hợp lệ
         if (!createdOrder || !createdOrder.id || isNaN(Number(createdOrder.id))) {
@@ -170,44 +182,72 @@ const Checkout: React.FC = () => {
         }
 
         message.success('Đặt hàng thành công!');
-        // Backend thường sẽ clear giỏ hàng sau khi tạo đơn, ở đây chỉ điều hướng
+        
+        // Clear cart trong Redux store (backend đã xóa cart_items trong DB)
+        dispatch(clearCart());
+        
+        // Fetch lại cart để đồng bộ với database (sẽ trả về empty)
+        await dispatch(fetchCart());
+        
+        // Điều hướng đến trang chi tiết đơn hàng
         navigate(`/orders/${orderId}`);
       } else {
         message.error(response.message || 'Không thể tạo đơn hàng');
       }
     } catch (error: any) {
+      console.error('Error placing order:', error);
       message.error(error.message || 'Có lỗi xảy ra khi tạo đơn hàng');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const isLoading = loadingCart || loadingAddresses;
+  const isLoading = cartLoading || loadingAddresses;
 
   if (isLoading) {
     return (
       <div style={{ textAlign: 'center', padding: '50px' }}>
         <Spin size="large" />
+        <div style={{ marginTop: 16 }}>
+          <Text type="secondary">Đang tải thông tin đặt hàng...</Text>
+        </div>
       </div>
     );
   }
 
   if (cartItems.length === 0) {
     return (
-      <Card style={{ maxWidth: 800, margin: '0 auto' }}>
-        <Empty description="Giỏ hàng của bạn đang trống">
-          <Button type="primary" onClick={() => navigate('/products')}>
-            Tiếp tục mua sắm
-          </Button>
-        </Empty>
-      </Card>
+      <div style={{ maxWidth: 800, margin: '0 auto', padding: '24px' }}>
+        <Button
+          icon={<ArrowLeftOutlined />}
+          onClick={() => navigate('/cart')}
+          style={{ marginBottom: 24 }}
+        >
+          Quay lại giỏ hàng
+        </Button>
+        <Card>
+          <Empty description="Giỏ hàng của bạn đang trống">
+            <Button type="primary" onClick={() => navigate('/products')}>
+              Tiếp tục mua sắm
+            </Button>
+          </Empty>
+        </Card>
+      </div>
     );
   }
 
   return (
-    <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+    <div style={{ maxWidth: 1200, margin: '0 auto', padding: '24px' }}>
+      <Button
+        icon={<ArrowLeftOutlined />}
+        onClick={() => navigate('/cart')}
+        style={{ marginBottom: 24 }}
+      >
+        Quay lại giỏ hàng
+      </Button>
+
       <Title level={2} style={{ marginBottom: 24 }}>
-        Thanh toán
+        Đặt hàng
       </Title>
 
       <Card style={{ marginBottom: 24 }}>
@@ -217,10 +257,12 @@ const Checkout: React.FC = () => {
             {
               title: 'Giỏ hàng',
               icon: <ShoppingCartOutlined />,
+              status: 'finish',
             },
             {
               title: 'Thông tin giao hàng',
               icon: <HomeOutlined />,
+              status: 'process',
             },
             {
               title: 'Thanh toán',
@@ -231,14 +273,15 @@ const Checkout: React.FC = () => {
               icon: <CheckCircleOutlined />,
             },
           ]}
-          current={2}
+          current={1}
         />
       </Card>
 
       <Row gutter={[24, 24]}>
-        {/* Cột trái: địa chỉ & phương thức thanh toán */}
+        {/* Cột trái: Địa chỉ giao hàng & Phương thức thanh toán */}
         <Col xs={24} lg={16}>
           <Space direction="vertical" size="large" style={{ width: '100%' }}>
+            {/* Địa chỉ giao hàng */}
             <Card
               title={
                 <Space>
@@ -247,8 +290,12 @@ const Checkout: React.FC = () => {
                 </Space>
               }
               extra={
-                <Button type="link" onClick={() => navigate('/profile/addresses')}>
-                  Quản lý địa chỉ
+                <Button
+                  type="link"
+                  icon={<PlusOutlined />}
+                  onClick={() => navigate('/profile/addresses')}
+                >
+                  Thêm địa chỉ mới
                 </Button>
               }
             >
@@ -264,19 +311,21 @@ const Checkout: React.FC = () => {
                   value={selectedAddressId ?? undefined}
                   style={{ width: '100%' }}
                 >
-                  <Space direction="vertical" style={{ width: '100%' }}>
+                  <Space direction="vertical" style={{ width: '100%' }} size="middle">
                     {addresses.map((address) => (
                       <Card
                         key={address.id}
+                        hoverable
                         style={{
                           borderColor:
                             address.id === selectedAddressId ? '#1677ff' : 'rgba(0,0,0,0.06)',
+                          borderWidth: address.id === selectedAddressId ? 2 : 1,
                         }}
                       >
                         <Space align="start">
                           <Radio value={address.id} />
-                          <div>
-                            <Space style={{ marginBottom: 4 }}>
+                          <div style={{ flex: 1 }}>
+                            <Space style={{ marginBottom: 8 }}>
                               <Text strong>{address.full_name}</Text>
                               {address.is_default && (
                                 <Tag color="green" icon={<CheckCircleOutlined />}>
@@ -302,6 +351,7 @@ const Checkout: React.FC = () => {
               )}
             </Card>
 
+            {/* Phương thức thanh toán */}
             <Card
               title={
                 <Space>
@@ -313,24 +363,40 @@ const Checkout: React.FC = () => {
               <Radio.Group
                 onChange={(e) => setPaymentMethod(e.target.value)}
                 value={paymentMethod}
+                style={{ width: '100%' }}
               >
-                <Space direction="vertical">
+                <Space direction="vertical" style={{ width: '100%' }} size="middle">
                   <Radio value="cod">
-                    <Space direction="vertical" size={0}>
-                      <Text strong>Thanh toán khi nhận hàng (COD)</Text>
-                      <Text type="secondary" style={{ fontSize: 12 }}>
-                        Bạn sẽ thanh toán tiền mặt cho nhân viên giao hàng khi nhận được sản phẩm.
-                      </Text>
-                    </Space>
+                    <Card
+                      hoverable
+                      style={{
+                        borderColor: paymentMethod === 'cod' ? '#1677ff' : 'rgba(0,0,0,0.06)',
+                        borderWidth: paymentMethod === 'cod' ? 2 : 1,
+                      }}
+                    >
+                      <Space direction="vertical" size={0}>
+                        <Text strong>Thanh toán khi nhận hàng (COD)</Text>
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                          Bạn sẽ thanh toán tiền mặt cho nhân viên giao hàng khi nhận được sản phẩm.
+                        </Text>
+                      </Space>
+                    </Card>
                   </Radio>
                   <Radio value="online">
-                    <Space direction="vertical" size={0}>
-                      <Text strong>Thanh toán online qua VNPay</Text>
-                      <Text type="secondary" style={{ fontSize: 12 }}>
-                        Bạn sẽ được chuyển tới cổng thanh toán VNPay để thanh toán an toàn và bảo mật.
-                        Sau khi hoàn tất, hệ thống sẽ tự động cập nhật trạng thái đơn hàng.
-                      </Text>
-                    </Space>
+                    <Card
+                      hoverable
+                      style={{
+                        borderColor: paymentMethod === 'online' ? '#1677ff' : 'rgba(0,0,0,0.06)',
+                        borderWidth: paymentMethod === 'online' ? 2 : 1,
+                      }}
+                    >
+                      <Space direction="vertical" size={0}>
+                        <Text strong>Thanh toán online qua VNPay</Text>
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                          Bạn sẽ được chuyển tới cổng thanh toán VNPay để thanh toán an toàn và bảo mật.
+                        </Text>
+                      </Space>
+                    </Card>
                   </Radio>
                 </Space>
               </Radio.Group>
@@ -338,34 +404,24 @@ const Checkout: React.FC = () => {
               <Divider />
 
               <Form form={form} layout="vertical" onFinish={handlePlaceOrder}>
-                <Form.Item label="Ghi chú cho đơn hàng" name="notes">
+                <Form.Item
+                  label="Ghi chú cho đơn hàng (tùy chọn)"
+                  name="notes"
+                  extra="Ví dụ: Giao giờ hành chính, gọi trước khi giao..."
+                >
                   <Input.TextArea
                     rows={3}
-                    placeholder="Ví dụ: Giao giờ hành chính, gọi trước khi giao..."
+                    placeholder="Nhập ghi chú cho đơn hàng..."
                     maxLength={255}
                     showCount
                   />
-                </Form.Item>
-
-                <Form.Item>
-                  <Space>
-                    <Button onClick={() => navigate('/cart')}>Quay lại giỏ hàng</Button>
-                    <Button
-                      type="primary"
-                      htmlType="submit"
-                      loading={submitting}
-                      disabled={!selectedAddress}
-                    >
-                      {placeOrderButtonLabel}
-                    </Button>
-                  </Space>
                 </Form.Item>
               </Form>
             </Card>
           </Space>
         </Col>
 
-        {/* Cột phải: tóm tắt đơn hàng */}
+        {/* Cột phải: Tóm tắt đơn hàng */}
         <Col xs={24} lg={8}>
           <Card
             title={
@@ -374,8 +430,10 @@ const Checkout: React.FC = () => {
                 <Text strong>Tóm tắt đơn hàng</Text>
               </Space>
             }
+            style={{ position: 'sticky', top: 24 }}
           >
             <Space direction="vertical" style={{ width: '100%' }} size="middle">
+              {/* Danh sách sản phẩm */}
               <div>
                 {cartItems.map((item) => {
                   const basePrice = item.product?.price || 0;
@@ -388,25 +446,35 @@ const Checkout: React.FC = () => {
                       key={item.id}
                       style={{
                         display: 'flex',
-                        justifyContent: 'space-between',
-                        marginBottom: 8,
+                        gap: 12,
+                        marginBottom: 16,
+                        paddingBottom: 16,
+                        borderBottom: '1px solid #f0f0f0',
                       }}
                     >
-                      <div style={{ maxWidth: '65%' }}>
-                        <Text strong>{item.product?.name}</Text>
-                        <br />
+                      <Image
+                        src={item.product?.image_url || item.product?.image_urls?.[0] || '/placeholder.png'}
+                        alt={item.product?.name}
+                        width={60}
+                        height={60}
+                        style={{ objectFit: 'cover', borderRadius: 4 }}
+                        preview={false}
+                      />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <Text strong ellipsis style={{ display: 'block', marginBottom: 4 }}>
+                          {item.product?.name}
+                        </Text>
                         {item.variant && (
-                          <Text type="secondary" style={{ fontSize: 12 }}>
+                          <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
                             {item.variant.variant_type}: {item.variant.variant_value}
                           </Text>
                         )}
-                        <br />
                         <Text type="secondary" style={{ fontSize: 12 }}>
-                          Số lượng: {item.quantity}
+                          Số lượng: {item.quantity} × {formatCurrency(finalPrice)}
                         </Text>
-                      </div>
-                      <div style={{ textAlign: 'right' }}>
-                        <Text strong>{formatCurrency(lineTotal)}</Text>
+                        <div style={{ marginTop: 4 }}>
+                          <Text strong>{formatCurrency(lineTotal)}</Text>
+                        </div>
                       </div>
                     </div>
                   );
@@ -415,30 +483,62 @@ const Checkout: React.FC = () => {
 
               <Divider style={{ margin: '12px 0' }} />
 
+              {/* Tạm tính */}
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <Text>Tạm tính</Text>
                 <Text>{formatCurrency(subtotal)}</Text>
               </div>
+
+              {/* Phí vận chuyển */}
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <Text>Phí vận chuyển</Text>
                 <Text>{shippingFee === 0 ? 'Miễn phí' : formatCurrency(shippingFee)}</Text>
               </div>
 
+              {subtotal < 500_000 && (
+                <Alert
+                  message={`Mua thêm ${formatCurrency(500_000 - subtotal)} để được miễn phí vận chuyển`}
+                  type="info"
+                  showIcon
+                  style={{ fontSize: 12 }}
+                />
+              )}
+
               <Divider style={{ margin: '12px 0' }} />
 
+              {/* Tổng cộng */}
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Text strong style={{ fontSize: 16 }}>
+                <Text strong style={{ fontSize: 18 }}>
                   Tổng cộng
                 </Text>
-                <Text strong style={{ fontSize: 18, color: '#cf1322' }}>
+                <Text strong style={{ fontSize: 20, color: '#cf1322' }}>
                   {formatCurrency(totalAmount)}
                 </Text>
               </div>
 
-              <Paragraph type="secondary" style={{ fontSize: 12, marginTop: 8 }}>
-                Bằng việc nhấn &quot;Đặt hàng&quot;, bạn đồng ý với các điều khoản sử dụng và chính
-                sách bảo mật của chúng tôi.
+              <Paragraph type="secondary" style={{ fontSize: 12, marginTop: 16, marginBottom: 0 }}>
+                Bằng việc nhấn "Đặt hàng", bạn đồng ý với các điều khoản sử dụng và chính sách bảo mật
+                của chúng tôi.
               </Paragraph>
+
+              {/* Nút đặt hàng */}
+              <Form form={form} onFinish={handlePlaceOrder}>
+                <Button
+                  type="primary"
+                  size="large"
+                  block
+                  htmlType="submit"
+                  loading={submitting}
+                  disabled={!selectedAddress || cartItems.length === 0}
+                  style={{ marginTop: 16 }}
+                >
+                  {submitting
+                    ? 'Đang xử lý...'
+                    : paymentMethod === 'online'
+                      ? 'Đặt hàng & thanh toán VNPay'
+                      : 'Đặt hàng (COD)'}
+                </Button>
+              </Form>
             </Space>
           </Card>
         </Col>
@@ -447,5 +547,5 @@ const Checkout: React.FC = () => {
   );
 };
 
-export default Checkout;
+export default PlaceOrder;
 

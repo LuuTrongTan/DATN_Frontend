@@ -231,12 +231,13 @@ const Profile: React.FC = () => {
         // Refresh user data without reloading page
         try {
           const userResponse = await authService.getCurrentUser();
-          if (userResponse.success && userResponse.data) {
-            const userData = userResponse.data.data;
+          if (userResponse.success && userResponse.data?.user) {
+            const userData = userResponse.data.user;
             // Update user in AuthContext
             const token = localStorage.getItem('token');
+            const refreshToken = localStorage.getItem('refreshToken') || undefined;
             if (token) {
-              login(token, userData);
+              login(token, userData, refreshToken);
             }
             // Update form with new data
             form.setFieldsValue({

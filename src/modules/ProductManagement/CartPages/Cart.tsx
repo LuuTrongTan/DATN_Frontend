@@ -6,19 +6,41 @@ import { message } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../../shares/stores';
 import { fetchCart, removeCartItem, updateCartItemQuantity } from '../stores/cartSlice';
-import { useEffectOnce } from '../../../shares/hooks';
+import { getAuthToken } from '../../../shares/api';
 
 const { Title, Text } = Typography;
 
 const Cart: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { items: cartItems, loading } = useAppSelector((state) => state.cart);
+  const { items: cartItems, loading, error } = useAppSelector((state) => state.cart);
   const navigate = useNavigate();
 
-  // Sử dụng useEffectOnce để tránh gọi API 2 lần trong StrictMode
-  useEffectOnce(() => {
-    dispatch(fetchCart());
-  }, [dispatch]);
+  // Fetch cart khi component mount hoặc khi navigate vào trang
+  useEffect(() => {
+    const token = getAuthToken();
+    if (!token) {
+      message.warning('Vui lòng đăng nhập để xem giỏ hàng');
+      navigate('/login');
+      return;
+    }
+
+    console.log('Cart component mounted, fetching cart...');
+    dispatch(fetchCart())
+      .then((result) => {
+        console.log('Cart fetch result:', result);
+        if (result.type === 'cart/fetchCart/fulfilled') {
+          console.log('Cart items:', result.payload);
+        } else if (result.type === 'cart/fetchCart/rejected') {
+          console.error('Cart fetch error:', result.error);
+          const errorMessage = result.error?.message || 'Không thể tải giỏ hàng';
+          message.error(errorMessage);
+        }
+      })
+      .catch((error) => {
+        console.error('Cart fetch exception:', error);
+        message.error('Có lỗi xảy ra khi tải giỏ hàng');
+      });
+  }, [dispatch, navigate]);
 
   const handleUpdateQuantity = async (itemId: number, quantity: number) => {
     try {
@@ -137,6 +159,14 @@ const Cart: React.FC = () => {
     <div>
       <Title level={2}>Giỏ hàng của tôi</Title>
       
+      {error && (
+        <Card style={{ marginBottom: 16 }}>
+          <div style={{ color: 'red' }}>
+            <strong>Lỗi:</strong> {error}
+          </div>
+        </Card>
+      )}
+
       {loading ? (
         <div style={{ textAlign: 'center', padding: '50px' }}>
           <Space direction="vertical">
@@ -180,9 +210,9 @@ const Cart: React.FC = () => {
                   type="primary"
                   size="large"
                   block
-                  onClick={() => navigate('/checkout')}
+                  onClick={() => navigate('/place-order')}
                 >
-                  Thanh toán
+                  Đặt hàng
                 </Button>
                 <Button block onClick={() => navigate('/products')}>
                   Tiếp tục mua sắm

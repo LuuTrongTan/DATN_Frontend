@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useCallback } from 'react';
-import { Card, Typography, Button, Tag, Space, Tooltip, message } from 'antd';
-import { ShoppingCartOutlined, EyeOutlined, HeartOutlined, HeartFilled } from '@ant-design/icons';
+import { Card, Typography, Button, Tag, Space, Tooltip, message, Image } from 'antd';
+import { ShoppingCartOutlined, HeartOutlined, HeartFilled } from '@ant-design/icons';
 import { Product } from '../../../shares/types';
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../../shares/stores';
 import { addToWishlist, removeFromWishlist, checkWishlist } from '../../ProductManagement/stores/wishlistSlice';
 
-const { Text, Title, Paragraph } = Typography;
+const { Text, Paragraph } = Typography;
 
 interface ProductCardProps {
   product: Product;
@@ -17,11 +17,9 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   
-  // Lấy trạng thái từ Redux
   const { loading: wishlistLoading, checkedProducts } = useAppSelector((state) => state.wishlist);
   const isInWishlist = checkedProducts[product.id] ?? false;
 
-  // Kiểm tra wishlist khi component mount
   useEffect(() => {
     if (!checkedProducts.hasOwnProperty(product.id)) {
       dispatch(checkWishlist(product.id));
@@ -45,14 +43,21 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
   }, [wishlistLoading, isInWishlist, product.id, dispatch]);
 
   const handleAddToCartClick = useCallback(() => {
-    // Nếu sản phẩm có variants, điều hướng đến trang chi tiết để chọn variant
     if (product.variants && product.variants.length > 0) {
       navigate(`/products/${product.id}`);
     } else {
-      // Nếu không có variant, thêm trực tiếp vào giỏ
       onAddToCart?.(product, null);
     }
   }, [product, navigate, onAddToCart]);
+
+  const handleCardClick = useCallback((e: React.MouseEvent) => {
+    // Kiểm tra nếu click vào button hoặc các phần tử không nên navigate
+    const target = e.target as HTMLElement;
+    if (target && (target.closest('button') || target.closest('.ant-btn'))) {
+      return;
+    }
+    navigate(`/products/${product.id}`);
+  }, [navigate, product.id]);
 
   const imageUrl = useMemo(
     () => product.image_url || product.image_urls?.[0] || '/placeholder.png',
@@ -65,41 +70,50 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
       hoverable
       style={{ 
         height: '100%',
-        minHeight: 460,
-        borderRadius: 16,
+        minHeight: 440,
+        borderRadius: 14,
         overflow: 'hidden',
-        transition: 'all 0.3s',
-        boxShadow: '0 6px 18px rgba(0,0,0,0.06)',
+        transition: 'transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease',
+        boxShadow: '0 10px 30px rgba(0,0,0,0.08)',
         display: 'flex',
         flexDirection: 'column',
-        border: isInWishlist ? '1px solid #ff85c0' : '1px solid #f0f0f0',
+        border: isInWishlist ? '1px solid #ff85c0' : '1px solid #f2f4f7',
+        background: 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)',
+      }}
+      bodyStyle={{ padding: '14px 14px 10px' }}
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-4px)';
+        (e.currentTarget as HTMLDivElement).style.boxShadow = '0 16px 36px rgba(0,0,0,0.12)';
+        (e.currentTarget as HTMLDivElement).style.borderColor = isInWishlist ? '#ff85c0' : '#e5e7eb';
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)';
+        (e.currentTarget as HTMLDivElement).style.boxShadow = '0 10px 30px rgba(0,0,0,0.08)';
+        (e.currentTarget as HTMLDivElement).style.borderColor = isInWishlist ? '#ff85c0' : '#f2f4f7';
       }}
       cover={
-        <div style={{ position: 'relative', overflow: 'hidden' }}>
-          <img
+        <div style={{ position: 'relative', overflow: 'hidden', borderBottom: '1px solid #f0f2f5' }}>
+          <Image
             alt={product.name}
             src={imageUrl}
-            style={{ 
-              width: '100%', 
-              height: 280, 
-              objectFit: 'cover',
-              transition: 'transform 0.3s',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'scale(1.05)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'scale(1)';
-            }}
+            height={240}
+            style={{ objectFit: 'cover' }}
+            preview={false}
+            onClick={handleCardClick}
+            fallback="/placeholder.png"
           />
           <div
             style={{
               position: 'absolute',
-              top: 12,
-              right: 12,
-              zIndex: 2,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: 80,
+              background: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.25) 100%)',
+              pointerEvents: 'none',
             }}
-          >
+          />
+          <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 10, pointerEvents: 'auto' }}>
             <Tooltip title={isInWishlist ? 'Xóa khỏi yêu thích' : 'Thêm vào yêu thích'}>
               <Button
                 shape="circle"
@@ -111,9 +125,9 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
                   handleToggleWishlist();
                 }}
                 style={{
-                  background: 'rgba(255,255,255,0.9)',
+                  background: 'rgba(255,255,255,0.95)',
                   border: 'none',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.18)',
                 }}
               />
             </Tooltip>
@@ -130,6 +144,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                pointerEvents: 'none',
               }}
             >
               <Tag color="red" style={{ fontSize: 16, padding: '8px 16px' }}>
@@ -154,48 +169,56 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
     >
       <Card.Meta
         title={
-          <Paragraph
-            strong
-            ellipsis={{ rows: 2 }}
-            style={{ marginBottom: 8, minHeight: 48 }}
+          <div
+            onClick={handleCardClick}
+            style={{ 
+              cursor: 'pointer',
+              minHeight: 22,
+            }}
           >
-            {product.name}
-          </Paragraph>
+            <Text 
+              ellipsis={{ tooltip: product.name }}
+              style={{ fontSize: 16, fontWeight: 500 }}
+            >
+              {product.name}
+            </Text>
+          </div>
         }
         description={
-          <Space direction="vertical" size="small" style={{ width: '100%' }}>
+          <Space direction="vertical" size="small" style={{ width: '100%', marginTop: 8 }}>
             <Text strong style={{ fontSize: 18, color: '#cf1322' }}>
-              {product.price?.toLocaleString('vi-VN')} VNĐ
+              {product.price ? `${product.price.toLocaleString('vi-VN')} VNĐ` : 'Liên hệ'}
             </Text>
             {product.description && (
               <Paragraph
                 type="secondary"
-                style={{ fontSize: 13, marginBottom: 0 }}
+                style={{ fontSize: 13, marginBottom: 0, color: '#6b7280' }}
                 ellipsis={{ rows: 2 }}
               >
                 {product.description}
               </Paragraph>
             )}
             {product.stock_quantity !== undefined && (
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                Còn lại: {product.stock_quantity} sản phẩm
-              </Text>
+              <Tag 
+                color={isOutOfStock ? 'red' : 'green'}
+                style={{ marginTop: 4 }}
+              >
+                {isOutOfStock ? 'Hết hàng' : `Còn hàng (${product.stock_quantity})`}
+              </Tag>
             )}
           </Space>
         }
       />
-      <div
-        style={{
-          marginTop: 16,
-          padding: '0 16px 16px',
-        }}
-      >
+      <div style={{ marginTop: 16, padding: '0 16px 16px' }}>
         <Button
           type="primary"
           icon={<ShoppingCartOutlined />}
-          onClick={handleAddToCartClick}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleAddToCartClick();
+          }}
           disabled={isOutOfStock}
-          style={{ borderRadius: 999, width: '100%' }}
+          style={{ borderRadius: 999, width: '100%', boxShadow: '0 8px 18px rgba(24,144,255,0.25)' }}
           block
         >
           {product.variants && product.variants.length > 0 ? 'Chọn biến thể' : 'Thêm vào giỏ'}
@@ -205,9 +228,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
   );
 };
 
-// Memoize component để tránh re-render không cần thiết
 export default React.memo(ProductCard, (prevProps, nextProps) => {
-  // Chỉ re-render nếu product thay đổi hoặc onAddToCart thay đổi
   return (
     prevProps.product.id === nextProps.product.id &&
     prevProps.product.stock_quantity === nextProps.product.stock_quantity &&
@@ -216,4 +237,3 @@ export default React.memo(ProductCard, (prevProps, nextProps) => {
     prevProps.onAddToCart === nextProps.onAddToCart
   );
 });
-

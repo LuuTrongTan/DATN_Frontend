@@ -64,23 +64,42 @@ const handleResponse = async (response: Response) => {
   if (!response.ok) {
     // Handle 401 Unauthorized - token invalid or expired
     if (response.status === 401) {
-      // Clear invalid token and user data
-      localStorage.removeItem('token');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('user');
-      
-      // Trigger storage event to notify AuthContext
-      window.dispatchEvent(new Event('storage'));
-      
-      // Redirect to login if not already on auth pages
       const currentPath = window.location.pathname;
       const authPaths = ['/login', '/register', '/forgot-password', '/verify'];
-      if (!authPaths.includes(currentPath)) {
-        // Use setTimeout to avoid redirect during render
-        setTimeout(() => {
-          window.location.href = '/login';
-        }, 0);
+      const isVerifying = sessionStorage.getItem('isVerifying') === 'true';
+      
+      // QUAN TRỌNG: Không xóa token khi đang ở trang verify HOẶC đang trong quá trình verify
+      // Vì user có thể đang verify OTP và token có thể đã expired nhưng vẫn cần giữ lại
+      // để sau khi verify xong có thể refresh hoặc đăng nhập lại
+      if (!authPaths.includes(currentPath) && !isVerifying) {
+        // Chỉ xóa token khi KHÔNG ở auth pages VÀ không đang verify
+        // Clear invalid token and user data
+        localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user');
+        
+        // Trigger storage event to notify AuthContext
+        window.dispatchEvent(new Event('storage'));
+        
+        // KHÔNG redirect ở đây vì sẽ gây conflict với React Router
+        // Để React Router và RouteGuards xử lý redirect
+        // Chỉ redirect nếu đang ở protected route và không phải auth pages
+        const protectedPaths = ['/home', '/profile', '/orders', '/cart', '/checkout', '/admin'];
+        
+        // Chỉ redirect nếu đang ở protected route và không phải auth pages
+        if (protectedPaths.some(path => currentPath.startsWith(path))) {
+          // Sử dụng window.location.href chỉ khi thực sự cần thiết (tránh conflict với React Router)
+          // Nhưng tốt hơn là để RouteGuards xử lý
+          // Chỉ redirect nếu không có React Router navigation đang diễn ra
+          if (!window.location.pathname.startsWith('/login')) {
+            setTimeout(() => {
+              window.location.href = '/login';
+            }, 100);
+          }
+        }
       }
+      // Nếu đang ở auth pages (đặc biệt là /verify) HOẶC đang verify, KHÔNG xóa token
+      // Để component có thể tự xử lý logic của nó
     }
     
     const errorCode = data?.error?.code || data?.code;
@@ -99,13 +118,11 @@ const handleResponse = async (response: Response) => {
 export const apiClient = {
   get: async (endpoint: string) => {
     const url = `${API_BASE_URL}${endpoint}`;
-    console.log('[apiClient] GET request to:', url);
     const response = await fetch(url, {
       method: 'GET',
       headers: getAuthHeaders(),
       credentials: 'include',
     });
-    console.log('[apiClient] GET response status:', response.status, 'for:', url);
     return handleResponse(response);
   },
   post: async (endpoint: string, data: any) => {

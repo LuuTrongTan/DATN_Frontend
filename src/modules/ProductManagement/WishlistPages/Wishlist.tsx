@@ -18,23 +18,47 @@ import {
   HeartOutlined,
   ShoppingCartOutlined,
   DeleteOutlined,
-  ArrowLeftOutlined,
 } from '@ant-design/icons';
 import { useAppDispatch, useAppSelector } from '../../../shares/stores';
 import { addWishlistItemToCart, fetchWishlist, removeFromWishlist } from '../stores/wishlistSlice';
-import { useEffectOnce } from '../../../shares/hooks';
+import { getAuthToken } from '../../../shares/api';
 
 const { Title, Text } = Typography;
 
 const Wishlist: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const { items: wishlistItems, loading } = useAppSelector((state) => state.wishlist);
+  const { items: wishlistItems, loading, error } = useAppSelector((state) => state.wishlist);
 
-  // Sử dụng useEffectOnce để tránh gọi API 2 lần trong StrictMode
-  useEffectOnce(() => {
-    dispatch(fetchWishlist());
-  }, [dispatch]);
+  // Fetch wishlist khi component mount hoặc khi navigate vào trang
+  useEffect(() => {
+    const token = getAuthToken();
+    if (!token) {
+      message.warning('Vui lòng đăng nhập để xem danh sách yêu thích');
+      navigate('/login');
+      return;
+    }
+
+    console.log('Wishlist component mounted, fetching wishlist...');
+    dispatch(fetchWishlist())
+      .then((result) => {
+        console.log('Wishlist fetch result:', result);
+        if (result.type === 'wishlist/fetchWishlist/fulfilled') {
+          console.log('Wishlist items:', result.payload);
+          if (Array.isArray(result.payload) && result.payload.length === 0) {
+            console.log('Wishlist is empty');
+          }
+        } else if (result.type === 'wishlist/fetchWishlist/rejected') {
+          console.error('Wishlist fetch error:', result.error);
+          const errorMessage = result.error?.message || 'Không thể tải danh sách yêu thích';
+          message.error(errorMessage);
+        }
+      })
+      .catch((error) => {
+        console.error('Wishlist fetch exception:', error);
+        message.error('Có lỗi xảy ra khi tải danh sách yêu thích');
+      });
+  }, [dispatch, navigate]);
 
   const handleRemove = async (productId: number) => {
     try {
@@ -64,21 +88,20 @@ const Wishlist: React.FC = () => {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 24 }}>
-        <Button
-          icon={<ArrowLeftOutlined />}
-          onClick={() => navigate('/products')}
-          style={{ marginRight: 16 }}
-        >
-          Quay lại
-        </Button>
-        <Title level={2} style={{ margin: 0 }}>
-          <HeartOutlined style={{ color: '#ff4d4f', marginRight: 8 }} />
-          Danh sách yêu thích
-        </Title>
-      </div>
+      <Title level={2} style={{ marginBottom: 24 }}>
+        <HeartOutlined style={{ color: '#ff4d4f', marginRight: 8 }} />
+        Danh sách yêu thích
+      </Title>
 
-      {wishlistItems.length === 0 ? (
+      {error && (
+        <Card style={{ marginBottom: 16 }}>
+          <div style={{ color: 'red' }}>
+            <strong>Lỗi:</strong> {error}
+          </div>
+        </Card>
+      )}
+
+      {!loading && wishlistItems.length === 0 ? (
         <Card>
           <Empty
             description="Danh sách yêu thích của bạn đang trống"
@@ -91,64 +114,106 @@ const Wishlist: React.FC = () => {
         </Card>
       ) : (
         <Row gutter={[16, 16]}>
-          {wishlistItems.map((item) => (
-            <Col xs={24} sm={12} md={8} lg={6} key={item.id}>
-              <Card
-                hoverable
-                cover={
-                  <Image
-                    alt={item.name}
-                    src={item.image_url || item.image_urls?.[0] || '/placeholder.png'}
-                    height={200}
-                    style={{ objectFit: 'cover' }}
-                    preview={false}
-                    onClick={() => navigate(`/products/${item.product_id}`)}
-                  />
-                }
-                actions={[
-                  <Button
-                    type="primary"
-                    icon={<ShoppingCartOutlined />}
-                    onClick={() => handleAddToCart(item.product_id)}
-                    disabled={!item.is_active || (item.stock_quantity || 0) === 0}
+          {wishlistItems
+            .filter((item) => item.product_id) // Lọc bỏ các item không có product_id
+            .map((item) => {
+              const productName = item.name || 'Sản phẩm không có tên';
+              const productPrice = item.price ?? 0;
+              const productImage = item.image_url || item.image_urls?.[0] || '/placeholder.png';
+              const stockQty = item.stock_quantity ?? 0;
+              const isActive = item.is_active !== false; // Mặc định true nếu undefined
+
+              return (
+                <Col xs={24} sm={12} md={8} lg={6} key={item.id}>
+                  <Card
+                    hoverable
+                    cover={
+                      <Image
+                        alt={productName}
+                        src={productImage}
+                        height={200}
+                        style={{ objectFit: 'cover' }}
+                        preview={false}
+                        onClick={() => {
+                          if (item.product_id) {
+                            navigate(`/products/${item.product_id}`);
+                          }
+                        }}
+                        fallback="/placeholder.png"
+                      />
+                    }
+                    actions={[
+                      <Button
+                        key="cart"
+                        type="primary"
+                        icon={<ShoppingCartOutlined />}
+                        onClick={() => handleAddToCart(item.product_id)}
+                        disabled={!isActive || stockQty === 0}
+                        block
+                      >
+                        Thêm vào giỏ
+                      </Button>,
+                      <Popconfirm
+                        key="delete"
+                        title="Xóa khỏi danh sách yêu thích?"
+                        description="Bạn có chắc chắn muốn xóa sản phẩm này?"
+                        onConfirm={() => handleRemove(item.product_id)}
+                        okText="Xóa"
+                        cancelText="Hủy"
+                        okButtonProps={{ danger: true }}
+                      >
+                        <Button danger icon={<DeleteOutlined />} block>
+                          Xóa
+                        </Button>
+                      </Popconfirm>,
+                    ]}
                   >
-                    Thêm vào giỏ
-                  </Button>,
-                  <Popconfirm
-                    title="Xóa khỏi danh sách yêu thích?"
-                    onConfirm={() => handleRemove(item.product_id)}
-                    okText="Xóa"
-                    cancelText="Hủy"
-                  >
-                    <Button danger icon={<DeleteOutlined />}>
-                      Xóa
-                    </Button>
-                  </Popconfirm>,
-                ]}
-              >
-                <Card.Meta
-                  title={
-                    <div
-                      onClick={() => navigate(`/products/${item.product_id}`)}
-                      style={{ cursor: 'pointer' }}
-                    >
-                      {item.name}
-                    </div>
-                  }
-                  description={
-                    <Space direction="vertical" size="small" style={{ width: '100%' }}>
-                      <Text strong style={{ fontSize: 18, color: '#cf1322' }}>
-                        {item.price?.toLocaleString('vi-VN')} VNĐ
-                      </Text>
-                      <Tag color={item.stock_quantity && item.stock_quantity > 0 ? 'green' : 'red'}>
-                        {item.stock_quantity && item.stock_quantity > 0 ? 'Còn hàng' : 'Hết hàng'}
-                      </Tag>
-                    </Space>
-                  }
-                />
-              </Card>
-            </Col>
-          ))}
+                    <Card.Meta
+                      title={
+                        <div
+                          onClick={() => {
+                            if (item.product_id) {
+                              navigate(`/products/${item.product_id}`);
+                            }
+                          }}
+                          style={{ 
+                            cursor: item.product_id ? 'pointer' : 'default',
+                            minHeight: 22,
+                          }}
+                          title={productName}
+                        >
+                          <Text 
+                            ellipsis={{ tooltip: productName }}
+                            style={{ fontSize: 16, fontWeight: 500 }}
+                          >
+                            {productName}
+                          </Text>
+                        </div>
+                      }
+                      description={
+                        <Space direction="vertical" size="small" style={{ width: '100%', marginTop: 8 }}>
+                          <Text strong style={{ fontSize: 18, color: '#cf1322' }}>
+                            {productPrice > 0 
+                              ? `${productPrice.toLocaleString('vi-VN')} VNĐ`
+                              : 'Liên hệ'
+                            }
+                          </Text>
+                          <Tag 
+                            color={isActive && stockQty > 0 ? 'green' : 'red'}
+                            style={{ marginTop: 4 }}
+                          >
+                            {isActive && stockQty > 0 
+                              ? `Còn hàng (${stockQty})` 
+                              : 'Hết hàng'
+                            }
+                          </Tag>
+                        </Space>
+                      }
+                    />
+                  </Card>
+                </Col>
+              );
+            })}
         </Row>
       )}
     </div>

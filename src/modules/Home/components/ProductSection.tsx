@@ -53,16 +53,16 @@ const ProductSection: React.FC<ProductSectionProps> = ({
   }
 
   return (
-    <div style={{ marginBottom: 48 }}>
+    <div style={{ marginBottom: 48, maxWidth: '1400px', margin: '0 auto 48px', padding: '0 16px' }}>
       <div
         style={{
           display: 'flex',
-          justifyContent: 'space-between',
+          justifyContent: showViewAll ? 'space-between' : 'center',
           alignItems: 'center',
           marginBottom: 24,
         }}
       >
-        <Title level={2} style={{ margin: 0 }}>
+        <Title level={2} style={{ margin: 0, textAlign: 'center' }}>
           {title}
         </Title>
         {showViewAll && (
@@ -76,7 +76,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
           </Button>
         )}
       </div>
-      <Row gutter={[12, 20]}>
+      <Row gutter={[12, 20]} justify="center">
         {products.map((product) => (
           <Col xs={24} sm={12} md={8} lg={6} xl={6} key={product.id}>
             <ProductCard product={product} onAddToCart={handleAddToCart} />

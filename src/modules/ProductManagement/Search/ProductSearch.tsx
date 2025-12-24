@@ -23,7 +23,6 @@ import {
 } from '@ant-design/icons';
 import { useAppDispatch, useAppSelector } from '../../../shares/stores';
 import {
-  fetchCategories,
   fetchProducts,
   resetFilters,
   setCategory,
@@ -56,11 +55,9 @@ const ProductSearchPage: React.FC = () => {
   ]);
   const [sortBy, setSortBy] = useState(searchParams.get('sort') || 'newest');
 
-  // Khởi tạo categories và sync URL -> Redux khi mount
-  // Sử dụng useEffectOnce để tránh gọi API 2 lần trong StrictMode
+  // Khởi tạo filters từ URL khi mount
+  // Danh mục đã được fetch tập trung tại Sidebar, nên không gọi lại ở đây
   useEffectOnce(() => {
-    dispatch(fetchCategories());
-    
     // Khởi tạo filters từ URL params
     const urlCategory = searchParams.get('category');
     const urlPage = searchParams.get('page');
@@ -148,15 +145,22 @@ const ProductSearchPage: React.FC = () => {
 
         <Card>
           <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-            <Input.Search
-              placeholder="Tìm kiếm sản phẩm..."
-              allowClear
-              enterButton={<SearchOutlined />}
-              size="large"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onSearch={handleSearch}
-            />
+            <Space.Compact style={{ width: '100%' }}>
+              <Input
+                placeholder="Tìm kiếm sản phẩm..."
+                allowClear
+                size="large"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onPressEnter={(e) => handleSearch(e.currentTarget.value)}
+              />
+              <Button
+                type="primary"
+                icon={<SearchOutlined />}
+                size="large"
+                onClick={() => handleSearch(searchQuery)}
+              />
+            </Space.Compact>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Button

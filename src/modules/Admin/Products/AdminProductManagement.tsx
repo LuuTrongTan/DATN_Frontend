@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Table,
   Button,
@@ -12,6 +12,14 @@ import {
   Popconfirm,
   Switch,
   Modal,
+  Image,
+  Badge,
+  Row,
+  Col,
+  Form,
+  InputNumber,
+  Dropdown,
+  TreeSelect,
 } from 'antd';
 import {
   EditOutlined,
@@ -22,6 +30,12 @@ import {
   DeleteOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
+  PictureOutlined,
+  AppstoreOutlined,
+  UndoOutlined,
+  DatabaseOutlined,
+  MoreOutlined,
+  CopyOutlined,
 } from '@ant-design/icons';
 import { productService } from '../../../shares/services/productService';
 import { Product, Category } from '../../../shares/types';
@@ -30,11 +44,56 @@ import ProductForm from './ProductForm';
 import { logger } from '../../../shares/utils/logger';
 import { useEffectOnce } from '../../../shares/hooks';
 import { useAppDispatch, useAppSelector } from '../../../shares/stores';
-import { fetchAdminProducts, fetchAdminCategories, setSearch, setCategory } from '../stores/adminProductsSlice';
+import { fetchAdminProducts, fetchAdminCategories, setSearch, setCategory, setIncludeDeleted } from '../stores/adminProductsSlice';
+import { adminService } from '../../../shares/services/adminService';
+import AdminPageContent from '../../../shares/components/layouts/AdminPageContent';
+import { inventoryService } from '../../../shares/services/inventoryService';
 
-const { Title } = Typography;
 const { Search } = Input;
-const { Option } = Select;
+
+type CategoryNode = Category & { children?: CategoryNode[] };
+
+const buildCategoryTree = (items: Category[]): CategoryNode[] => {
+  const map = new Map<number, CategoryNode>();
+  const roots: CategoryNode[] = [];
+
+  items.forEach((cat) => {
+    map.set(cat.id, { ...cat, children: [] });
+  });
+
+  map.forEach((node) => {
+    if (node.parent_id && map.has(node.parent_id)) {
+      map.get(node.parent_id)!.children!.push(node);
+    } else {
+      roots.push(node);
+    }
+  });
+
+  // Sắp xếp theo display_order rồi name để hiển thị ổn định
+  const sortNodes = (nodes: CategoryNode[]) => {
+    nodes.sort((a, b) => {
+      const orderA = (a as any).display_order ?? 0;
+      const orderB = (b as any).display_order ?? 0;
+      if (orderA !== orderB) return orderA - orderB;
+      return a.name.localeCompare(b.name, 'vi');
+    });
+    nodes.forEach((n) => n.children && sortNodes(n.children));
+  };
+  sortNodes(roots);
+
+  return roots;
+};
+
+const renderCategoryNode = (node: CategoryNode) => {
+  if (node.children && node.children.length > 0) {
+    return (
+      <TreeSelect.TreeNode value={node.id} title={node.name} key={node.id}>
+        {node.children.map((child) => renderCategoryNode(child))}
+      </TreeSelect.TreeNode>
+    );
+  }
+  return <TreeSelect.TreeNode value={node.id} title={node.name} key={node.id} />;
+};
 
 // Dùng biến module-level để chặn StrictMode gọi lại fetch lần đầu
 let initialProductsFetched = false;
@@ -42,10 +101,28 @@ let initialProductsFetched = false;
 const AdminProductManagement: React.FC = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { items: products, categories, categoriesLoading, loading, filters } = useAppSelector((state) => state.adminProducts);
+  const { items: products, categories, categoriesLoading, loading, filters, error } = useAppSelector((state) => state.adminProducts);
+  const categoryTree = useMemo(() => buildCategoryTree(categories), [categories]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<number | undefined>();
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [showDeleted, setShowDeleted] = useState(false);
+  const [inventoryModalOpen, setInventoryModalOpen] = useState(false);
+  const [inventoryMode, setInventoryMode] = useState<'stock-in' | 'stock-adjustment'>('stock-in');
+  const [inventoryTargetProduct, setInventoryTargetProduct] = useState<Product | null>(null);
+  const [inventoryTargetVariantId, setInventoryTargetVariantId] = useState<number | undefined>(undefined);
+  const [inventoryLoading, setInventoryLoading] = useState(false);
+  const [inventoryForm] = Form.useForm();
+
+  // Debug log
+  useEffect(() => {
+    console.log('[AdminProductManagement] State:', {
+      productsCount: products.length,
+      loading,
+      error,
+      filters,
+    });
+  }, [products, loading, error, filters]);
 
   // Sử dụng useEffectOnce để tránh gọi API 2 lần trong StrictMode
   // Chỉ gọi fetchAdminCategories nếu categories chưa có trong store
@@ -68,12 +145,14 @@ const AdminProductManagement: React.FC = () => {
     }
     dispatch(setSearch(searchQuery));
     dispatch(setCategory(selectedCategory));
+    dispatch(setIncludeDeleted(showDeleted));
     dispatch(fetchAdminProducts({ 
       search: searchQuery || undefined, 
       category_id: selectedCategory,
+      include_deleted: showDeleted,
       limit: 100 
     }));
-  }, [dispatch, searchQuery, selectedCategory]);
+  }, [dispatch, searchQuery, selectedCategory, showDeleted]);
 
   const handleDelete = async (id: number) => {
     try {
@@ -82,11 +161,28 @@ const AdminProductManagement: React.FC = () => {
       dispatch(fetchAdminProducts({ 
         search: filters.search || undefined, 
         category_id: filters.category_id,
+        include_deleted: filters.include_deleted,
         limit: 100 
       }));
     } catch (error: any) {
       logger.error('Error deleting product', error instanceof Error ? error : new Error(String(error)));
       message.error(error.message || 'Có lỗi xảy ra khi xóa sản phẩm');
+    }
+  };
+
+  const handleRestore = async (id: number) => {
+    try {
+      await adminService.restoreProduct(id);
+      message.success('Khôi phục sản phẩm thành công');
+      dispatch(fetchAdminProducts({ 
+        search: filters.search || undefined, 
+        category_id: filters.category_id,
+        include_deleted: filters.include_deleted,
+        limit: 100 
+      }));
+    } catch (error: any) {
+      logger.error('Error restoring product', error instanceof Error ? error : new Error(String(error)));
+      message.error(error.message || 'Có lỗi xảy ra khi khôi phục sản phẩm');
     }
   };
 
@@ -107,6 +203,84 @@ const AdminProductManagement: React.FC = () => {
     }
   };
 
+  const handleDuplicateProduct = async (product: Product) => {
+    try {
+      // Lấy thông tin đầy đủ của sản phẩm và variants
+      const productResponse = await productService.getProductById(product.id);
+      if (!productResponse.success || !productResponse.data) {
+        message.error('Không thể lấy thông tin sản phẩm');
+        return;
+      }
+
+      const fullProduct = productResponse.data;
+      
+      // Lấy variants nếu có
+      let variants: any[] = [];
+      if (fullProduct.variants && fullProduct.variants.length > 0) {
+        variants = fullProduct.variants;
+      }
+
+      // Tạo sản phẩm mới với dữ liệu từ sản phẩm gốc
+      const newProductData: any = {
+        category_id: fullProduct.category_id,
+        name: `${fullProduct.name} (Bản sao)`,
+        description: fullProduct.description || '',
+        price: fullProduct.price,
+        stock_quantity: fullProduct.stock_quantity || 0,
+      };
+
+      // Thêm image_urls và video_url nếu có
+      if (fullProduct.image_urls && fullProduct.image_urls.length > 0) {
+        newProductData.image_urls = fullProduct.image_urls;
+      }
+      if (fullProduct.video_url) {
+        newProductData.video_url = fullProduct.video_url;
+      }
+
+      message.loading({ content: 'Đang tạo bản sao sản phẩm...', key: 'duplicate-product' });
+      
+      const createResponse = await productService.createProduct(newProductData as any);
+      
+      if (!createResponse.success || !createResponse.data) {
+        throw new Error(createResponse.message || 'Không thể tạo sản phẩm mới');
+      }
+
+      const newProductId = createResponse.data.id;
+
+      // Tạo variants nếu có
+      if (variants.length > 0) {
+        message.loading({ content: 'Đang tạo biến thể...', key: 'duplicate-variants' });
+        const { variantService } = await import('../../../shares/services/variantService');
+        
+        for (const variant of variants) {
+          await variantService.createVariant(newProductId, {
+            variant_type: variant.variant_type,
+            variant_value: variant.variant_value,
+            price_adjustment: variant.price_adjustment || 0,
+            stock_quantity: variant.stock_quantity || 0,
+            image_urls: variant.image_urls || [],
+          });
+        }
+        message.success({ content: 'Tạo biến thể thành công', key: 'duplicate-variants' });
+      }
+
+      message.success({ content: 'Tạo bản sao sản phẩm thành công', key: 'duplicate-product' });
+      
+      // Refresh danh sách
+      dispatch(fetchAdminProducts({ 
+        search: filters.search || undefined, 
+        category_id: filters.category_id,
+        limit: 100 
+      }));
+      
+      // Mở form chỉnh sửa với sản phẩm mới
+      navigate(`/admin/products/${newProductId}/edit`);
+    } catch (error: any) {
+      message.error({ content: error.message || 'Có lỗi xảy ra khi tạo bản sao sản phẩm', key: 'duplicate-product' });
+      logger.error('Error duplicating product', error instanceof Error ? error : new Error(String(error)));
+    }
+  };
+
   const columns = [
     {
       title: 'ID',
@@ -120,23 +294,88 @@ const AdminProductManagement: React.FC = () => {
       dataIndex: 'image_urls',
       key: 'image_urls',
       width: 100,
-      render: (urls: string[] | null) => (
-        urls && urls.length > 0 ? (
-          <img
-            src={urls[0]}
-            alt="Product"
-            style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 4 }}
-          />
-        ) : (
-          <div style={{ width: 60, height: 60, background: '#f0f0f0', borderRadius: 4 }} />
-        )
-      ),
+      render: (urls: string[] | null | undefined, record: Product) => {
+        const safeUrls = urls ?? [];
+        const imageCount = safeUrls.length;
+        if (imageCount > 0) {
+          return (
+            <Image.PreviewGroup
+              preview={{
+                onChange: (current, prev) => {
+                  console.log(`Preview từ ảnh ${prev} sang ảnh ${current}`);
+                },
+              }}
+            >
+              <Badge count={imageCount > 1 ? imageCount : 0} offset={[-5, 5]}>
+                <Image
+                  src={safeUrls[0]}
+                  alt={record.name}
+                  width={70}
+                  height={70}
+                  style={{ 
+                    objectFit: 'cover', 
+                    borderRadius: 4, 
+                    cursor: 'pointer',
+                    border: '1px solid #d9d9d9'
+                  }}
+                  preview={{
+                    mask: imageCount > 1 ? `Xem tất cả (${imageCount})` : 'Xem',
+                  }}
+                />
+              </Badge>
+              {/* Render các ảnh còn lại nhưng ẩn đi để có thể navigate trong preview */}
+              {safeUrls.slice(1).map((url, index) => (
+                <Image
+                  key={index + 1}
+                  src={url}
+                  alt={`${record.name} - ${index + 2}`}
+                  style={{ display: 'none' }}
+                  preview={{}}
+                />
+              ))}
+            </Image.PreviewGroup>
+          );
+        }
+        return (
+          <div style={{ 
+            width: 70, 
+            height: 70, 
+            background: '#f0f0f0', 
+            borderRadius: 4,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#999'
+          }}>
+            <PictureOutlined />
+          </div>
+        );
+      },
     },
     {
       title: 'Tên sản phẩm',
       dataIndex: 'name',
       key: 'name',
-      align: 'center' as const,
+      align: 'left' as const,
+      render: (name: string, record: Product) => (
+        <div>
+          <Typography.Text strong>{name}</Typography.Text>
+          {record.sku && (
+            <div>
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                SKU: {record.sku}
+              </Typography.Text>
+            </div>
+          )}
+          {record.variants && record.variants.length > 0 && (
+            <div style={{ marginTop: 4 }}>
+              <Tag color="blue" icon={<AppstoreOutlined />}>
+                {record.variants.length} biến thể
+              </Tag>
+            </div>
+          )}
+        </div>
+      ),
     },
     {
       title: 'Danh mục',
@@ -161,11 +400,18 @@ const AdminProductManagement: React.FC = () => {
       dataIndex: 'stock_quantity',
       key: 'stock_quantity',
       align: 'center' as const,
-      render: (quantity: number) => (
-        <Tag color={quantity > 0 ? 'green' : 'red'}>
-          {quantity}
-        </Tag>
-      ),
+      render: (quantity: number, record: Product) => {
+        // Tính tổng tồn kho từ variants nếu có
+        let totalStock = quantity;
+        if (record.variants && record.variants.length > 0) {
+          totalStock = record.variants.reduce((sum, v) => sum + (v.stock_quantity || 0), 0);
+        }
+        return (
+          <Tag color={totalStock > 0 ? 'green' : 'red'}>
+            {totalStock}
+          </Tag>
+        );
+      },
     },
     {
       title: 'Trạng thái',
@@ -173,14 +419,21 @@ const AdminProductManagement: React.FC = () => {
       key: 'is_active',
       align: 'center' as const,
       width: 120,
-      render: (isActive: boolean, record: Product) => (
-        <Switch
-          checked={isActive}
-          checkedChildren={<CheckCircleOutlined />}
-          unCheckedChildren={<CloseCircleOutlined />}
-          onChange={() => handleToggleStatus(record)}
-        />
-      ),
+      render: (isActive: boolean, record: Product) => {
+        const isDeleted =
+          (record as any).deleted_at !== null && (record as any).deleted_at !== undefined;
+        if (isDeleted) {
+          return <Tag color="red">Đã xóa</Tag>;
+        }
+        return (
+          <Switch
+            checked={isActive}
+            checkedChildren={<CheckCircleOutlined />}
+            unCheckedChildren={<CloseCircleOutlined />}
+            onChange={() => handleToggleStatus(record)}
+          />
+        );
+      },
     },
     {
       title: 'Ngày tạo',
@@ -194,64 +447,141 @@ const AdminProductManagement: React.FC = () => {
       title: 'Thao tác',
       key: 'action',
       align: 'center' as const,
-      width: 200,
+      width: 120,
       fixed: 'right' as const,
-      render: (_: any, record: Product) => (
-        <Space>
-          <Button
-            type="link"
-            icon={<EyeOutlined />}
-            onClick={() => navigate(`/products/${record.id}`)}
-            size="small"
+      render: (_: any, record: Product) => {
+        const isDeleted =
+          (record as any).deleted_at !== null && (record as any).deleted_at !== undefined;
+
+        const actions: any[] = [];
+
+        if (!isDeleted) {
+          actions.push(
+            {
+              key: 'view',
+              label: (
+                <Button
+                  type="text"
+                  icon={<EyeOutlined />}
+                  onClick={() => navigate(`/products/${record.id}`)}
+                  block
+                >
+                  Xem
+                </Button>
+              ),
+            },
+            {
+              key: 'edit',
+              label: (
+                <Button
+                  type="text"
+                  icon={<EditOutlined />}
+                  onClick={() => navigate(`/admin/products/${record.id}/edit`)}
+                  block
+                >
+                  Sửa
+                </Button>
+              ),
+            },
+            {
+              key: 'duplicate',
+              label: (
+                <Button
+                  type="text"
+                  icon={<CopyOutlined />}
+                  onClick={() => handleDuplicateProduct(record)}
+                  block
+                >
+                  Sao chép
+                </Button>
+              ),
+            },
+            {
+              key: 'inventory',
+              label: (
+                <Button
+                  type="text"
+                  icon={<DatabaseOutlined />}
+                  onClick={() => {
+                    setInventoryTargetProduct(record);
+                    setInventoryTargetVariantId(undefined);
+                    setInventoryMode('stock-in');
+                    inventoryForm.resetFields();
+                    setInventoryModalOpen(true);
+                  }}
+                  block
+                >
+                  Kho
+                </Button>
+              ),
+            },
+            {
+              key: 'delete',
+              label: (
+                <Popconfirm
+                  title="Bạn có chắc chắn muốn xóa sản phẩm này?"
+                  description="Hành động này không thể hoàn tác."
+                  onConfirm={() => handleDelete(record.id)}
+                  okText="Xóa"
+                  cancelText="Hủy"
+                  okButtonProps={{ danger: true }}
+                >
+                  <Button type="text" danger icon={<DeleteOutlined />} block>
+                    Xóa
+                  </Button>
+                </Popconfirm>
+              ),
+            }
+          );
+        } else {
+          actions.push({
+            key: 'restore',
+            label: (
+              <Popconfirm
+                title="Bạn có chắc chắn muốn khôi phục sản phẩm này?"
+                description="Sản phẩm sẽ được khôi phục và có thể sử dụng lại."
+                onConfirm={() => handleRestore(record.id)}
+                okText="Khôi phục"
+                cancelText="Hủy"
+              >
+                <Button type="text" icon={<UndoOutlined />} block style={{ color: '#52c41a' }}>
+                  Khôi phục
+                </Button>
+              </Popconfirm>
+            ),
+          });
+        }
+
+        return (
+          <Dropdown
+            trigger={['click']}
+            menu={{ items: actions }}
+            placement="bottomRight"
           >
-            Xem
-          </Button>
-          <Button
-            type="link"
-            icon={<EditOutlined />}
-            onClick={() => navigate(`/admin/products/${record.id}/edit`)}
-            size="small"
-          >
-            Sửa
-          </Button>
-          <Popconfirm
-            title="Bạn có chắc chắn muốn xóa sản phẩm này?"
-            description="Hành động này không thể hoàn tác."
-            onConfirm={() => handleDelete(record.id)}
-            okText="Xóa"
-            cancelText="Hủy"
-            okButtonProps={{ danger: true }}
-          >
-            <Button
-              type="link"
-              danger
-              icon={<DeleteOutlined />}
-              size="small"
-            >
-              Xóa
-            </Button>
-          </Popconfirm>
-        </Space>
-      ),
+            <Button icon={<MoreOutlined />} />
+          </Dropdown>
+        );
+      },
     },
   ];
 
   return (
-    <div>
-      <Card>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-          <Title level={2} style={{ margin: 0 }}>
-            <ShoppingOutlined /> Quản lý sản phẩm
-          </Title>
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => setIsModalVisible(true)}
-          >
-            Tạo sản phẩm mới
-          </Button>
-        </div>
-
+    <AdminPageContent
+      title={(
+        <>
+          <ShoppingOutlined /> Quản lý sản phẩm
+        </>
+      )}
+      extra={(
+        <Button
+          type="primary"
+          icon={<PlusOutlined />}
+          onClick={() => setIsModalVisible(true)}
+        >
+          Tạo sản phẩm mới
+        </Button>
+      )}
+    >
         <Space direction="vertical" size="large" style={{ width: '100%', marginBottom: 16 }}>
           <Space style={{ width: '100%', flexWrap: 'wrap' }}>
             <Search
@@ -261,23 +591,40 @@ const AdminProductManagement: React.FC = () => {
               onSearch={(value) => setSearchQuery(value)}
               enterButton
             />
-            <Select
-              style={{ width: '100%', maxWidth: 260 }}
-              placeholder="Lọc theo danh mục"
+            <TreeSelect
+              style={{ width: 'auto', minWidth: 220, maxWidth: 320 }}
+              placeholder="Lọc theo danh mục (bao gồm danh mục con)"
               allowClear
+              treeDefaultExpandAll
+              dropdownMatchSelectWidth={false}
+              dropdownStyle={{ minWidth: 220, maxHeight: 400, overflow: 'auto' }}
               value={selectedCategory}
               onChange={(value) => setSelectedCategory(value)}
             >
-              {categories.map((cat) => (
-                <Option key={cat.id} value={cat.id}>
-                  {cat.name}
-                </Option>
-              ))}
-            </Select>
+              {categoryTree.map((node) => renderCategoryNode(node))}
+            </TreeSelect>
+            <Button 
+              type={showDeleted ? 'primary' : 'default'}
+              danger={showDeleted}
+              onClick={() => {
+                const newShowDeleted = !showDeleted;
+                setShowDeleted(newShowDeleted);
+                dispatch(setIncludeDeleted(newShowDeleted));
+                dispatch(fetchAdminProducts({ 
+                  search: filters.search || undefined, 
+                  category_id: filters.category_id,
+                  include_deleted: newShowDeleted,
+                  limit: 100 
+                }));
+              }}
+            >
+              {showDeleted ? 'Ẩn sản phẩm đã xóa' : 'Hiển thị sản phẩm đã xóa'}
+            </Button>
             <Button icon={<ReloadOutlined />} onClick={() => {
               dispatch(fetchAdminProducts({ 
                 search: filters.search || undefined, 
                 category_id: filters.category_id,
+                include_deleted: filters.include_deleted,
                 limit: 100 
               }));
             }}>
@@ -286,19 +633,113 @@ const AdminProductManagement: React.FC = () => {
           </Space>
         </Space>
 
+        {error && (
+          <div style={{ marginBottom: 16, padding: 12, background: '#fff2f0', border: '1px solid #ffccc7', borderRadius: 4 }}>
+            <Typography.Text type="danger">
+              <strong>Lỗi:</strong> {error}
+            </Typography.Text>
+          </div>
+        )}
+
         <Table
           columns={columns}
           dataSource={products}
           loading={loading}
           rowKey="id"
           scroll={{ x: 'max-content' }}
+          expandable={{
+            expandedRowRender: (record: Product) => {
+              if (!record.variants || record.variants.length === 0) {
+                return (
+                  <div style={{ padding: '16px 0', textAlign: 'center', color: '#999' }}>
+                    Sản phẩm này chưa có biến thể
+                  </div>
+                );
+              }
+              return (
+                <div style={{ padding: '16px 0' }}>
+                  <Typography.Title level={5} style={{ marginBottom: 12 }}>
+                    <AppstoreOutlined /> Biến thể ({record.variants.length})
+                  </Typography.Title>
+                  <Row gutter={[16, 16]}>
+                    {record.variants.map((variant) => (
+                      <Col xs={24} sm={12} md={8} lg={6} key={variant.id}>
+                        <Card
+                          size="small"
+                          hoverable
+                          cover={
+                            variant.image_urls && variant.image_urls.length > 0 ? (
+                              <Image
+                                src={variant.image_urls[0]}
+                                alt={`${variant.variant_type}: ${variant.variant_value}`}
+                                height={120}
+                                style={{ objectFit: 'cover' }}
+                              />
+                            ) : (
+                              <div style={{ 
+                                height: 120, 
+                                background: '#f0f0f0',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: '#999'
+                              }}>
+                                <PictureOutlined />
+                              </div>
+                            )
+                          }
+                        >
+                          <Card.Meta
+                            title={
+                              <div>
+                                <Tag color="blue">{variant.variant_type}</Tag>
+                                <Tag>{variant.variant_value}</Tag>
+                              </div>
+                            }
+                            description={
+                              <div style={{ marginTop: 8 }}>
+                                <div>
+                                  <Typography.Text type="secondary">Giá điều chỉnh: </Typography.Text>
+                                  <Typography.Text strong>
+                                    {variant.price_adjustment >= 0 ? '+' : ''}
+                                    {variant.price_adjustment.toLocaleString('vi-VN')} VNĐ
+                                  </Typography.Text>
+                                </div>
+                                <div style={{ marginTop: 4 }}>
+                                  <Typography.Text type="secondary">Tồn kho: </Typography.Text>
+                                  <Tag color={variant.stock_quantity > 0 ? 'green' : 'red'}>
+                                    {variant.stock_quantity}
+                                  </Tag>
+                                </div>
+                                {variant.image_urls && variant.image_urls.length > 0 && (
+                                  <div style={{ marginTop: 4 }}>
+                                    <Typography.Text type="secondary">
+                                      <PictureOutlined /> {variant.image_urls.length} ảnh
+                                    </Typography.Text>
+                                  </div>
+                                )}
+                              </div>
+                            }
+                          />
+                        </Card>
+                      </Col>
+                    ))}
+                  </Row>
+                </div>
+              );
+            },
+            rowExpandable: (record: Product) =>
+              Array.isArray(record.variants) && record.variants.length > 0,
+          }}
           pagination={{
             pageSize: 20,
             showSizeChanger: true,
             showTotal: (total) => `Tổng ${total} sản phẩm`,
           }}
+          locale={{
+            emptyText: loading ? 'Đang tải...' : error ? `Lỗi: ${error}` : 'Không có sản phẩm nào',
+          }}
         />
-      </Card>
 
       <Modal
         title="Tạo sản phẩm mới"
@@ -326,7 +767,120 @@ const AdminProductManagement: React.FC = () => {
           onCancel={() => setIsModalVisible(false)}
         />
       </Modal>
-    </div>
+
+      {/* Modal xử lý tồn kho ngay trên trang sản phẩm */}
+      <Modal
+        title={
+          <Space>
+            <DatabaseOutlined />
+            <span>
+              {inventoryMode === 'stock-in' ? 'Nhập kho' : 'Điều chỉnh tồn kho'}
+            </span>
+          </Space>
+        }
+        open={inventoryModalOpen}
+        onCancel={() => {
+          setInventoryModalOpen(false);
+          setInventoryTargetProduct(null);
+          setInventoryTargetVariantId(undefined);
+          inventoryForm.resetFields();
+        }}
+        okText="Thực hiện"
+        cancelText="Hủy"
+        confirmLoading={inventoryLoading}
+        onOk={() => inventoryForm.submit()}
+      >
+        <Form
+          form={inventoryForm}
+          layout="vertical"
+          initialValues={{ mode: 'stock-in', quantity: 1 }}
+          onFinish={async (values) => {
+            if (!inventoryTargetProduct) return;
+            const product_id = inventoryTargetVariantId ? undefined : inventoryTargetProduct.id;
+            const variant_id = inventoryTargetVariantId;
+            try {
+              setInventoryLoading(true);
+              if (values.mode === 'stock-in') {
+                await inventoryService.stockIn({
+                  product_id,
+                  variant_id,
+                  quantity: values.quantity,
+                });
+                message.success('Nhập kho thành công');
+              } else {
+                await inventoryService.stockAdjustment({
+                  product_id,
+                  variant_id,
+                  new_quantity: values.new_quantity,
+                });
+                message.success('Điều chỉnh kho thành công');
+              }
+              setInventoryModalOpen(false);
+              setInventoryTargetProduct(null);
+              setInventoryTargetVariantId(undefined);
+              inventoryForm.resetFields();
+              dispatch(fetchAdminProducts({ 
+                search: filters.search || undefined, 
+                category_id: filters.category_id,
+                include_deleted: filters.include_deleted,
+                limit: 100 
+              }));
+            } catch (error: any) {
+              message.error(error.message || 'Có lỗi khi xử lý kho');
+            } finally {
+              setInventoryLoading(false);
+            }
+          }}
+        >
+          <Form.Item label="Chế độ" name="mode">
+            <Select
+              onChange={(value) => setInventoryMode(value)}
+              options={[
+                { value: 'stock-in', label: 'Nhập thêm' },
+                { value: 'stock-adjustment', label: 'Điều chỉnh về số lượng mới' },
+              ]}
+            />
+          </Form.Item>
+
+          {inventoryTargetProduct?.variants?.length ? (
+            <Form.Item label="Biến thể" name="variant_id">
+              <Select
+                allowClear
+                placeholder="Chọn biến thể (bỏ trống để áp dụng cho sản phẩm gốc)"
+                value={inventoryTargetVariantId}
+                onChange={(val) => setInventoryTargetVariantId(val)}
+              >
+                {inventoryTargetProduct.variants.map((v) => (
+                  <Select.Option key={v.id} value={v.id}>
+                    {v.variant_type}: {v.variant_value} (Tồn: {v.stock_quantity})
+                  </Select.Option>
+                ))}
+              </Select>
+            </Form.Item>
+          ) : (
+            <Tag color="blue">Sản phẩm không có biến thể, thao tác trực tiếp trên tồn kho sản phẩm.</Tag>
+          )}
+
+          {inventoryMode === 'stock-in' ? (
+            <Form.Item
+              label="Số lượng nhập thêm"
+              name="quantity"
+              rules={[{ required: true, message: 'Nhập số lượng' }, { type: 'number', min: 1, message: '>= 1' }]}
+            >
+              <InputNumber style={{ width: '100%' }} min={1} />
+            </Form.Item>
+          ) : (
+            <Form.Item
+              label="Số lượng mới"
+              name="new_quantity"
+              rules={[{ required: true, message: 'Nhập số lượng mới' }, { type: 'number', min: 0, message: '>= 0' }]}
+            >
+              <InputNumber style={{ width: '100%' }} min={0} />
+            </Form.Item>
+          )}
+        </Form>
+      </Modal>
+    </AdminPageContent>
   );
 };
 

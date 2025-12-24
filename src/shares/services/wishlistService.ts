@@ -16,7 +16,10 @@ export interface WishlistItem {
 
 export const wishlistService = {
   getWishlist: async (): Promise<ApiResponse<WishlistItem[]>> => {
-    return apiClient.get('/wishlist');
+    console.log('Calling wishlistService.getWishlist() - API: /wishlist');
+    const result = await apiClient.get('/wishlist');
+    console.log('wishlistService.getWishlist() response:', result);
+    return result;
   },
 
   addToWishlist: async (product_id: number): Promise<ApiResponse<WishlistItem>> => {

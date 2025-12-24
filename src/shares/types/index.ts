@@ -64,6 +64,7 @@ export interface ProductVariant {
   variant_value: string; // e.g., 'XL', 'Red'
   price_adjustment: number;
   stock_quantity: number;
+  image_urls?: string[] | null; // Images của variant
   created_at: string;
 }
 
