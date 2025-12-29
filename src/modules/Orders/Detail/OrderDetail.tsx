@@ -189,10 +189,12 @@ const OrderDetail: React.FC = () => {
           )}
           <div>
             <Text strong>{record.product?.name || 'Sản phẩm'}</Text>
-            {record.variant && (
+            {record.variant && record.variant.variant_attributes && (
               <div>
                 <Text type="secondary" style={{ fontSize: 12 }}>
-                  {record.variant.variant_type}: {record.variant.variant_value}
+                  {Object.entries(record.variant.variant_attributes)
+                    .map(([key, val]) => `${key}: ${val}`)
+                    .join(', ')}
                 </Text>
               </div>
             )}
@@ -369,10 +371,12 @@ const OrderDetail: React.FC = () => {
                   <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
                       <Text strong>{item.product?.name || 'Sản phẩm'}</Text>
-                      {item.variant && (
+                      {item.variant && item.variant.variant_attributes && (
                         <div>
                           <Text type="secondary" style={{ fontSize: 12 }}>
-                            {item.variant.variant_type}: {item.variant.variant_value}
+                            {Object.entries(item.variant.variant_attributes)
+                              .map(([key, val]) => `${key}: ${val}`)
+                              .join(', ')}
                           </Text>
                         </div>
                       )}

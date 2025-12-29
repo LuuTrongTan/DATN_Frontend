@@ -60,9 +60,11 @@ const Cart: React.FC = () => {
           />
           <div>
             <div style={{ fontWeight: 'bold' }}>{record.product?.name}</div>
-            {record.variant && (
+            {record.variant && record.variant.variant_attributes && (
               <div style={{ fontSize: 12, color: '#999' }}>
-                {record.variant.variant_type}: {record.variant.variant_value}
+                {Object.entries(record.variant.variant_attributes)
+                  .map(([key, val]) => `${key}: ${val}`)
+                  .join(', ')}
               </div>
             )}
           </div>

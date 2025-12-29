@@ -96,7 +96,15 @@ const StockAlerts: React.FC = () => {
       render: (_: any, record: StockAlert) => (
         <div>
           {record.product_name || `Sản phẩm #${record.product_id}`}
-          {record.variant_type && record.variant_value && (
+          {record.variant_attributes && (
+            <div style={{ fontSize: 12, color: '#999' }}>
+              {Object.entries(record.variant_attributes)
+                .map(([key, val]) => `${key}: ${val}`)
+                .join(', ')}
+            </div>
+          )}
+          {/* Fallback cho dữ liệu cũ */}
+          {!record.variant_attributes && record.variant_type && record.variant_value && (
             <div style={{ fontSize: 12, color: '#999' }}>
               {record.variant_type}: {record.variant_value}
             </div>

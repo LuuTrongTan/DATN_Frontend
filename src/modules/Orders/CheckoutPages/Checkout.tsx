@@ -385,9 +385,11 @@ const Checkout: React.FC = () => {
                       <div style={{ maxWidth: '65%' }}>
                         <Text strong>{item.product?.name}</Text>
                         <br />
-                        {item.variant && (
+                        {item.variant && item.variant.variant_attributes && (
                           <Text type="secondary" style={{ fontSize: 12 }}>
-                            {item.variant.variant_type}: {item.variant.variant_value}
+                            {Object.entries(item.variant.variant_attributes)
+                              .map(([key, val]) => `${key}: ${val}`)
+                              .join(', ')}
                           </Text>
                         )}
                         <br />

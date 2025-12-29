@@ -56,15 +56,38 @@ export interface Product {
   updated_at: string;
 }
 
+// Variant Attribute Definition Types
+export interface VariantAttributeDefinition {
+  id: number;
+  product_id: number;
+  attribute_name: string; // e.g., 'Size', 'Color'
+  display_name: string; // e.g., 'Kích cỡ', 'Màu sắc'
+  display_order: number;
+  is_required: boolean;
+  created_at: string;
+  values?: VariantAttributeValue[];
+}
+
+export interface VariantAttributeValue {
+  id: number;
+  definition_id: number;
+  value: string; // e.g., 'M', 'L', 'XL' or 'Đỏ', 'Xanh'
+  display_order: number;
+  created_at: string;
+}
+
 // Product Variant Types
 export interface ProductVariant {
   id: number;
   product_id: number;
-  variant_type: string; // e.g., 'size', 'color'
-  variant_value: string; // e.g., 'XL', 'Red'
+  sku?: string | null;
+  variant_attributes: Record<string, string>; // e.g., {"Size": "M", "Color": "Đỏ"}
   price_adjustment: number;
   stock_quantity: number;
+  image_url?: string | null;
+  is_active: boolean;
   created_at: string;
+  updated_at: string;
 }
 
 // Cart Types

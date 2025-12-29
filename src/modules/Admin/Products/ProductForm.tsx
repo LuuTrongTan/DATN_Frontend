@@ -34,6 +34,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { productService } from '../../../shares/services/productService';
 import { variantService } from '../../../shares/services/variantService';
 import { Category, ProductVariant } from '../../../shares/types';
+import VariantAttributesManager from './VariantAttributesManager';
+import VariantAttributesForm from './VariantAttributesForm';
 import { uploadFile, uploadMultipleFiles } from '../../../shares/services/uploadService';
 import { logger } from '../../../shares/utils/logger';
 import { useAppDispatch, useAppSelector } from '../../../shares/stores';
@@ -59,10 +61,12 @@ interface ImageItem {
 
 type VariantDraft = {
   id?: number; // có khi là variant đã tồn tại
-  variant_type: string;
-  variant_value: string;
+  variant_attributes: Record<string, string>; // Mới: JSONB variant_attributes
   price_adjustment?: number;
   stock_quantity?: number;
+  sku?: string | null;
+  image_url?: string | null;
+  is_active?: boolean;
 };
 
 const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
@@ -283,10 +287,12 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
           });
           for (const v of variantDrafts) {
             await variantService.createVariant(createdProductId, {
-              variant_type: v.variant_type,
-              variant_value: v.variant_value,
+              variant_attributes: v.variant_attributes,
               price_adjustment: v.price_adjustment || 0,
               stock_quantity: v.stock_quantity || 0,
+              sku: v.sku || null,
+              image_url: v.image_url || null,
+              is_active: v.is_active !== false,
             });
           }
           message.success({
@@ -376,33 +382,36 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
     if (!isEditMode) return;
     setVariantEditing(v);
     variantForm.setFieldsValue({
-      variant_type: v.variant_type,
-      variant_value: v.variant_value,
+      variant_attributes: v.variant_attributes || {}, // Dùng object trực tiếp
       price_adjustment: v.price_adjustment || 0,
       stock_quantity: v.stock_quantity || 0,
+      sku: v.sku || null,
+      image_url: v.image_url || null,
+      is_active: v.is_active !== false,
     });
     setVariantModalOpen(true);
   };
 
-  const saveVariant = async (values: VariantDraft) => {
+  const saveVariant = async (values: any) => {
     if (!id) return;
     try {
       setVariantSaving(true);
+      
+      // variant_attributes đã là object từ form, không cần parse
+      const payload = {
+        variant_attributes: values.variant_attributes || {},
+        price_adjustment: values.price_adjustment ?? 0,
+        stock_quantity: values.stock_quantity ?? 0,
+        sku: values.sku || null,
+        image_url: values.image_url || null,
+        is_active: values.is_active !== false,
+      };
+      
       if (variantEditing) {
-        await variantService.updateVariant(variantEditing.id, {
-          variant_type: values.variant_type,
-          variant_value: values.variant_value,
-          price_adjustment: values.price_adjustment ?? 0,
-          stock_quantity: values.stock_quantity ?? 0,
-        });
+        await variantService.updateVariant(variantEditing.id, payload);
         message.success('Cập nhật biến thể thành công');
       } else {
-        await variantService.createVariant(Number(id), {
-          variant_type: values.variant_type,
-          variant_value: values.variant_value,
-          price_adjustment: values.price_adjustment ?? 0,
-          stock_quantity: values.stock_quantity ?? 0,
-        });
+        await variantService.createVariant(Number(id), payload);
         message.success('Tạo biến thể thành công');
       }
       setVariantModalOpen(false);
@@ -438,28 +447,48 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
     setVariantDraftEditingIndex(index);
     const v = variantDrafts[index];
     variantDraftForm.setFieldsValue({
-      variant_type: v.variant_type,
-      variant_value: v.variant_value,
+      variant_attributes: JSON.stringify(v.variant_attributes || {}, null, 2), // Format JSON để dễ đọc
       price_adjustment: v.price_adjustment || 0,
       stock_quantity: v.stock_quantity || 0,
+      sku: v.sku || null,
+      image_url: v.image_url || null,
+      is_active: v.is_active !== false,
     });
     setVariantDraftModalOpen(true);
   };
 
-  const saveVariantDraft = (values: VariantDraft) => {
+  const saveVariantDraft = (values: any) => {
+    // Parse variant_attributes nếu là string
+    let variantAttributes = values.variant_attributes;
+    if (typeof variantAttributes === 'string') {
+      try {
+        variantAttributes = JSON.parse(variantAttributes);
+      } catch {
+        message.error('JSON không hợp lệ');
+        return;
+      }
+    }
+    
     const normalized: VariantDraft = {
-      variant_type: values.variant_type.trim(),
-      variant_value: values.variant_value.trim(),
+      variant_attributes: variantAttributes || {},
       price_adjustment: values.price_adjustment ?? 0,
       stock_quantity: values.stock_quantity ?? 0,
+      sku: values.sku || null,
+      image_url: values.image_url || null,
+      is_active: values.is_active !== false,
     };
 
-    // chặn trùng (type+value)
+    // Validate variant_attributes không rỗng
+    if (!normalized.variant_attributes || Object.keys(normalized.variant_attributes).length === 0) {
+      message.error('Phải có ít nhất một thuộc tính biến thể');
+      return;
+    }
+
+    // chặn trùng (variant_attributes)
     const duplicateIndex = variantDrafts.findIndex(
       (v, idx) =>
         idx !== (variantDraftEditingIndex ?? -1) &&
-        v.variant_type.toLowerCase() === normalized.variant_type.toLowerCase() &&
-        v.variant_value.toLowerCase() === normalized.variant_value.toLowerCase()
+        JSON.stringify(v.variant_attributes) === JSON.stringify(normalized.variant_attributes)
     );
     if (duplicateIndex !== -1) {
       message.error('Biến thể này đã tồn tại trong danh sách');
@@ -484,15 +513,17 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
 
   const variantColumns = [
     {
-      title: 'Loại',
-      dataIndex: 'variant_type',
-      key: 'variant_type',
-      render: (text: string) => <Tag color="blue">{text}</Tag>,
-    },
-    {
-      title: 'Giá trị',
-      dataIndex: 'variant_value',
-      key: 'variant_value',
+      title: 'Thuộc tính',
+      key: 'variant_attributes',
+      render: (_: any, record: ProductVariant) => (
+        <div>
+          {record.variant_attributes && Object.entries(record.variant_attributes).map(([key, val]) => (
+            <Tag key={key} color="blue" style={{ marginBottom: 4 }}>
+              {key}: {val}
+            </Tag>
+          ))}
+        </div>
+      ),
     },
     {
       title: 'Điều chỉnh giá',
@@ -533,15 +564,17 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
 
   const variantDraftColumns = [
     {
-      title: 'Loại',
-      dataIndex: 'variant_type',
-      key: 'variant_type',
-      render: (text: string) => <Tag color="blue">{text}</Tag>,
-    },
-    {
-      title: 'Giá trị',
-      dataIndex: 'variant_value',
-      key: 'variant_value',
+      title: 'Thuộc tính',
+      key: 'variant_attributes',
+      render: (_: any, record: VariantDraft) => (
+        <div>
+          {record.variant_attributes && Object.entries(record.variant_attributes).map(([key, val]) => (
+            <Tag key={key} color="blue" style={{ marginBottom: 4 }}>
+              {key}: {val}
+            </Tag>
+          )))}
+        </div>
+      ),
     },
     {
       title: 'Điều chỉnh giá',
@@ -665,6 +698,27 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
               </Form.Item>
             </Col>
           </Row>
+
+          {/* Quản lý thuộc tính biến thể (chỉ hiện khi edit mode) */}
+          {isEditMode && id && (
+            <Card
+              title="Quản lý thuộc tính biến thể"
+              style={{ marginBottom: 16 }}
+              extra={
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  Định nghĩa các thuộc tính (Size, Color...) và giá trị (M, L, XL...)
+                </Text>
+              }
+            >
+              <VariantAttributesManager
+                productId={Number(id)}
+                onAttributesChange={() => {
+                  // Refresh variants khi attributes thay đổi
+                  fetchVariants();
+                }}
+              />
+            </Card>
+          )}
 
           <Card
             title="Biến thể (tùy chọn)"
@@ -927,29 +981,48 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
               onFinish={saveVariant}
               initialValues={{ price_adjustment: 0, stock_quantity: 0 }}
             >
+              <Form.Item
+                label="Thuộc tính biến thể"
+                name="variant_attributes"
+                rules={[
+                  { required: true, message: 'Vui lòng chọn thuộc tính biến thể' },
+                  {
+                    validator: (_, value) => {
+                      if (!value || Object.keys(value).length === 0) {
+                        return Promise.reject('Vui lòng chọn ít nhất một thuộc tính');
+                      }
+                      return Promise.resolve();
+                    },
+                  },
+                ]}
+                tooltip="Chọn các thuộc tính và giá trị từ danh sách đã định nghĩa"
+              >
+                {id ? (
+                  <VariantAttributesForm
+                    productId={Number(id)}
+                    value={variantForm.getFieldValue('variant_attributes')}
+                    onChange={(val) => variantForm.setFieldsValue({ variant_attributes: val })}
+                    required
+                  />
+                ) : (
+                  <Alert
+                    message="Lưu ý"
+                    description="Vui lòng lưu sản phẩm trước, sau đó quay lại để tạo biến thể với form chọn thuộc tính"
+                    type="info"
+                    showIcon
+                  />
+                )}
+              </Form.Item>
+
               <Row gutter={16}>
                 <Col xs={24} md={12}>
-                  <Form.Item
-                    label="Loại biến thể"
-                    name="variant_type"
-                    rules={[
-                      { required: true, message: 'Vui lòng nhập loại biến thể (vd: size, color)' },
-                      { max: 50, message: 'Tối đa 50 ký tự' },
-                    ]}
-                  >
-                    <Input placeholder="Ví dụ: size" />
+                  <Form.Item label="SKU (tùy chọn)" name="sku">
+                    <Input placeholder="Ví dụ: AO-THUN-001-M-DO" />
                   </Form.Item>
                 </Col>
                 <Col xs={24} md={12}>
-                  <Form.Item
-                    label="Giá trị"
-                    name="variant_value"
-                    rules={[
-                      { required: true, message: 'Vui lòng nhập giá trị (vd: XL, Đỏ)' },
-                      { max: 100, message: 'Tối đa 100 ký tự' },
-                    ]}
-                  >
-                    <Input placeholder="Ví dụ: XL" />
+                  <Form.Item label="Ảnh biến thể (URL, tùy chọn)" name="image_url">
+                    <Input placeholder="https://..." />
                   </Form.Item>
                 </Col>
               </Row>
@@ -971,6 +1044,13 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
                   </Form.Item>
                 </Col>
               </Row>
+              
+              <Form.Item label="Trạng thái" name="is_active">
+                <Select>
+                  <Option value={true}>Hoạt động</Option>
+                  <Option value={false}>Vô hiệu hóa</Option>
+                </Select>
+              </Form.Item>
 
               <Form.Item>
                 <Space>
@@ -1009,29 +1089,65 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
               onFinish={saveVariantDraft}
               initialValues={{ price_adjustment: 0, stock_quantity: 0 }}
             >
+              <Form.Item
+                label="Thuộc tính biến thể"
+                name="variant_attributes"
+                rules={[
+                  { required: true, message: 'Vui lòng chọn thuộc tính biến thể' },
+                  {
+                    validator: (_, value) => {
+                      if (!value || Object.keys(value).length === 0) {
+                        return Promise.reject('Vui lòng chọn ít nhất một thuộc tính');
+                      }
+                      return Promise.resolve();
+                    },
+                  },
+                ]}
+                tooltip="Chọn các thuộc tính và giá trị từ danh sách đã định nghĩa"
+              >
+                <Alert
+                  message="Lưu ý"
+                  description="Vui lòng lưu sản phẩm trước, sau đó quay lại để tạo biến thể với form chọn thuộc tính. Hoặc nhập JSON tạm thời:"
+                  type="info"
+                  showIcon
+                  style={{ marginBottom: 16 }}
+                />
+                <TextArea
+                  rows={3}
+                  placeholder='{"Size": "M", "Color": "Đỏ"}'
+                  onBlur={(e) => {
+                    try {
+                      const parsed = JSON.parse(e.target.value);
+                      variantDraftForm.setFieldsValue({ variant_attributes: parsed });
+                    } catch {
+                      // Ignore parse errors, validation will catch it
+                    }
+                  }}
+                />
+              </Form.Item>
+              
               <Row gutter={16}>
                 <Col xs={24} md={12}>
-                  <Form.Item
-                    label="Loại biến thể"
-                    name="variant_type"
-                    rules={[
-                      { required: true, message: 'Vui lòng nhập loại biến thể (vd: size, color)' },
-                      { max: 50, message: 'Tối đa 50 ký tự' },
-                    ]}
-                  >
-                    <Input placeholder="Ví dụ: color" />
+                  <Form.Item label="SKU (tùy chọn)" name="sku">
+                    <Input placeholder="Ví dụ: AO-THUN-001-M-DO" />
                   </Form.Item>
                 </Col>
                 <Col xs={24} md={12}>
-                  <Form.Item
-                    label="Giá trị"
-                    name="variant_value"
-                    rules={[
-                      { required: true, message: 'Vui lòng nhập giá trị (vd: Đỏ, Xanh)' },
-                      { max: 100, message: 'Tối đa 100 ký tự' },
-                    ]}
-                  >
-                    <Input placeholder="Ví dụ: Đỏ" />
+                  <Form.Item label="Ảnh biến thể (URL, tùy chọn)" name="image_url">
+                    <Input placeholder="https://..." />
+                  </Form.Item>
+                </Col>
+              </Row>
+
+              <Row gutter={16}>
+                <Col xs={24} md={12}>
+                  <Form.Item label="SKU (tùy chọn)" name="sku">
+                    <Input placeholder="Ví dụ: AO-THUN-001-M-DO" />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} md={12}>
+                  <Form.Item label="Ảnh biến thể (URL, tùy chọn)" name="image_url">
+                    <Input placeholder="https://..." />
                   </Form.Item>
                 </Col>
               </Row>
@@ -1053,6 +1169,13 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
                   </Form.Item>
                 </Col>
               </Row>
+              
+              <Form.Item label="Trạng thái" name="is_active">
+                <Select>
+                  <Option value={true}>Hoạt động</Option>
+                  <Option value={false}>Vô hiệu hóa</Option>
+                </Select>
+              </Form.Item>
 
               <Form.Item>
                 <Space>

@@ -25,6 +25,8 @@ export interface StockAlert {
   created_at: string;
   updated_at: string;
   product_name?: string;
+  variant_attributes?: Record<string, string>; // Mới: JSONB variant_attributes
+  // Deprecated: giữ lại để backward compatibility
   variant_type?: string;
   variant_value?: string;
 }

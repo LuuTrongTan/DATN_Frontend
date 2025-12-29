@@ -45,7 +45,9 @@ const ProductDetail: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
-  const [variantsByType, setVariantsByType] = useState<Record<string, ProductVariant[]>>({});
+  const [selectedAttributes, setSelectedAttributes] = useState<Record<string, string>>({});
+  const [variantsByAttribute, setVariantsByAttribute] = useState<Record<string, string[]>>({});
+  const [availableVariants, setAvailableVariants] = useState<ProductVariant[]>([]);
   
   // Lấy trạng thái từ Redux
   const { loading: cartLoading } = useAppSelector((state) => state.cart);
@@ -72,16 +74,28 @@ const ProductDetail: React.FC = () => {
       if (response.success && response.data) {
         setProduct(response.data);
         
-        // Organize variants by type
+        // Organize variants by attribute names and values
         if (response.data.variants && response.data.variants.length > 0) {
-          const organized: Record<string, ProductVariant[]> = {};
-          response.data.variants.forEach((variant: ProductVariant) => {
-            if (!organized[variant.variant_type]) {
-              organized[variant.variant_type] = [];
-            }
-            organized[variant.variant_type].push(variant);
+          const organized: Record<string, string[]> = {};
+          const variants = response.data.variants;
+          
+          // Lấy tất cả các attribute names từ variants
+          variants.forEach((variant: ProductVariant) => {
+            if (variant.variant_attributes) {
+              Object.keys(variant.variant_attributes).forEach((attrName) => {
+                if (!organized[attrName]) {
+                  organized[attrName] = [];
+                }
+                const value = variant.variant_attributes[attrName];
+                if (!organized[attrName].includes(value)) {
+                  organized[attrName].push(value);
+                }
           });
-          setVariantsByType(organized);
+            }
+          });
+          
+          setVariantsByAttribute(organized);
+          setAvailableVariants(variants);
         }
       } else {
         message.error('Không tìm thấy sản phẩm');
@@ -116,10 +130,29 @@ const ProductDetail: React.FC = () => {
     if (!product) return;
 
     // Check if variant is required but not selected
-    const variantTypes = Object.keys(variantsByType);
-    if (variantTypes.length > 0 && !selectedVariant) {
-      message.warning('Vui lòng chọn biến thể sản phẩm');
+    const attributeNames = Object.keys(variantsByAttribute);
+    if (attributeNames.length > 0 && !selectedVariant) {
+      // Kiểm tra xem đã chọn đủ tất cả thuộc tính chưa
+      const allSelected = attributeNames.every(attrName => selectedAttributes[attrName]);
+      if (!allSelected) {
+        message.warning('Vui lòng chọn đầy đủ các thuộc tính sản phẩm');
+        return;
+      }
+      
+      // Tìm variant phù hợp với các thuộc tính đã chọn
+      const matchingVariant = availableVariants.find(v => {
+        if (!v.variant_attributes) return false;
+        return Object.keys(selectedAttributes).every(
+          attrName => v.variant_attributes[attrName] === selectedAttributes[attrName]
+        );
+      });
+      
+      if (!matchingVariant) {
+        message.warning('Không tìm thấy biến thể phù hợp với lựa chọn');
       return;
+      }
+      
+      setSelectedVariant(matchingVariant);
     }
 
     // Check stock
@@ -141,6 +174,7 @@ const ProductDetail: React.FC = () => {
       message.success('Đã thêm vào giỏ hàng');
       setQuantity(1);
       setSelectedVariant(null);
+      setSelectedAttributes({});
     } catch (error: any) {
       message.error(error.message || 'Có lỗi xảy ra khi thêm vào giỏ hàng');
     }
@@ -182,8 +216,27 @@ const ProductDetail: React.FC = () => {
   const hasStock = availableStock > 0;
   const maxQuantity = Math.min(availableStock, 99);
   
-  // Group variants by type for display
-  const variantTypes = Object.keys(variantsByType);
+  // Group variants by attribute for display
+  const attributeNames = Object.keys(variantsByAttribute);
+  
+  // Khi chọn thuộc tính, tìm variant phù hợp
+  const handleAttributeChange = (attrName: string, value: string) => {
+    const newSelected = { ...selectedAttributes, [attrName]: value };
+    setSelectedAttributes(newSelected);
+    
+    // Tìm variant phù hợp
+    const matchingVariant = availableVariants.find(v => {
+      if (!v.variant_attributes) return false;
+      return Object.keys(newSelected).every(
+        key => v.variant_attributes[key] === newSelected[key]
+      );
+    });
+    
+    setSelectedVariant(matchingVariant || null);
+    if (matchingVariant) {
+      setQuantity(1);
+    }
+  };
 
   return (
     <div>
@@ -279,37 +332,44 @@ const ProductDetail: React.FC = () => {
               </div>
 
               {/* Chọn biến thể */}
-              {variantTypes.length > 0 && (
+              {attributeNames.length > 0 && (
                 <div>
-                  {variantTypes.map((type) => (
-                    <div key={type} style={{ marginBottom: 16 }}>
+                  {attributeNames.map((attrName) => (
+                    <div key={attrName} style={{ marginBottom: 16 }}>
                       <Text strong style={{ display: 'block', marginBottom: 8 }}>
-                        {type === 'size' ? 'Kích thước' : 
-                         type === 'color' ? 'Màu sắc' : 
-                         type === 'material' ? 'Chất liệu' : 
-                         type.charAt(0).toUpperCase() + type.slice(1)}:
+                        {attrName === 'Size' ? 'Kích thước' : 
+                         attrName === 'Color' ? 'Màu sắc' : 
+                         attrName === 'Material' ? 'Chất liệu' : 
+                         attrName}:
                       </Text>
                       <Space wrap>
-                        {variantsByType[type].map((variant) => {
-                          const isSelected = selectedVariant?.id === variant.id;
-                          const isOutOfStock = variant.stock_quantity === 0;
+                        {variantsByAttribute[attrName].map((value) => {
+                          const isSelected = selectedAttributes[attrName] === value;
+                          
+                          // Kiểm tra xem có variant nào với giá trị này còn hàng không
+                          const hasAvailableVariant = availableVariants.some(v => {
+                            if (!v.variant_attributes) return false;
+                            // Kiểm tra variant có thuộc tính này và các thuộc tính đã chọn khác
+                            const matchesCurrentAttr = v.variant_attributes[attrName] === value;
+                            const matchesOtherAttrs = Object.keys(selectedAttributes)
+                              .filter(key => key !== attrName)
+                              .every(key => v.variant_attributes[key] === selectedAttributes[key]);
+                            return matchesCurrentAttr && matchesOtherAttrs && v.stock_quantity > 0;
+                          });
                           
                           return (
                             <Button
-                              key={variant.id}
+                              key={value}
                               type={isSelected ? 'primary' : 'default'}
-                              disabled={isOutOfStock}
-                              onClick={() => {
-                                setSelectedVariant(variant);
-                                setQuantity(1);
-                              }}
+                              disabled={!hasAvailableVariant}
+                              onClick={() => handleAttributeChange(attrName, value)}
                               style={{
                                 minWidth: 80,
                                 border: isSelected ? '2px solid #1890ff' : undefined,
                               }}
                             >
-                              {variant.variant_value}
-                              {isOutOfStock && ' (Hết)'}
+                              {value}
+                              {!hasAvailableVariant && ' (Hết)'}
                             </Button>
                           );
                         })}
@@ -318,11 +378,16 @@ const ProductDetail: React.FC = () => {
                   ))}
                   {selectedVariant && (
                     <Alert
-                      message={`Đã chọn: ${selectedVariant.variant_type} - ${selectedVariant.variant_value}`}
+                      message={`Đã chọn: ${Object.entries(selectedVariant.variant_attributes || {})
+                        .map(([key, val]) => `${key}: ${val}`)
+                        .join(', ')}`}
                       type="info"
                       style={{ marginTop: 8 }}
                       closable
-                      onClose={() => setSelectedVariant(null)}
+                      onClose={() => {
+                        setSelectedVariant(null);
+                        setSelectedAttributes({});
+                      }}
                     />
                   )}
                 </div>
@@ -426,19 +491,21 @@ const ProductDetail: React.FC = () => {
                 </Descriptions.Item>
                 <Descriptions.Item label="Số lượng tồn kho">
                   {availableStock}
-                  {selectedVariant && (
+                  {selectedVariant && selectedVariant.variant_attributes && (
                     <Text type="secondary" style={{ marginLeft: 8 }}>
-                      (Biến thể: {selectedVariant.variant_type} - {selectedVariant.variant_value})
+                      (Biến thể: {Object.entries(selectedVariant.variant_attributes)
+                        .map(([key, val]) => `${key}: ${val}`)
+                        .join(', ')})
                     </Text>
                   )}
                 </Descriptions.Item>
-                {variantTypes.length > 0 && (
+                {attributeNames.length > 0 && (
                   <Descriptions.Item label="Biến thể có sẵn">
-                    {variantTypes.map((type) => (
-                      <div key={type} style={{ marginBottom: 4 }}>
-                        <Text strong>{type}: </Text>
+                    {attributeNames.map((attrName) => (
+                      <div key={attrName} style={{ marginBottom: 4 }}>
+                        <Text strong>{attrName}: </Text>
                         <Text>
-                          {variantsByType[type].map(v => v.variant_value).join(', ')}
+                          {variantsByAttribute[attrName].join(', ')}
                         </Text>
                       </div>
                     ))}

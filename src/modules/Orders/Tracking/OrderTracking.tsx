@@ -139,10 +139,12 @@ const OrderTrackingPage: React.FC = () => {
           />
           <div>
             <Text strong>{record.product?.name}</Text>
-            {record.variant && (
+            {record.variant && record.variant.variant_attributes && (
               <div>
                 <Text type="secondary" style={{ fontSize: 12 }}>
-                  {record.variant.variant_type}: {record.variant.variant_value}
+                  {Object.entries(record.variant.variant_attributes)
+                    .map(([key, val]) => `${key}: ${val}`)
+                    .join(', ')}
                 </Text>
               </div>
             )}
