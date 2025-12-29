@@ -56,10 +56,22 @@ export interface UpdateUserRequest {
 export const adminService = {
   getStatistics: async (params?: any): Promise<{ statistics: StatisticsResponse }> => {
     const query = new URLSearchParams(params || {}).toString();
-    return apiClient.get(`/admin/statistics${query ? `?${query}` : ''}`);
+    const response = await apiClient.get(`/admin/statistics${query ? `?${query}` : ''}`);
+    // Backend trả về dạng { success, message, data }, trong đó data chính là statistics
+    return { statistics: (response && response.data) || {} };
   },
   getAllOrders: async (params?: any): Promise<any> => {
-    const query = new URLSearchParams(params || {}).toString();
+    // Chỉ thêm các params có giá trị (không phải undefined, null, hoặc empty string)
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.keys(params).forEach((key) => {
+        const value = params[key];
+        if (value !== undefined && value !== null && value !== '') {
+          queryParams.append(key, String(value));
+        }
+      });
+    }
+    const query = queryParams.toString();
     return apiClient.get(`/admin/orders${query ? `?${query}` : ''}`);
   },
   updateOrderStatus: async (orderId: number, data: UpdateOrderStatusRequest): Promise<any> => {
@@ -73,6 +85,9 @@ export const adminService = {
     if (params?.limit) query.set('limit', String(params.limit));
     const qs = query.toString();
     return apiClient.get(`/admin/products${qs ? `?${qs}` : ''}`);
+  },
+  restoreProduct: async (productId: number): Promise<any> => {
+    return apiClient.post(`/admin/products/${productId}/restore`, {});
   },
   getCategories: async (params?: { include_deleted?: boolean }): Promise<any> => {
     const query = new URLSearchParams();
@@ -98,9 +113,33 @@ export const adminService = {
   deleteCategory: async (categoryId: number): Promise<any> => {
     return apiClient.delete(`/admin/categories/${categoryId}`);
   },
-  getUsers: async (params?: any): Promise<any> => {
-    const query = new URLSearchParams(params || {}).toString();
-    return apiClient.get(`/admin/users${query ? `?${query}` : ''}`);
+  getUsers: async (params?: { role?: string; limit?: number }): Promise<any> => {
+    const query = new URLSearchParams();
+
+    // Chỉ set role khi thực sự có giá trị (tránh gửi role=undefined)
+    if (params?.role) {
+      query.set('role', params.role);
+    }
+    if (typeof params?.limit === 'number') {
+      query.set('limit', String(params.limit));
+    }
+
+    const qs = query.toString();
+    const res: any = await apiClient.get(`/admin/users${qs ? `?${qs}` : ''}`);
+
+    // Chuẩn hóa dữ liệu trả về thành { users, pagination, raw }
+    let users: any[] = [];
+    if (Array.isArray(res?.users)) {
+      users = res.users;
+    } else if (Array.isArray(res?.data?.data)) {
+      users = res.data.data;
+    } else if (Array.isArray(res?.data)) {
+      users = res.data;
+    }
+
+    const pagination = res?.data?.pagination || res?.pagination || null;
+
+    return { users, pagination, raw: res };
   },
   createStaff: async (data: CreateStaffRequest): Promise<any> => {
     return apiClient.post('/admin/staff', data);

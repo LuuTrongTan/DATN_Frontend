@@ -20,7 +20,7 @@ export const variantService = {
       variant_attributes: Record<string, string>; // {"Size": "M", "Color": "Đỏ"}
       price_adjustment?: number;
       stock_quantity?: number;
-      image_url?: string | null;
+      image_urls?: string[]; // NEW: Hỗ trợ nhiều ảnh cho variant
       is_active?: boolean;
     }
   ): Promise<ApiResponse<ProductVariant>> => {
@@ -35,7 +35,7 @@ export const variantService = {
       variant_attributes?: Record<string, string>;
       price_adjustment?: number;
       stock_quantity?: number;
-      image_url?: string | null;
+      image_urls?: string[]; // NEW: Hỗ trợ nhiều ảnh cho variant
       is_active?: boolean;
     }
   ): Promise<ApiResponse<ProductVariant>> => {

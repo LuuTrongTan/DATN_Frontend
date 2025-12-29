@@ -88,7 +88,10 @@ export const initializeRecaptcha = (containerId: string = 'recaptcha-container')
     try {
       const containerElement = document.getElementById(containerId);
       if (recaptchaVerifier && containerElement) {
-        recaptchaVerifier.clear();
+        // Check if element still exists and has style property before accessing
+        if (containerElement && containerElement.style) {
+          recaptchaVerifier.clear();
+        }
       }
       recaptchaVerifier = null;
     } catch (error) {
@@ -344,18 +347,9 @@ export const sendOTP = async (phoneNumber: string): Promise<ConfirmationResult> 
     
     // Delay cleanup to allow reCAPTCHA script to finish its operations
     // This prevents "Cannot read properties of null" errors
-    setTimeout(() => {
-      try {
-        const containerElement = document.getElementById(containerId);
-        if (containerElement && recaptchaVerifier) {
-          // Only clear if container still exists and verifier is still active
-          // Don't clear immediately to avoid race conditions with reCAPTCHA script
-        }
-      } catch (error) {
-        // Ignore - element may have been removed
-        debugWarn('[Firebase] Error in post-send cleanup:', error);
-      }
-    }, 2000); // Wait 2 seconds for reCAPTCHA script to finish
+    // NOTE: Don't clear reCAPTCHA immediately after sending OTP
+    // Let it stay until component unmounts or user explicitly needs to resend
+    // This prevents race conditions with reCAPTCHA script accessing DOM elements
     
     return confirmationResult;
   } catch (error: any) {
@@ -542,15 +536,31 @@ export const cleanupRecaptcha = (): void => {
     try {
       const containerId = 'recaptcha-container';
       const containerElement = document.getElementById(containerId);
-      // Only clear if container exists to prevent null access errors
-      if (containerElement) {
-        recaptchaVerifier.clear();
+      // Only clear if container exists and has style property to prevent null access errors
+      if (containerElement && containerElement.style) {
+        // Use setTimeout to ensure reCAPTCHA script has finished its operations
+        setTimeout(() => {
+          try {
+            const checkElement = document.getElementById(containerId);
+            if (checkElement && checkElement.style && recaptchaVerifier) {
+              recaptchaVerifier.clear();
+            }
+          } catch (clearError) {
+            // Ignore errors - element may have been removed
+            debugWarn('[Firebase] Error clearing reCAPTCHA in delayed cleanup:', clearError);
+          } finally {
+            recaptchaVerifier = null;
+          }
+        }, 100); // Small delay to let reCAPTCHA script finish
+      } else {
+        // If container doesn't exist, just null the verifier
+        recaptchaVerifier = null;
       }
     } catch (error) {
       // Ignore errors during cleanup
       debugWarn('[Firebase] Error in cleanupRecaptcha:', error);
+      recaptchaVerifier = null;
     }
-    recaptchaVerifier = null;
   }
 };
 

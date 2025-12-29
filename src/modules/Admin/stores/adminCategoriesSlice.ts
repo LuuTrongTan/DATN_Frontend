@@ -18,12 +18,12 @@ const initialState: AdminCategoriesState = {
 export const fetchAdminCategories = createAsyncThunk<
   Category[],
   { includeDeleted?: boolean } | undefined
->('adminCategories/fetchAll', async (params) => {
+>('adminCategories/fetchAll', async (params, { rejectWithValue }) => {
   const response = await adminService.getCategories({
     include_deleted: params?.includeDeleted,
   });
   if (!response.success || !response.data) {
-    throw new Error(response.message || 'Không thể tải danh mục (admin)');
+    return rejectWithValue(response.message || 'Không thể tải danh mục (admin)');
   }
   return response.data as Category[];
 });

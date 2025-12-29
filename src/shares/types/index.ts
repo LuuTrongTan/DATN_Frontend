@@ -84,8 +84,8 @@ export interface ProductVariant {
   variant_attributes: Record<string, string>; // e.g., {"Size": "M", "Color": "Đỏ"}
   price_adjustment: number;
   stock_quantity: number;
-  image_url?: string | null;
-  is_active: boolean;
+  image_urls?: string[] | null; // Images của variant
+  is_active?: boolean;
   created_at: string;
   updated_at: string;
 }

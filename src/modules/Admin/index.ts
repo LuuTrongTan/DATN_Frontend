@@ -7,7 +7,3 @@ export { default as AdminProductManagement } from './Products/AdminProductManage
 export { default as ProductForm } from './Products/ProductForm';
 export { default as AdminOrderManagement } from './Orders/AdminOrderManagement';
 export { default as InventoryManagement } from './Inventory/InventoryManagement';
-export { default as StockAlerts } from './Inventory/StockAlerts';
-export { default as StockHistory } from './Inventory/StockHistory';
-export { default as SalesReport } from './Reports/SalesReport';
-export { default as Statistics } from './Reports/Statistics';

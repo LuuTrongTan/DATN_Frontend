@@ -16,6 +16,7 @@ import {
   Row,
   Col,
   Statistic,
+  Tooltip,
 } from 'antd';
 import {
   EditOutlined,
@@ -30,14 +31,22 @@ import { adminService, UpdateUserRequest } from '../../../shares/services/adminS
 import { User } from '../../../shares/types';
 import { useEffectOnce } from '../../../shares/hooks';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
 const { Search } = Input;
 const { Option } = Select;
 
 // Dùng biến global để track request đang pending (tránh StrictMode gọi 2 lần)
 let globalFetchingUsers = false;
 
-const UserManagement: React.FC = () => {
+interface UserManagementProps {
+  showTitle?: boolean;
+  withCard?: boolean;
+}
+
+const UserManagement: React.FC<UserManagementProps> = ({
+  showTitle = true,
+  withCard = true,
+}) => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -152,7 +161,25 @@ const UserManagement: React.FC = () => {
       title: 'ID',
       dataIndex: 'id',
       key: 'id',
-      width: 80,
+      width: 100,
+      render: (id: number) => (
+        <Tooltip title={id}>
+          <Text
+            copyable={{ text: String(id) }}
+            style={{
+              cursor: 'pointer',
+              maxWidth: 140,
+              display: 'inline-block',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              verticalAlign: 'middle',
+            }}
+          >
+            {id}
+          </Text>
+        </Tooltip>
+      ),
     },
     {
       title: 'Email',
@@ -227,106 +254,119 @@ const UserManagement: React.FC = () => {
     },
   ];
 
-  return (
-    <div>
-      <Card>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+  const mainContent = (
+    <>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 24,
+        }}
+      >
+        {showTitle && (
           <Title level={2} style={{ margin: 0 }}>
             <UserOutlined /> Quản lý người dùng
           </Title>
-          <Button icon={<ReloadOutlined />} onClick={fetchUsers}>
-            Làm mới
-          </Button>
-        </div>
+        )}
+        <Button icon={<ReloadOutlined />} onClick={fetchUsers}>
+          Làm mới
+        </Button>
+      </div>
 
-        {/* Thống kê nhanh */}
-        <Row gutter={16} style={{ marginBottom: 24 }}>
-          <Col xs={24} sm={8} md={6}>
-            <Card>
-              <Statistic
-                title="Tổng người dùng"
-                value={filteredUsers.length}
-                prefix={<UserOutlined />}
-                valueStyle={{ color: '#1890ff' }}
-              />
-            </Card>
+      {/* Thống kê nhanh */}
+      <Row gutter={16} style={{ marginBottom: 24 }}>
+        <Col xs={24} sm={8} md={6}>
+          <Card>
+            <Statistic
+              title="Tổng người dùng"
+              value={filteredUsers.length}
+              prefix={<UserOutlined />}
+              valueStyle={{ color: '#1890ff' }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={8} md={6}>
+          <Card>
+            <Statistic
+              title="Khách hàng"
+              value={filteredUsers.filter(u => u.role === 'customer').length}
+              prefix={<UserOutlined />}
+              valueStyle={{ color: '#52c41a' }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={8} md={6}>
+          <Card>
+            <Statistic
+              title="Nhân viên"
+              value={filteredUsers.filter(u => u.role === 'staff').length}
+              prefix={<TeamOutlined />}
+              valueStyle={{ color: '#722ed1' }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={8} md={6}>
+          <Card>
+            <Statistic
+              title="Đã khóa"
+              value={filteredUsers.filter(u => u.status === 'banned').length}
+              prefix={<UserDeleteOutlined />}
+              valueStyle={{ color: '#ff4d4f' }}
+            />
+          </Card>
+        </Col>
+      </Row>
+
+      <Space direction="vertical" size="large" style={{ width: '100%', marginBottom: 16 }}>
+        <Row gutter={16}>
+          <Col xs={24} sm={12} md={8}>
+            <Search
+              placeholder="Tìm kiếm theo email, số điện thoại, tên..."
+              allowClear
+              prefix={<SearchOutlined />}
+              onSearch={(value) => setSearchQuery(value)}
+              onChange={(e) => {
+                if (!e.target.value) {
+                  setSearchQuery('');
+                }
+              }}
+              enterButton
+            />
           </Col>
-          <Col xs={24} sm={8} md={6}>
-            <Card>
-              <Statistic
-                title="Khách hàng"
-                value={filteredUsers.filter(u => u.role === 'customer').length}
-                prefix={<UserOutlined />}
-                valueStyle={{ color: '#52c41a' }}
-              />
-            </Card>
-          </Col>
-          <Col xs={24} sm={8} md={6}>
-            <Card>
-              <Statistic
-                title="Nhân viên"
-                value={filteredUsers.filter(u => u.role === 'staff').length}
-                prefix={<TeamOutlined />}
-                valueStyle={{ color: '#722ed1' }}
-              />
-            </Card>
-          </Col>
-          <Col xs={24} sm={8} md={6}>
-            <Card>
-              <Statistic
-                title="Đã khóa"
-                value={filteredUsers.filter(u => u.status === 'banned').length}
-                prefix={<UserDeleteOutlined />}
-                valueStyle={{ color: '#ff4d4f' }}
-              />
-            </Card>
+          <Col xs={24} sm={12} md={6}>
+            <Select
+              style={{ width: '100%' }}
+              placeholder="Lọc theo vai trò"
+              allowClear
+              value={roleFilter || undefined}
+              onChange={(value) => setRoleFilter(value || '')}
+            >
+              <Option value="customer">Khách hàng</Option>
+              <Option value="staff">Nhân viên</Option>
+              <Option value="admin">Quản trị viên</Option>
+            </Select>
           </Col>
         </Row>
+      </Space>
 
-        <Space direction="vertical" size="large" style={{ width: '100%', marginBottom: 16 }}>
-          <Row gutter={16}>
-            <Col xs={24} sm={12} md={8}>
-              <Search
-                placeholder="Tìm kiếm theo email, số điện thoại, tên..."
-                allowClear
-                prefix={<SearchOutlined />}
-                onSearch={(value) => setSearchQuery(value)}
-                onChange={(e) => {
-                  if (!e.target.value) {
-                    setSearchQuery('');
-                  }
-                }}
-                enterButton
-              />
-            </Col>
-            <Col xs={24} sm={12} md={6}>
-              <Select
-                style={{ width: '100%' }}
-                placeholder="Lọc theo vai trò"
-                allowClear
-                value={roleFilter || undefined}
-                onChange={(value) => setRoleFilter(value || '')}
-              >
-                <Option value="customer">Khách hàng</Option>
-                <Option value="staff">Nhân viên</Option>
-                <Option value="admin">Quản trị viên</Option>
-              </Select>
-            </Col>
-          </Row>
-        </Space>
+      <Table
+        columns={columns}
+        dataSource={filteredUsers}
+        loading={loading}
+        rowKey="id"
+        pagination={{
+          pageSize: 20,
+          showSizeChanger: true,
+          showTotal: (total) => `Tổng ${total} người dùng`,
+        }}
+      />
+    </>
+  );
 
-        <Table
-          columns={columns}
-          dataSource={filteredUsers}
-          loading={loading}
-          rowKey="id"
-          pagination={{
-            pageSize: 20,
-            showSizeChanger: true,
-            showTotal: (total) => `Tổng ${total} người dùng`,
-          }}
-        />
-      </Card>
+  return (
+    <>
+      {withCard ? <Card>{mainContent}</Card> : mainContent}
 
       <Modal
         title="Chỉnh sửa người dùng"
@@ -381,7 +421,7 @@ const UserManagement: React.FC = () => {
           </Form.Item>
         </Form>
       </Modal>
-    </div>
+    </>
   );
 };
 

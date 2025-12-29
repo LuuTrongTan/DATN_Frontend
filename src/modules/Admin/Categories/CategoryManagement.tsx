@@ -34,8 +34,8 @@ import { useAppDispatch, useAppSelector } from '../../../shares/stores';
 import { fetchAdminCategories } from '../stores/adminCategoriesSlice';
 import { useEffectOnce } from '../../../shares/hooks';
 import { logger } from '../../../shares/utils/logger';
+import AdminPageContent from '../../../shares/components/layouts/AdminPageContent';
 
-const { Title } = Typography;
 const { TextArea } = Input;
 const { Search } = Input;
 
@@ -376,29 +376,30 @@ const CategoryManagement: React.FC = () => {
   ];
 
   return (
-    <div>
-      <Card>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-          <Title level={2} style={{ margin: 0 }}>
-            <AppstoreOutlined /> Quản lý danh mục
-          </Title>
-          <Space>
-            <Button
-              icon={<ReloadOutlined />}
-              onClick={() => dispatch(fetchAdminCategories({ includeDeleted: true }))}
-            >
-              Làm mới
-            </Button>
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={handleCreate}
-            >
-              Tạo danh mục mới
-            </Button>
-          </Space>
-        </div>
-
+    <AdminPageContent
+      title={(
+        <>
+          <AppstoreOutlined /> Quản lý danh mục
+        </>
+      )}
+      extra={(
+        <Space>
+          <Button
+            icon={<ReloadOutlined />}
+            onClick={() => dispatch(fetchAdminCategories({ includeDeleted: true }))}
+          >
+            Làm mới
+          </Button>
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={handleCreate}
+          >
+            Tạo danh mục mới
+          </Button>
+        </Space>
+      )}
+    >
         <Space direction="vertical" size="large" style={{ width: '100%', marginBottom: 16 }}>
           <Space style={{ width: '100%', flexWrap: 'wrap' }}>
             <Search
@@ -438,7 +439,6 @@ const CategoryManagement: React.FC = () => {
             showTotal: (total) => `Tổng ${total} danh mục`,
           }}
         />
-      </Card>
 
       <Modal
         title={editingCategory ? 'Chỉnh sửa danh mục' : 'Tạo danh mục mới'}
@@ -560,7 +560,7 @@ const CategoryManagement: React.FC = () => {
           )}
         </Form>
       </Modal>
-    </div>
+    </AdminPageContent>
   );
 };
 

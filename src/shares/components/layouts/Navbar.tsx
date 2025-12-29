@@ -13,6 +13,7 @@ import type { MenuProps } from 'antd';
 import { useAppDispatch, useAppSelector } from '../../stores';
 import { fetchCart } from '../../../modules/ProductManagement/stores/cartSlice';
 import { fetchWishlist } from '../../../modules/ProductManagement/stores/wishlistSlice';
+import { useEffectOnce } from '../../hooks';
 
 interface NavbarProps {
   collapsed: boolean;
@@ -33,13 +34,19 @@ const Navbar: React.FC<NavbarProps> = ({ collapsed, onToggle }) => {
   const cartCount = cartItems.reduce((sum, item) => sum + (item.quantity || 1), 0);
   const wishlistCount = wishlistItems.length;
 
-  // Fetch cart và wishlist khi đăng nhập
+  // Fetch cart và wishlist khi đăng nhập (chỉ fetch một lần khi user.id thay đổi)
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && user?.id) {
+      console.log('Navbar: User authenticated, fetching cart and wishlist...');
       dispatch(fetchCart());
       dispatch(fetchWishlist());
     }
-  }, [isAuthenticated, dispatch]);
+  }, [isAuthenticated, user?.id, dispatch]); // Chỉ fetch khi user.id thay đổi (đăng nhập mới)
+
+  // Log wishlist count changes
+  useEffect(() => {
+    console.log('Navbar: Wishlist count changed:', wishlistCount, 'items:', wishlistItems);
+  }, [wishlistCount, wishlistItems]);
 
   const handleLogout = async () => {
     try {
@@ -101,6 +108,10 @@ const Navbar: React.FC<NavbarProps> = ({ collapsed, onToggle }) => {
       cartCount={cartCount}
       showWishlist={true}
       wishlistCount={wishlistCount}
+      showHome={true}
+      homePath="/home"
+      showOrders={true}
+      ordersPath="/orders"
     />
   );
 };

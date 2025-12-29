@@ -16,8 +16,8 @@ import {
   EditOutlined,
 } from '@ant-design/icons';
 import { inventoryService } from '../../../shares/services/inventoryService';
+import AdminPageContent from '../../../shares/components/layouts/AdminPageContent';
 
-const { Title } = Typography;
 const { TextArea } = Input;
 
 const InventoryManagement: React.FC = () => {
@@ -144,19 +144,15 @@ const InventoryManagement: React.FC = () => {
   ];
 
   return (
-    <div>
-      <Title level={2}>Quản lý kho hàng</Title>
-      
-      <Card style={{ marginTop: 24 }}>
-        <Tabs
-          items={tabItems}
-          onChange={(key) => {
-            setType(key as 'in' | 'adjustment');
-            form.resetFields();
-          }}
-        />
-      </Card>
-    </div>
+    <AdminPageContent title="Quản lý kho hàng" extra={null}>
+      <Tabs
+        items={tabItems}
+        onChange={(key) => {
+          setType(key as 'in' | 'adjustment');
+          form.resetFields();
+        }}
+      />
+    </AdminPageContent>
   );
 };
 

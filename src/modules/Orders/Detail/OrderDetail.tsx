@@ -39,9 +39,9 @@ const OrderDetail: React.FC = () => {
   const { search } = useLocation();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const orderId = id ? Number(id) : NaN;
+  const orderId = id && !isNaN(Number(id)) ? Number(id) : null;
   const order = useAppSelector((state) =>
-    Number.isNaN(orderId) ? null : state.orders.byId[orderId] || null
+    orderId ? state.orders.byId[orderId] || null : null
   );
   const { detailLoading: loading } = useAppSelector((state) => state.orders);
   const [reviewModalVisible, setReviewModalVisible] = useState(false);
@@ -56,15 +56,31 @@ const OrderDetail: React.FC = () => {
   const [cancelling, setCancelling] = useState(false);
 
   useEffect(() => {
-    if (id) {
-      dispatch(fetchOrderById(Number(id)))
-        .unwrap()
-        .catch((error: any) => {
-          message.error(error.message || 'Không tìm thấy đơn hàng');
-          navigate('/orders');
-        });
+    if (!orderId) {
+      message.error('Mã đơn hàng không hợp lệ');
+      navigate('/orders');
+      return;
     }
-  }, [dispatch, id, navigate]);
+    
+    console.log('OrderDetail component mounted, fetching order:', orderId);
+    dispatch(fetchOrderById(orderId))
+      .then((result) => {
+        console.log('Order fetch result:', result);
+        if (fetchOrderById.rejected.match(result)) {
+          const errorMessage =
+            (result.payload as any) ||
+            result.error?.message ||
+            'Không tìm thấy đơn hàng';
+          message.error(errorMessage);
+          navigate('/orders');
+        }
+      })
+      .catch((error: any) => {
+        console.error('Order fetch exception:', error);
+        message.error(error.message || 'Không tìm thấy đơn hàng');
+        navigate('/orders');
+      });
+  }, [dispatch, orderId, navigate]);
 
   // Hiển thị thông báo theo kết quả thanh toán (VNPay callback redirect với query ?payment=)
   useEffect(() => {
@@ -219,11 +235,14 @@ const OrderDetail: React.FC = () => {
       title: 'Thành tiền',
       key: 'total',
       align: 'right' as const,
-      render: (_: any, record: OrderItem) => (
-        <Text strong>
-          {(record.price * record.quantity).toLocaleString('vi-VN')} VNĐ
-        </Text>
-      ),
+      render: (_: any, record: OrderItem) => {
+        const price = typeof record.price === 'string' ? parseFloat(record.price) : record.price;
+        return (
+          <Text strong>
+            {(price * record.quantity).toLocaleString('vi-VN')} VNĐ
+          </Text>
+        );
+      },
     },
   ];
 
@@ -339,12 +358,21 @@ const OrderDetail: React.FC = () => {
               <Row justify="space-between">
                 <Text>Tạm tính:</Text>
                 <Text>
-                  {((order.total_amount || 0) - (order.shipping_fee || 0)).toLocaleString('vi-VN')} VNĐ
+                  {(() => {
+                    const total = typeof order.total_amount === 'string' ? parseFloat(order.total_amount) : (order.total_amount || 0);
+                    const shipping = typeof order.shipping_fee === 'string' ? parseFloat(order.shipping_fee) : (order.shipping_fee || 0);
+                    return (total - shipping).toLocaleString('vi-VN');
+                  })()} VNĐ
                 </Text>
               </Row>
               <Row justify="space-between">
                 <Text>Phí vận chuyển:</Text>
-                <Text>{(order.shipping_fee || 0).toLocaleString('vi-VN')} VNĐ</Text>
+                <Text>
+                  {(() => {
+                    const shipping = typeof order.shipping_fee === 'string' ? parseFloat(order.shipping_fee) : (order.shipping_fee || 0);
+                    return shipping.toLocaleString('vi-VN');
+                  })()} VNĐ
+                </Text>
               </Row>
               <Divider style={{ margin: '8px 0' }} />
               <Row justify="space-between">
@@ -352,7 +380,10 @@ const OrderDetail: React.FC = () => {
                   Tổng cộng:
                 </Text>
                 <Text strong style={{ fontSize: 18, color: '#cf1322' }}>
-                  {order.total_amount.toLocaleString('vi-VN')} VNĐ
+                  {(() => {
+                    const total = typeof order.total_amount === 'string' ? parseFloat(order.total_amount) : (order.total_amount || 0);
+                    return total.toLocaleString('vi-VN');
+                  })()} VNĐ
                 </Text>
               </Row>
             </Space>

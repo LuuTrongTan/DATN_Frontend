@@ -50,42 +50,6 @@ export const inventoryService = {
     return apiClient.post('/admin/inventory/stock-adjustment', data);
   },
 
-  getStockHistory: async (params?: {
-    product_id?: number;
-    variant_id?: number;
-    type?: 'in' | 'out' | 'adjustment';
-    page?: number;
-    limit?: number;
-  }): Promise<ApiResponse<PaginatedResponse<StockHistory>>> => {
-    const queryParams = new URLSearchParams();
-    if (params?.product_id) queryParams.append('product_id', params.product_id.toString());
-    if (params?.variant_id) queryParams.append('variant_id', params.variant_id.toString());
-    if (params?.type) queryParams.append('type', params.type);
-    if (params?.page) queryParams.append('page', params.page.toString());
-    if (params?.limit) queryParams.append('limit', params.limit.toString());
-
-    const query = queryParams.toString();
-    return apiClient.get(`/admin/inventory/history${query ? `?${query}` : ''}`);
-  },
-
-  getStockAlerts: async (params?: {
-    is_notified?: boolean;
-    page?: number;
-    limit?: number;
-  }): Promise<ApiResponse<PaginatedResponse<StockAlert>>> => {
-    const queryParams = new URLSearchParams();
-    if (params?.is_notified !== undefined) queryParams.append('is_notified', params.is_notified.toString());
-    if (params?.page) queryParams.append('page', params.page.toString());
-    if (params?.limit) queryParams.append('limit', params.limit.toString());
-
-    const query = queryParams.toString();
-    return apiClient.get(`/admin/inventory/alerts${query ? `?${query}` : ''}`);
-  },
-
-  markAlertAsNotified: async (id: number): Promise<ApiResponse<StockAlert>> => {
-    // API không cần payload; gửi object rỗng để phù hợp chữ ký put
-    return apiClient.put(`/admin/inventory/alerts/${id}/notify`, {});
-  },
 };
 
 

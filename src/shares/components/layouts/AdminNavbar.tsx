@@ -68,6 +68,7 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ collapsed }) => {
       roleLabel={getRoleLabel}
       showCart={false}
       showWishlist={false}
+      showHome={false}
     />
   );
 };

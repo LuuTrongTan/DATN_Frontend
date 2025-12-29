@@ -1,10 +1,5 @@
 import React, { useEffect, useMemo } from 'react';
-import {
-  HomeOutlined,
-  ShoppingOutlined,
-  FileTextOutlined,
-  SettingOutlined,
-} from '@ant-design/icons';
+import { SettingOutlined, ShoppingOutlined } from '@ant-design/icons';
 import { useAuth } from '../../contexts/AuthContext';
 import BaseSidebar from './BaseSidebar';
 import type { MenuProps } from 'antd';
@@ -19,43 +14,33 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
   const { user } = useAuth();
   const dispatch = useAppDispatch();
-  const categories = useAppSelector((state) => state.products.categories);
-  const categoriesLoading = useAppSelector((state) => state.products.categoriesLoading);
+  const { categories, categoriesLoading, categoriesLoaded } = useAppSelector(
+    (state) => state.products
+  );
 
-  // Xác định trang chủ dựa trên role
-  const homePath = user?.role === 'admin' || user?.role === 'staff' 
-    ? '/dashboard' 
-    : '/home';
-
-  // Tải danh mục nếu chưa có để hiển thị trong submenu "Danh mục"
+  // Tải danh mục để hiển thị trên sidebar (một lần)
   useEffect(() => {
-    if (!categories.length && !categoriesLoading) {
+    if (!categoriesLoaded && !categoriesLoading) {
       dispatch(fetchCategories());
     }
-  }, [categories.length, categoriesLoading, dispatch]);
+  }, [categoriesLoaded, categoriesLoading, dispatch]);
 
   const menuItems: MenuProps['items'] = useMemo(() => {
-    const items: MenuProps['items'] = [
-      {
-        key: homePath,
-        icon: <HomeOutlined />,
-        label: 'Trang chủ',
-      },
-      // Trang sản phẩm tổng quát
-      {
-        key: '/products',
-        icon: <ShoppingOutlined />,
-        label: 'Sản phẩm',
-      },
-    ];
+    const items: MenuProps['items'] = [];
 
-    // Nhóm "Danh mục" với các category con (nếu đã có dữ liệu)
-    if (categories.length) {
+    // Thêm menu Admin lên đầu nếu là admin/staff
+    if (user?.role === 'admin' || user?.role === 'staff') {
       items.push({
-        key: 'categories-group',
-        icon: <ShoppingOutlined />,
-        label: 'Danh mục',
-        children: categories.map((category) => ({
+        key: '/admin/dashboard',
+        icon: <SettingOutlined />,
+        label: 'Admin',
+      });
+    }
+
+    // Danh mục sản phẩm hiển thị trực tiếp trên sidebar
+    if (categories.length) {
+      categories.forEach((category) => {
+      items.push({
           key: `/products?category_slug=${category.slug || ''}`,
           label: category.name,
           icon: category.image_url ? (
@@ -69,29 +54,15 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
                 borderRadius: 4,
               }}
             />
-          ) : undefined,
-        })),
-      });
-    }
-
-    // Đơn hàng (giữ nguyên)
-    items.push({
-      key: '/orders',
-      icon: <FileTextOutlined />,
-      label: 'Đơn hàng',
+          ) : (
+            <ShoppingOutlined />
+          ),
     });
-
-    // Thêm menu quản trị cho admin/staff (đều được phép vào các route /admin/* theo AppRoutes)
-    if (user?.role === 'admin' || user?.role === 'staff') {
-      items.push({
-        key: '/admin/dashboard',
-        icon: <SettingOutlined />,
-        label: 'Quản trị',
       });
     }
 
     return items;
-  }, [homePath, user?.role, categories]);
+  }, [user?.role, categories]);
 
   return (
     <BaseSidebar

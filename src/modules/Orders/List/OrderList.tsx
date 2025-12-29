@@ -1,26 +1,49 @@
-import React, { useEffect } from 'react';
-import { Card, Table, Tag, Typography, Space, Button, Empty } from 'antd';
+import React, { useEffect, useState, useMemo } from 'react';
+import { Card, Table, Tag, Typography, Space, Button, Empty, Tabs, Badge } from 'antd';
 import { EyeOutlined } from '@ant-design/icons';
 import { Order, OrderStatus, PaymentStatus } from '../../../shares/types';
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../../shares/stores';
 import { fetchOrders } from '../stores/ordersSlice';
-import { useEffectOnce } from '../../../shares/hooks';
 import { orderService } from '../../../shares/services/orderService';
 import { message, Popconfirm } from 'antd';
+import { getAuthToken } from '../../../shares/api';
 
 const { Title, Text } = Typography;
 
 const OrderList: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { list: orders, listLoading: loading } = useAppSelector((state) => state.orders);
+  const { list: orders, listLoading: loading, listError: error } = useAppSelector((state) => state.orders);
   const navigate = useNavigate();
   const [cancellingId, setCancellingId] = React.useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState<string>('all');
 
-  // Sử dụng useEffectOnce để tránh gọi API 2 lần trong StrictMode
-  useEffectOnce(() => {
-    dispatch(fetchOrders());
-  }, [dispatch]);
+  // Fetch orders khi component mount hoặc khi navigate vào trang
+  useEffect(() => {
+    const token = getAuthToken();
+    if (!token) {
+      message.warning('Vui lòng đăng nhập để xem đơn hàng');
+      navigate('/login');
+      return;
+    }
+
+    console.log('OrderList component mounted, fetching orders...');
+    dispatch(fetchOrders())
+      .then((result) => {
+        console.log('Orders fetch result:', result);
+        if (result.type === 'orders/fetchOrders/fulfilled') {
+          console.log('Orders received:', result.payload);
+        } else if (result.type === 'orders/fetchOrders/rejected') {
+          console.error('Orders fetch error:', result.error);
+          const errorMessage = result.error?.message || 'Không thể tải danh sách đơn hàng';
+          message.error(errorMessage);
+        }
+      })
+      .catch((error) => {
+        console.error('Orders fetch exception:', error);
+        message.error('Có lỗi xảy ra khi tải danh sách đơn hàng');
+      });
+  }, [dispatch, navigate]);
 
   const getStatusColor = (status: OrderStatus) => {
     const colors: Record<OrderStatus, string> = {
@@ -66,6 +89,17 @@ const OrderList: React.FC = () => {
     return labels[status] || status;
   };
 
+  // Filter orders theo activeTab
+  const filteredOrders = useMemo(() => {
+    if (activeTab === 'all') {
+      return orders;
+    }
+    return orders.filter((order) => {
+      const status = (order as any).order_status || (order as any).status;
+      return status === activeTab;
+    });
+  }, [orders, activeTab]);
+
   const columns = [
     {
       title: 'Mã đơn hàng',
@@ -83,11 +117,14 @@ const OrderList: React.FC = () => {
       title: 'Tổng tiền',
       dataIndex: 'total_amount',
       key: 'total_amount',
-      render: (amount: number) => (
-        <Text strong style={{ color: '#cf1322' }}>
-          {amount.toLocaleString('vi-VN')} VNĐ
-        </Text>
-      ),
+      render: (amount: number | string) => {
+        const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+        return (
+          <Text strong style={{ color: '#cf1322' }}>
+            {numAmount.toLocaleString('vi-VN')} VNĐ
+          </Text>
+        );
+      },
     },
     {
       title: 'Trạng thái',
@@ -156,17 +193,112 @@ const OrderList: React.FC = () => {
     <div>
       <Title level={2}>Đơn hàng của tôi</Title>
       
+      {error && (
+        <Card style={{ marginBottom: 16 }}>
+          <div style={{ color: 'red' }}>
+            <strong>Lỗi:</strong> {error}
+          </div>
+        </Card>
+      )}
+
+      {/* Tabs lọc theo status */}
+      <Tabs
+        activeKey={activeTab}
+        onChange={setActiveTab}
+        items={[
+          {
+            key: 'all',
+            label: (
+              <Badge count={orders.length} offset={[10, 0]}>
+                <span>Tất cả</span>
+              </Badge>
+            ),
+          },
+          {
+            key: 'pending',
+            label: (
+              <Badge count={orders.filter(o => {
+                const status = (o as any).order_status || (o as any).status;
+                return status === 'pending';
+              }).length} offset={[10, 0]}>
+                <span>Chờ xác nhận</span>
+              </Badge>
+            ),
+          },
+          {
+            key: 'confirmed',
+            label: (
+              <Badge count={orders.filter(o => {
+                const status = (o as any).order_status || (o as any).status;
+                return status === 'confirmed';
+              }).length} offset={[10, 0]}>
+                <span>Đã xác nhận</span>
+              </Badge>
+            ),
+          },
+          {
+            key: 'processing',
+            label: (
+              <Badge count={orders.filter(o => {
+                const status = (o as any).order_status || (o as any).status;
+                return status === 'processing';
+              }).length} offset={[10, 0]}>
+                <span>Đang xử lý</span>
+              </Badge>
+            ),
+          },
+          {
+            key: 'shipping',
+            label: (
+              <Badge count={orders.filter(o => {
+                const status = (o as any).order_status || (o as any).status;
+                return status === 'shipping';
+              }).length} offset={[10, 0]}>
+                <span>Đang giao hàng</span>
+              </Badge>
+            ),
+          },
+          {
+            key: 'delivered',
+            label: (
+              <Badge count={orders.filter(o => {
+                const status = (o as any).order_status || (o as any).status;
+                return status === 'delivered';
+              }).length} offset={[10, 0]}>
+                <span>Đã giao hàng</span>
+              </Badge>
+            ),
+          },
+          {
+            key: 'cancelled',
+            label: (
+              <Badge count={orders.filter(o => {
+                const status = (o as any).order_status || (o as any).status;
+                return status === 'cancelled';
+              }).length} offset={[10, 0]}>
+                <span>Đã hủy</span>
+              </Badge>
+            ),
+          },
+        ]}
+        style={{ marginBottom: 24 }}
+      />
+
       <Card style={{ marginTop: 24 }}>
         {loading ? (
           <div style={{ textAlign: 'center', padding: '50px' }}>
             <Text type="secondary">Đang tải...</Text>
           </div>
-        ) : orders.length === 0 ? (
-          <Empty description="Bạn chưa có đơn hàng nào" />
+        ) : filteredOrders.length === 0 ? (
+          <Empty description={
+            activeTab === 'all' 
+              ? "Bạn chưa có đơn hàng nào" 
+              : `Không có đơn hàng với trạng thái "${getStatusLabel(activeTab as OrderStatus)}"`
+          } />
         ) : (
           <Table
             columns={columns}
-            dataSource={orders}
+            dataSource={filteredOrders}
             rowKey="id"
             pagination={{
               pageSize: 10,

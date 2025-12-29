@@ -19,6 +19,8 @@ import {
   Statistic,
   Image,
   Empty,
+  Tabs,
+  Badge,
 } from 'antd';
 import {
   ReloadOutlined,
@@ -41,8 +43,9 @@ import {
   updateAdminOrderStatus,
 } from '../stores/adminOrdersSlice';
 import { useEffectOnce } from '../../../shares/hooks';
+import AdminPageContent from '../../../shares/components/layouts/AdminPageContent';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 const { TextArea } = Input;
 const { Search } = Input;
 const { Option } = Select;
@@ -60,31 +63,52 @@ const AdminOrderManagement: React.FC = () => {
   const [orderDetail, setOrderDetail] = useState<Order | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [form] = Form.useForm();
+  const [activeTab, setActiveTab] = useState<string>('all');
 
-  // Sử dụng useEffectOnce để tránh gọi API 2 lần trong StrictMode (lần fetch đầu tiên)
-  useEffectOnce(() => {
-    if (!globalFetchingAdminOrders) {
-      globalFetchingAdminOrders = true;
-      dispatch(fetchAdminOrders()).finally(() => {
-        setTimeout(() => {
-          globalFetchingAdminOrders = false;
-        }, 100);
+  // Fetch orders on mount
+  useEffect(() => {
+    console.log('AdminOrderManagement component mounted, fetching orders...');
+    dispatch(fetchAdminOrders())
+      .then((result) => {
+        console.log('Admin orders fetch result:', result);
+        if (result.type === 'adminOrders/fetchAll/fulfilled') {
+          console.log('Admin orders items:', result.payload);
+        } else if (result.type === 'adminOrders/fetchAll/rejected') {
+          console.error('Admin orders fetch error:', result.error);
+          const errorMessage = typeof result.payload === 'string' ? result.payload : result.error?.message || 'Không thể tải danh sách đơn hàng';
+          message.error(errorMessage);
+        }
+      })
+      .catch((error) => {
+        console.error('Unhandled error during admin orders fetch:', error);
+        message.error('Có lỗi xảy ra khi tải danh sách đơn hàng');
       });
-    }
-  });
+  }, [dispatch]);
 
   // Gọi lại khi filters thay đổi
   useEffect(() => {
-    if (!globalFetchingAdminOrders) {
-      globalFetchingAdminOrders = true;
-      dispatch(fetchAdminOrders()).finally(() => {
-        setTimeout(() => {
-          globalFetchingAdminOrders = false;
-        }, 100);
+    console.log('Filters changed, refetching orders...', filters);
+    dispatch(fetchAdminOrders())
+      .then((result) => {
+        if (result.type === 'adminOrders/fetchAll/rejected') {
+          const errorMessage = typeof result.payload === 'string' ? result.payload : result.error?.message || 'Không thể tải danh sách đơn hàng';
+          message.error(errorMessage);
+        }
+      })
+      .catch((error) => {
+        console.error('Error refetching orders:', error);
       });
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, filters.status, filters.paymentMethod, filters.search]);
+
+  // Sync activeTab với filters.status
+  useEffect(() => {
+    if (!filters.status) {
+      setActiveTab('all');
+    } else {
+      setActiveTab(filters.status);
+    }
+  }, [filters.status]);
 
   const handleViewDetail = async (order: Order) => {
     try {
@@ -118,13 +142,19 @@ const AdminOrderManagement: React.FC = () => {
         notes: values.notes || undefined,
       };
 
-      await dispatch(
+      console.log('Updating order status:', { orderId: editingOrder.id, updateData });
+      const result = await dispatch(
         updateAdminOrderStatus({ orderId: editingOrder.id, data: updateData })
       ).unwrap();
+      
+      console.log('Order status updated successfully:', result);
       message.success('Cập nhật trạng thái đơn hàng thành công');
       setIsModalVisible(false);
       setEditingOrder(null);
       form.resetFields();
+      
+      // Refresh orders list
+      dispatch(fetchAdminOrders());
     } catch (error: any) {
       message.error(error.message || 'Có lỗi xảy ra khi cập nhật đơn hàng');
     }
@@ -268,27 +298,106 @@ const getStatusLabel = (status: OrderStatus) => {
   ];
 
   return (
-    <div>
-      <Card>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-          <Title level={2} style={{ margin: 0 }}>
-            <FileTextOutlined /> Quản lý đơn hàng
-          </Title>
-          <Button
-            icon={<ReloadOutlined />}
-            onClick={() => {
-              dispatch(fetchAdminOrders());
-            }}
-          >
-            Làm mới
-          </Button>
-        </div>
+    <AdminPageContent
+      title={(
+        <>
+          <FileTextOutlined /> Quản lý đơn hàng
+        </>
+      )}
+      extra={(
+        <Button
+          icon={<ReloadOutlined />}
+          onClick={() => {
+            dispatch(fetchAdminOrders());
+          }}
+        >
+          Làm mới
+        </Button>
+      )}
+    >
+        {/* Tabs lọc theo status */}
+        <Tabs
+          activeKey={activeTab}
+          onChange={(key) => {
+            setActiveTab(key);
+            const statusMap: Record<string, string | undefined> = {
+              all: undefined,
+              pending: 'pending',
+              confirmed: 'confirmed',
+              processing: 'processing',
+              shipping: 'shipping',
+              delivered: 'delivered',
+              cancelled: 'cancelled',
+            };
+            dispatch(setAdminStatusFilter(statusMap[key]));
+          }}
+          items={[
+            {
+              key: 'all',
+              label: (
+                <Badge count={orders.length} offset={[10, 0]}>
+                  <span>Tất cả</span>
+                </Badge>
+              ),
+            },
+            {
+              key: 'pending',
+              label: (
+                <Badge count={orders.filter(o => o.order_status === 'pending').length} offset={[10, 0]}>
+                  <span>Chờ xử lý</span>
+                </Badge>
+              ),
+            },
+            {
+              key: 'confirmed',
+              label: (
+                <Badge count={orders.filter(o => o.order_status === 'confirmed').length} offset={[10, 0]}>
+                  <span>Đã xác nhận</span>
+                </Badge>
+              ),
+            },
+            {
+              key: 'processing',
+              label: (
+                <Badge count={orders.filter(o => o.order_status === 'processing').length} offset={[10, 0]}>
+                  <span>Đang xử lý</span>
+                </Badge>
+              ),
+            },
+            {
+              key: 'shipping',
+              label: (
+                <Badge count={orders.filter(o => o.order_status === 'shipping').length} offset={[10, 0]}>
+                  <span>Đang giao hàng</span>
+                </Badge>
+              ),
+            },
+            {
+              key: 'delivered',
+              label: (
+                <Badge count={orders.filter(o => o.order_status === 'delivered').length} offset={[10, 0]}>
+                  <span>Đã giao hàng</span>
+                </Badge>
+              ),
+            },
+            {
+              key: 'cancelled',
+              label: (
+                <Badge count={orders.filter(o => o.order_status === 'cancelled').length} offset={[10, 0]}>
+                  <span>Đã hủy</span>
+                </Badge>
+              ),
+            },
+          ]}
+          style={{ marginBottom: 24 }}
+        />
 
+        {/* Filters: Search và Payment Method */}
         <Space direction="vertical" size="large" style={{ width: '100%', marginBottom: 16 }}>
           <Row gutter={16}>
-            <Col xs={24} sm={12} md={8}>
+            <Col xs={24} sm={12} md={12}>
               <Search
-                placeholder="Tìm kiếm theo mã đơn hàng..."
+                placeholder="Tìm kiếm theo mã đơn hàng, tên khách hàng, SĐT..."
                 allowClear
                 prefix={<SearchOutlined />}
                 onSearch={(value) => {
@@ -305,22 +414,6 @@ const getStatusLabel = (status: OrderStatus) => {
             <Col xs={24} sm={12} md={6}>
               <Select
                 style={{ width: '100%' }}
-                placeholder="Lọc theo trạng thái"
-                allowClear
-                value={filters.status}
-                onChange={(value) => dispatch(setAdminStatusFilter(value || undefined))}
-              >
-                <Option value="pending">Chờ xử lý</Option>
-                <Option value="confirmed">Đã xác nhận</Option>
-                <Option value="processing">Đang xử lý</Option>
-                <Option value="shipping">Đang giao hàng</Option>
-                <Option value="delivered">Đã giao hàng</Option>
-                <Option value="cancelled">Đã hủy</Option>
-              </Select>
-            </Col>
-            <Col xs={24} sm={12} md={6}>
-              <Select
-                style={{ width: '100%' }}
                 placeholder="Lọc theo thanh toán"
                 allowClear
                 value={filters.paymentMethod}
@@ -333,51 +426,56 @@ const getStatusLabel = (status: OrderStatus) => {
           </Row>
         </Space>
 
-        {/* Thống kê nhanh */}
-        <Row gutter={16} style={{ marginBottom: 24 }}>
-          <Col xs={24} sm={8} md={6}>
-            <Card>
-              <Statistic
-                title="Tổng đơn hàng"
-                value={orders.length}
-                prefix={<FileTextOutlined />}
-                valueStyle={{ color: '#1890ff' }}
-              />
-            </Card>
-          </Col>
-          <Col xs={24} sm={8} md={6}>
-            <Card>
-              <Statistic
-                title="Tổng doanh thu"
-                value={orders.reduce((sum, order) => sum + order.total_amount, 0)}
-                prefix={<DollarOutlined />}
-                suffix="VNĐ"
-                precision={0}
-                valueStyle={{ color: '#3f8600' }}
-              />
-            </Card>
-          </Col>
-          <Col xs={24} sm={8} md={6}>
-            <Card>
-              <Statistic
-                title="Đơn chờ xử lý"
-                value={orders.filter(o => o.order_status === 'pending').length}
-                prefix={<ShoppingCartOutlined />}
-                valueStyle={{ color: '#faad14' }}
-              />
-            </Card>
-          </Col>
-          <Col xs={24} sm={8} md={6}>
-            <Card>
-              <Statistic
-                title="Đơn đã giao"
-                value={orders.filter(o => o.order_status === 'delivered').length}
-                prefix={<FileTextOutlined />}
-                valueStyle={{ color: '#52c41a' }}
-              />
-            </Card>
-          </Col>
-        </Row>
+        {/* Thống kê nhanh - chỉ hiển thị khi tab "Tất cả" */}
+        {activeTab === 'all' && (
+          <Row gutter={16} style={{ marginBottom: 24 }}>
+            <Col xs={24} sm={8} md={6}>
+              <Card>
+                <Statistic
+                  title="Tổng đơn hàng"
+                  value={orders.length}
+                  prefix={<FileTextOutlined />}
+                  valueStyle={{ color: '#1890ff' }}
+                />
+              </Card>
+            </Col>
+            <Col xs={24} sm={8} md={6}>
+              <Card>
+                <Statistic
+                  title="Tổng doanh thu"
+                  value={orders.reduce((sum, order) => {
+                    const total = typeof order.total_amount === 'string' ? parseFloat(order.total_amount) : (order.total_amount || 0);
+                    return sum + total;
+                  }, 0)}
+                  prefix={<DollarOutlined />}
+                  suffix="VNĐ"
+                  precision={0}
+                  valueStyle={{ color: '#3f8600' }}
+                />
+              </Card>
+            </Col>
+            <Col xs={24} sm={8} md={6}>
+              <Card>
+                <Statistic
+                  title="Đơn chờ xử lý"
+                  value={orders.filter(o => o.order_status === 'pending').length}
+                  prefix={<ShoppingCartOutlined />}
+                  valueStyle={{ color: '#faad14' }}
+                />
+              </Card>
+            </Col>
+            <Col xs={24} sm={8} md={6}>
+              <Card>
+                <Statistic
+                  title="Đơn đã giao"
+                  value={orders.filter(o => o.order_status === 'delivered').length}
+                  prefix={<FileTextOutlined />}
+                  valueStyle={{ color: '#52c41a' }}
+                />
+              </Card>
+            </Col>
+          </Row>
+        )}
 
         <Table
           columns={columns}
@@ -391,7 +489,6 @@ const getStatusLabel = (status: OrderStatus) => {
             showTotal: (total) => `Tổng ${total} đơn hàng`,
           }}
         />
-      </Card>
 
       <Modal
         title="Cập nhật trạng thái đơn hàng"
@@ -427,7 +524,7 @@ const getStatusLabel = (status: OrderStatus) => {
               <Option value="pending">Chờ xử lý</Option>
               <Option value="confirmed">Đã xác nhận</Option>
               <Option value="processing">Đang xử lý</Option>
-              <Option value="shipped">Đang giao hàng</Option>
+              <Option value="shipping">Đang giao hàng</Option>
               <Option value="delivered">Đã giao hàng</Option>
               <Option value="cancelled">Đã hủy</Option>
             </Select>
@@ -604,7 +701,7 @@ const getStatusLabel = (status: OrderStatus) => {
           <Empty description="Không tìm thấy thông tin đơn hàng" />
         )}
       </Drawer>
-    </div>
+    </AdminPageContent>
   );
 };
 

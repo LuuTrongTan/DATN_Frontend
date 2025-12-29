@@ -197,27 +197,6 @@ const BaseSidebar: React.FC<BaseSidebarProps> = ({
             transition: 'all 0.3s ease',
           }}
         />
-        <Menu
-          theme="light"
-          mode="inline"
-          className="sidebar-logout-menu"
-          style={{
-            width: '100%',
-            background: 'transparent',
-            border: 'none',
-            marginTop: 'auto',
-            transition: 'all 0.3s ease',
-          }}
-          items={[
-            {
-              key: 'logout',
-              icon: <LogoutOutlined />,
-              label: 'Đăng xuất',
-              danger: true,
-            },
-          ]}
-          onClick={handleMenuClick}
-        />
       </div>
     </Sider>
   );

@@ -20,6 +20,8 @@ export interface ProductsState {
   error: string | null;
   categories: Category[];
   categoriesLoading: boolean;
+  // Đánh dấu đã từng load categories (kể cả khi kết quả rỗng) để tránh gọi API lặp vô hạn
+  categoriesLoaded: boolean;
   filters: ProductsFilters;
   compareProducts: Product[]; // Products for comparison
   compareLoading: boolean;
@@ -32,6 +34,7 @@ const initialState: ProductsState = {
   error: null,
   categories: [],
   categoriesLoading: false,
+  categoriesLoaded: false,
   filters: {
     search: '',
     category_id: undefined,
@@ -45,10 +48,20 @@ const initialState: ProductsState = {
   compareLoading: false,
 };
 
-export const fetchCategories = createAsyncThunk(
+export const fetchCategories = createAsyncThunk<
+  Category[],
+  void,
+  { state: { products: ProductsState } }
+>(
   'products/fetchCategories',
-  async () => {
-    // Luôn gọi API để đảm bảo dữ liệu danh mục mới nhất cho user
+  async (_, { getState }) => {
+    const { products } = getState();
+
+    // Nếu đã có categories thì trả luôn từ store, không gọi API lại
+    if (products.categories.length > 0) {
+      return products.categories;
+    }
+
     const response = await categoryService.getCategories();
     if (!response.success || !response.data) {
       throw new Error(response.message || 'Không thể tải danh mục');
@@ -165,14 +178,18 @@ const productsSlice = createSlice({
     builder
       .addCase(fetchCategories.pending, (state) => {
         state.categoriesLoading = true;
+        // Khi bắt đầu gọi lại, reset lỗi nhưng không reset cờ loaded
+        state.error = null;
       })
       .addCase(fetchCategories.fulfilled, (state, action: PayloadAction<Category[]>) => {
         state.categoriesLoading = false;
         state.categories = action.payload;
+        state.categoriesLoaded = true;
       })
       .addCase(fetchCategories.rejected, (state, action) => {
         state.categoriesLoading = false;
         state.error = action.error.message || 'Không thể tải danh mục';
+        state.categoriesLoaded = true; // Đánh dấu đã thử load để tránh loop
       })
       .addCase(fetchProducts.pending, (state) => {
         state.loading = true;

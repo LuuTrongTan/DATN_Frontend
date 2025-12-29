@@ -19,6 +19,8 @@ import {
   Modal,
   Popconfirm,
   Tag,
+  Badge,
+  Alert,
 } from 'antd';
 import {
   SaveOutlined,
@@ -28,6 +30,8 @@ import {
   UploadOutlined,
   InboxOutlined,
   EditOutlined,
+  PictureOutlined,
+  CopyOutlined,
 } from '@ant-design/icons';
 import type { UploadProps } from 'antd';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -41,8 +45,9 @@ import { logger } from '../../../shares/utils/logger';
 import { useAppDispatch, useAppSelector } from '../../../shares/stores';
 import { fetchCategories } from '../../ProductManagement/stores/productsSlice';
 import { useEffectOnce } from '../../../shares/hooks';
+import AdminPageContent from '../../../shares/components/layouts/AdminPageContent';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
 const { TextArea } = Input;
 const { Option } = Select;
 const { Dragger } = Upload;
@@ -65,7 +70,8 @@ type VariantDraft = {
   price_adjustment?: number;
   stock_quantity?: number;
   sku?: string | null;
-  image_url?: string | null;
+  image_urls?: string[]; // URLs đã upload hoặc từ server
+  imageFiles?: File[]; // Files để upload sau khi tạo product
   is_active?: boolean;
 };
 
@@ -90,6 +96,11 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
   const [variantDraftEditingIndex, setVariantDraftEditingIndex] = useState<number | null>(null);
   const [variantForm] = Form.useForm();
   const [variantDraftForm] = Form.useForm();
+  const [justCreatedVariant, setJustCreatedVariant] = useState<ProductVariant | null>(null); // Lưu variant vừa tạo để duplicate
+  // State cho variant images (edit mode)
+  const [variantImageItems, setVariantImageItems] = useState<ImageItem[]>([]);
+  // State cho variant draft images (create mode)
+  const [variantDraftImageItems, setVariantDraftImageItems] = useState<ImageItem[]>([]);
   const isEditMode = Boolean(id && !onSuccess); // Nếu có onSuccess thì là modal mode (tạo mới)
 
   // Chỉ gọi fetchCategories một lần khi component mount, và chỉ khi categories chưa có trong store
@@ -299,12 +310,24 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
             key: 'create-variants',
           });
           for (const v of variantDrafts) {
+            // Upload variant image files nếu có
+            let uploadedVariantImageUrls: string[] = [];
+            if (v.imageFiles && v.imageFiles.length > 0) {
+              uploadedVariantImageUrls = await uploadMultipleFiles(v.imageFiles);
+            }
+
+            // Kết hợp URLs và uploaded URLs
+            const allVariantImageUrls = [
+              ...(v.image_urls || []),
+              ...uploadedVariantImageUrls
+            ];
+
             await variantService.createVariant(createdProductId, {
               variant_attributes: v.variant_attributes,
               price_adjustment: v.price_adjustment || 0,
               stock_quantity: v.stock_quantity || 0,
               sku: v.sku || null,
-              image_url: v.image_url || null,
+              image_urls: allVariantImageUrls.length > 0 ? allVariantImageUrls : undefined,
               is_active: v.is_active !== false,
             });
           }
@@ -372,6 +395,66 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
     setImageItems([...imageItems, { type: 'url', url: '' }]);
   };
 
+  // Handlers cho variant images (edit mode)
+  const handleVariantImageUpload: UploadProps['customRequest'] = async ({ file, onSuccess, onError }) => {
+    try {
+      const newItem: ImageItem = { type: 'file', file: file as File };
+      setVariantImageItems([...variantImageItems, newItem]);
+      if (onSuccess) {
+        onSuccess(file);
+      }
+    } catch (error: any) {
+      if (onError) {
+        onError(error);
+      }
+      message.error(`Lỗi: ${error.message}`);
+    }
+  };
+
+  const handleVariantImageRemove = (index: number) => {
+    setVariantImageItems(variantImageItems.filter((_, i) => i !== index));
+  };
+
+  const handleVariantImageUrlChange = (index: number, url: string) => {
+    const updated = [...variantImageItems];
+    updated[index] = { ...updated[index], url };
+    setVariantImageItems(updated);
+  };
+
+  const handleAddVariantImageUrl = () => {
+    setVariantImageItems([...variantImageItems, { type: 'url', url: '' }]);
+  };
+
+  // Handlers cho variant draft images (create mode)
+  const handleVariantDraftImageUpload: UploadProps['customRequest'] = async ({ file, onSuccess, onError }) => {
+    try {
+      const newItem: ImageItem = { type: 'file', file: file as File };
+      setVariantDraftImageItems([...variantDraftImageItems, newItem]);
+      if (onSuccess) {
+        onSuccess(file);
+      }
+    } catch (error: any) {
+      if (onError) {
+        onError(error);
+      }
+      message.error(`Lỗi: ${error.message}`);
+    }
+  };
+
+  const handleVariantDraftImageRemove = (index: number) => {
+    setVariantDraftImageItems(variantDraftImageItems.filter((_, i) => i !== index));
+  };
+
+  const handleVariantDraftImageUrlChange = (index: number, url: string) => {
+    const updated = [...variantDraftImageItems];
+    updated[index] = { ...updated[index], url };
+    setVariantDraftImageItems(updated);
+  };
+
+  const handleAddVariantDraftImageUrl = () => {
+    setVariantDraftImageItems([...variantDraftImageItems, { type: 'url', url: '' }]);
+  };
+
   const handleImageUrlChange = (index: number, value: string) => {
     const newItems = [...imageItems];
     newItems[index] = { type: 'url', url: value };
@@ -403,6 +486,8 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
     if (!isEditMode) return;
     setVariantEditing(null);
     variantForm.resetFields();
+    setVariantImageItems([]); // Reset variant images
+    setJustCreatedVariant(null); // Reset just created variant
     setVariantModalOpen(true);
   };
 
@@ -414,9 +499,14 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
       price_adjustment: v.price_adjustment || 0,
       stock_quantity: v.stock_quantity || 0,
       sku: v.sku || null,
-      image_url: v.image_url || null,
       is_active: v.is_active !== false,
     });
+    // Load variant images
+    if (v.image_urls && v.image_urls.length > 0) {
+      setVariantImageItems(v.image_urls.map(url => ({ type: 'url' as const, url })));
+    } else {
+      setVariantImageItems([]);
+    }
     setVariantModalOpen(true);
   };
 
@@ -425,27 +515,74 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
     try {
       setVariantSaving(true);
       
+      // Xử lý variant images
+      const variantImageFiles = variantImageItems
+        .filter(item => item.type === 'file' && item.file)
+        .map(item => item.file!);
+      
+      const variantImageUrls = variantImageItems
+        .filter(item => item.type === 'url' && item.url?.trim())
+        .map(item => item.url!);
+
+      // Upload variant image files
+      let uploadedVariantImageUrls: string[] = [];
+      if (variantImageFiles.length > 0) {
+        uploadedVariantImageUrls = await uploadMultipleFiles(variantImageFiles);
+      }
+
+      const allVariantImageUrls = [...variantImageUrls, ...uploadedVariantImageUrls];
+
       // variant_attributes đã là object từ form, không cần parse
       const payload = {
         variant_attributes: values.variant_attributes || {},
         price_adjustment: values.price_adjustment ?? 0,
         stock_quantity: values.stock_quantity ?? 0,
         sku: values.sku || null,
-        image_url: values.image_url || null,
+        image_urls: allVariantImageUrls.length > 0 ? allVariantImageUrls : undefined,
         is_active: values.is_active !== false,
       };
       
       if (variantEditing) {
         await variantService.updateVariant(variantEditing.id, payload);
         message.success('Cập nhật biến thể thành công');
+        setVariantModalOpen(false);
+        setVariantEditing(null);
+        variantForm.resetFields();
+        setVariantImageItems([]);
       } else {
         await variantService.createVariant(Number(id), payload);
         message.success('Tạo biến thể thành công');
+        
+        // Fetch lại danh sách để lấy variant vừa tạo
+        await fetchVariants();
+        
+        // Giữ modal mở và load lại dữ liệu để có thể duplicate
+        // Load lại dữ liệu từ variant vừa tạo vào form (nhưng để trống variant_attributes)
+        variantForm.setFieldsValue({
+          variant_attributes: {}, // Để trống để user chọn lại
+          price_adjustment: values.price_adjustment ?? 0,
+          stock_quantity: values.stock_quantity ?? 0,
+          sku: values.sku || null,
+          is_active: values.is_active !== false,
+        });
+        // Giữ lại hình ảnh nếu có
+        if (allVariantImageUrls.length > 0) {
+          setVariantImageItems(allVariantImageUrls.map(url => ({ type: 'url' as const, url })));
+        } else {
+          setVariantImageItems([]);
+        }
+        setVariantEditing(null);
+        
+        // Đánh dấu là vừa tạo để hiển thị nút duplicate
+        setJustCreatedVariant({
+          id: 0, // Tạm thời
+          variant_attributes: values.variant_attributes || {},
+          price_adjustment: values.price_adjustment ?? 0,
+          stock_quantity: values.stock_quantity ?? 0,
+          image_urls: allVariantImageUrls.length > 0 ? allVariantImageUrls : undefined,
+        } as ProductVariant);
+        // Modal vẫn mở, không đóng
       }
-      setVariantModalOpen(false);
-      setVariantEditing(null);
-      variantForm.resetFields();
-      await fetchVariants();
     } catch (error: any) {
       message.error(error.message || 'Có lỗi xảy ra khi lưu biến thể');
     } finally {
@@ -467,6 +604,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
     if (isEditMode) return;
     setVariantDraftEditingIndex(null);
     variantDraftForm.resetFields();
+    setVariantDraftImageItems([]); // Reset variant draft images
     setVariantDraftModalOpen(true);
   };
 
@@ -479,9 +617,14 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
       price_adjustment: v.price_adjustment || 0,
       stock_quantity: v.stock_quantity || 0,
       sku: v.sku || null,
-      image_url: v.image_url || null,
       is_active: v.is_active !== false,
     });
+    // Load variant draft images
+    if (v.image_urls && v.image_urls.length > 0) {
+      setVariantDraftImageItems(v.image_urls.map(url => ({ type: 'url' as const, url })));
+    } else {
+      setVariantDraftImageItems([]);
+    }
     setVariantDraftModalOpen(true);
   };
 
@@ -497,12 +640,23 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
       }
     }
     
+    // Lấy URLs từ variant draft images
+    const variantDraftImageUrls = variantDraftImageItems
+      .filter(item => item.type === 'url' && item.url?.trim())
+      .map(item => item.url!);
+    
+    // Lưu file references để upload sau khi tạo product
+    const variantDraftImageFiles = variantDraftImageItems
+      .filter(item => item.type === 'file' && item.file)
+      .map(item => item.file!);
+
     const normalized: VariantDraft = {
       variant_attributes: variantAttributes || {},
       price_adjustment: values.price_adjustment ?? 0,
       stock_quantity: values.stock_quantity ?? 0,
       sku: values.sku || null,
-      image_url: values.image_url || null,
+      image_urls: variantDraftImageUrls.length > 0 ? variantDraftImageUrls : undefined,
+      imageFiles: variantDraftImageFiles.length > 0 ? variantDraftImageFiles : undefined, // Lưu files để upload sau
       is_active: values.is_active !== false,
     };
 
@@ -533,10 +687,54 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
     setVariantDraftModalOpen(false);
     setVariantDraftEditingIndex(null);
     variantDraftForm.resetFields();
+    setVariantDraftImageItems([]); // Reset variant draft images
   };
 
   const removeVariantDraft = (index: number) => {
     setVariantDrafts(variantDrafts.filter((_, i) => i !== index));
+  };
+
+  // Duplicate variant (edit mode) - tạo bản sao và mở form chỉnh sửa
+  const duplicateVariant = (variant: ProductVariant) => {
+    if (!isEditMode) return;
+    // Tạo bản sao variant với dữ liệu từ variant gốc
+    setVariantEditing(null);
+    variantForm.setFieldsValue({
+      variant_attributes: {}, // Để trống để user chọn lại
+      price_adjustment: variant.price_adjustment || 0,
+      stock_quantity: variant.stock_quantity || 0,
+      sku: variant.sku || null,
+      is_active: variant.is_active !== false,
+    });
+    // Load variant images
+    if (variant.image_urls && variant.image_urls.length > 0) {
+      setVariantImageItems(variant.image_urls.map(url => ({ type: 'url' as const, url })));
+    } else {
+      setVariantImageItems([]);
+    }
+    setJustCreatedVariant(null); // Reset khi duplicate
+    setVariantModalOpen(true);
+  };
+
+  // Duplicate variant draft (create mode) - tạo bản sao và mở form chỉnh sửa
+  const duplicateVariantDraft = (index: number) => {
+    if (isEditMode) return;
+    const v = variantDrafts[index];
+    setVariantDraftEditingIndex(null);
+    variantDraftForm.setFieldsValue({
+      variant_attributes: JSON.stringify(v.variant_attributes || {}, null, 2), // Format JSON để dễ đọc
+      price_adjustment: v.price_adjustment || 0,
+      stock_quantity: v.stock_quantity || 0,
+      sku: v.sku || null,
+      is_active: v.is_active !== false,
+    });
+    // Load variant draft images
+    if (v.image_urls && v.image_urls.length > 0) {
+      setVariantDraftImageItems(v.image_urls.map(url => ({ type: 'url' as const, url })));
+    } else {
+      setVariantDraftImageItems([]);
+    }
+    setVariantDraftModalOpen(true);
   };
 
   const variantColumns = [
@@ -554,6 +752,37 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
       ),
     },
     {
+      title: 'Hình ảnh',
+      dataIndex: 'image_urls',
+      key: 'image_urls',
+      width: 120,
+      render: (urls: string[] | null | undefined, record: ProductVariant) => {
+        if (urls && urls.length > 0) {
+          return (
+            <Badge count={urls.length} offset={[-5, 5]}>
+              <Image
+                src={urls[0]}
+                alt={Object.entries(record.variant_attributes || {})
+                  .map(([key, val]) => `${key}: ${val}`)
+                  .join(', ')}
+                width={60}
+                height={60}
+                style={{ objectFit: 'cover', borderRadius: 4 }}
+                preview={{
+                  mask: urls.length > 1 ? `Xem tất cả (${urls.length})` : 'Xem',
+                }}
+              />
+            </Badge>
+          );
+        }
+        return (
+          <Tag color="default" icon={<PictureOutlined />}>
+            Chưa có ảnh
+          </Tag>
+        );
+      },
+    },
+    {
       title: 'Điều chỉnh giá',
       dataIndex: 'price_adjustment',
       key: 'price_adjustment',
@@ -569,11 +798,14 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
     {
       title: 'Thao tác',
       key: 'action',
-      width: 180,
+      width: 240,
       render: (_: any, record: ProductVariant) => (
         <Space>
           <Button type="link" icon={<EditOutlined />} onClick={() => openEditVariantModal(record)}>
             Sửa
+          </Button>
+          <Button type="link" icon={<CopyOutlined />} onClick={() => duplicateVariant(record)}>
+            Sao chép
           </Button>
           <Popconfirm
             title="Bạn có chắc muốn xóa biến thể này?"
@@ -600,7 +832,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
             <Tag key={key} color="blue" style={{ marginBottom: 4 }}>
               {key}: {val}
             </Tag>
-          )))}
+          ))}
         </div>
       ),
     },
@@ -620,11 +852,14 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
     {
       title: 'Thao tác',
       key: 'action',
-      width: 180,
+      width: 240,
       render: (_: any, __: VariantDraft, index: number) => (
         <Space>
           <Button type="link" icon={<EditOutlined />} onClick={() => openEditVariantDraftModal(index)}>
             Sửa
+          </Button>
+          <Button type="link" icon={<CopyOutlined />} onClick={() => duplicateVariantDraft(index)}>
+            Sao chép
           </Button>
           <Popconfirm
             title="Bạn có chắc muốn xóa biến thể này?"
@@ -833,7 +1068,20 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
             />
           </Form.Item>
 
-          <Form.Item label="Hình ảnh sản phẩm">
+          <Form.Item 
+            label={
+              <Space>
+                <span>Hình ảnh sản phẩm</span>
+                <Tag color="blue">Ảnh của sản phẩm chính</Tag>
+              </Space>
+            }
+            extra={
+              <Typography.Text type="secondary">
+                <PictureOutlined /> Ảnh này sẽ hiển thị cho toàn bộ sản phẩm, không phụ thuộc vào biến thể. 
+                Để thêm ảnh riêng cho từng biến thể, hãy chỉnh sửa biến thể đó.
+              </Typography.Text>
+            }
+          >
             <Tabs
               items={[
                 {
@@ -856,9 +1104,55 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
                         </p>
                       </Dragger>
                       
+                      {/* Hiển thị images hiện có (từ server) */}
+                      {imageItems.filter(item => item.type === 'url' && item.url).length > 0 && (
+                        <div>
+                          <Typography.Text strong>Hình ảnh hiện có:</Typography.Text>
+                          <Row gutter={[8, 8]} style={{ marginTop: 8 }}>
+                            {imageItems
+                              .filter(item => item.type === 'url' && item.url)
+                              .map((item, index) => {
+                                const actualIndex = imageItems.findIndex(i => i === item);
+                                return (
+                                  <Col key={`url-${index}`} xs={12} sm={8} md={6}>
+                                    <Card
+                                      hoverable
+                                      cover={
+                                        <Image
+                                          src={item.url!}
+                                          alt={`Existing ${index + 1}`}
+                                          style={{ height: 120, objectFit: 'cover' }}
+                                          preview
+                                        />
+                                      }
+                                      actions={[
+                                        <Button
+                                          key="delete"
+                                          danger
+                                          size="small"
+                                          icon={<DeleteOutlined />}
+                                          onClick={() => handleImageRemove(actualIndex)}
+                                        >
+                                          Xóa
+                                        </Button>,
+                                      ]}
+                                    >
+                                      <Card.Meta
+                                        title="Ảnh hiện có"
+                                        description="Đã lưu trên server"
+                                      />
+                                    </Card>
+                                  </Col>
+                                );
+                              })}
+                          </Row>
+                        </div>
+                      )}
+                      
+                      {/* Hiển thị files mới đã chọn (chưa upload) */}
                       {imageItems.filter(item => item.type === 'file').length > 0 && (
                         <div>
-                          <Typography.Text strong>Hình ảnh đã chọn (sẽ upload khi submit):</Typography.Text>
+                          <Typography.Text strong>Hình ảnh mới đã chọn (sẽ upload khi submit):</Typography.Text>
                           <Row gutter={[8, 8]} style={{ marginTop: 8 }}>
                             {imageItems
                               .filter(item => item.type === 'file' && item.file)
@@ -866,7 +1160,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
                                 const actualIndex = imageItems.findIndex(i => i === item);
                                 const previewUrl = item.file ? URL.createObjectURL(item.file) : null;
                                 return (
-                                  <Col key={index} xs={12} sm={8} md={6}>
+                                  <Col key={`file-${index}`} xs={12} sm={8} md={6}>
                                     <Card
                                       hoverable
                                       cover={
@@ -999,6 +1293,8 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
               setVariantModalOpen(false);
               setVariantEditing(null);
               variantForm.resetFields();
+              setVariantImageItems([]);
+              setJustCreatedVariant(null);
             }}
             footer={null}
             destroyOnClose
@@ -1080,19 +1376,223 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
                 </Select>
               </Form.Item>
 
+              <Form.Item 
+                label={
+                  <Space>
+                    <span>Hình ảnh biến thể</span>
+                    <Tag color="orange">Ảnh riêng của biến thể này</Tag>
+                  </Space>
+                }
+                extra={
+                  <Typography.Text type="secondary">
+                    <PictureOutlined /> Ảnh này chỉ hiển thị khi khách hàng chọn biến thể này. 
+                    Nếu không có ảnh, sẽ dùng ảnh của sản phẩm chính.
+                  </Typography.Text>
+                }
+              >
+                <Tabs
+                  items={[
+                    {
+                      key: 'upload',
+                      label: 'Tải lên file',
+                      children: (
+                        <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                          <Dragger
+                            customRequest={handleVariantImageUpload}
+                            accept="image/*"
+                            multiple
+                            showUploadList={false}
+                          >
+                            <p className="ant-upload-drag-icon">
+                              <InboxOutlined />
+                            </p>
+                            <p className="ant-upload-text">Click hoặc kéo thả file vào đây</p>
+                            <p className="ant-upload-hint">Hỗ trợ chọn nhiều file</p>
+                          </Dragger>
+                          
+                          {/* Hiển thị images hiện có của variant (từ server) */}
+                          {variantImageItems.filter(item => item.type === 'url' && item.url).length > 0 && (
+                            <div>
+                              <Typography.Text strong>Hình ảnh hiện có của biến thể:</Typography.Text>
+                              <Row gutter={[8, 8]} style={{ marginTop: 8 }}>
+                                {variantImageItems
+                                  .filter(item => item.type === 'url' && item.url)
+                                  .map((item, index) => {
+                                    const actualIndex = variantImageItems.findIndex(i => i === item);
+                                    return (
+                                      <Col key={`variant-url-${index}`} xs={12} sm={8} md={6}>
+                                        <Card
+                                          hoverable
+                                          cover={
+                                            <Image
+                                              src={item.url!}
+                                              alt={`Variant Existing ${index + 1}`}
+                                              style={{ height: 120, objectFit: 'cover' }}
+                                              preview
+                                            />
+                                          }
+                                          actions={[
+                                            <Button
+                                              key="delete"
+                                              danger
+                                              size="small"
+                                              icon={<DeleteOutlined />}
+                                              onClick={() => handleVariantImageRemove(actualIndex)}
+                                            >
+                                              Xóa
+                                            </Button>,
+                                          ]}
+                                        >
+                                          <Card.Meta
+                                            title="Ảnh hiện có"
+                                            description="Đã lưu trên server"
+                                          />
+                                        </Card>
+                                      </Col>
+                                    );
+                                  })}
+                              </Row>
+                            </div>
+                          )}
+                          
+                          {/* Hiển thị files mới đã chọn (chưa upload) */}
+                          {variantImageItems.filter(item => item.type === 'file').length > 0 && (
+                            <div>
+                              <Typography.Text strong>Hình ảnh mới đã chọn (sẽ upload khi lưu):</Typography.Text>
+                              <Row gutter={[8, 8]} style={{ marginTop: 8 }}>
+                                {variantImageItems
+                                  .filter(item => item.type === 'file' && item.file)
+                                  .map((item, index) => {
+                                    const actualIndex = variantImageItems.findIndex(i => i === item);
+                                    const previewUrl = item.file ? URL.createObjectURL(item.file) : null;
+                                    return (
+                                      <Col key={`variant-file-${index}`} xs={12} sm={8} md={6}>
+                                        <Card
+                                          hoverable
+                                          cover={
+                                            previewUrl ? (
+                                              <Image
+                                                src={previewUrl}
+                                                alt={`Variant ${index + 1}`}
+                                                style={{ height: 100, objectFit: 'cover' }}
+                                                preview={false}
+                                              />
+                                            ) : (
+                                              <div style={{ height: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                <Spin />
+                                              </div>
+                                            )
+                                          }
+                                          actions={[
+                                            <Button
+                                              key="delete"
+                                              danger
+                                              size="small"
+                                              icon={<DeleteOutlined />}
+                                              onClick={() => {
+                                                if (previewUrl) {
+                                                  URL.revokeObjectURL(previewUrl);
+                                                }
+                                                handleVariantImageRemove(actualIndex);
+                                              }}
+                                            >
+                                              Xóa
+                                            </Button>,
+                                          ]}
+                                        >
+                                          <Card.Meta
+                                            title={item.file?.name || 'File'}
+                                            description="Sẽ upload khi lưu"
+                                          />
+                                        </Card>
+                                      </Col>
+                                    );
+                                  })}
+                              </Row>
+                            </div>
+                          )}
+                        </Space>
+                      ),
+                    },
+                    {
+                      key: 'url',
+                      label: 'Nhập URL',
+                      children: (
+                        <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                          {variantImageItems
+                            .filter(item => item.type === 'url')
+                            .map((item, index) => {
+                              const actualIndex = variantImageItems.findIndex(i => i === item);
+                              return (
+                                <Space key={index} style={{ width: '100%' }} align="start">
+                                  <div style={{ flex: 1 }}>
+                                    <Input
+                                      placeholder="Nhập URL hình ảnh"
+                                      value={item.url}
+                                      onChange={(e) => handleVariantImageUrlChange(actualIndex, e.target.value)}
+                                    />
+                                    {item.url && (
+                                      <Image
+                                        src={item.url}
+                                        alt={`Preview ${index + 1}`}
+                                        style={{ marginTop: 8, maxWidth: '100%', maxHeight: 150 }}
+                                        preview
+                                      />
+                                    )}
+                                  </div>
+                                  <Button
+                                    danger
+                                    icon={<DeleteOutlined />}
+                                    onClick={() => handleVariantImageRemove(actualIndex)}
+                                  >
+                                    Xóa
+                                  </Button>
+                                </Space>
+                              );
+                            })}
+                          <Button
+                            type="dashed"
+                            icon={<PlusOutlined />}
+                            onClick={handleAddVariantImageUrl}
+                            style={{ width: '100%' }}
+                          >
+                            Thêm URL hình ảnh
+                          </Button>
+                        </Space>
+                      ),
+                    },
+                  ]}
+                />
+              </Form.Item>
+
               <Form.Item>
                 <Space>
                   <Button type="primary" htmlType="submit" loading={variantSaving}>
-                    Lưu
+                    {justCreatedVariant ? 'Tạo biến thể tương tự' : 'Lưu'}
                   </Button>
+                  {justCreatedVariant && (
+                    <Button
+                      onClick={() => {
+                        setVariantModalOpen(false);
+                        setVariantEditing(null);
+                        variantForm.resetFields();
+                        setVariantImageItems([]);
+                        setJustCreatedVariant(null);
+                      }}
+                    >
+                      Đóng
+                    </Button>
+                  )}
                   <Button
                     onClick={() => {
                       setVariantModalOpen(false);
                       setVariantEditing(null);
                       variantForm.resetFields();
+                      setVariantImageItems([]);
+                      setJustCreatedVariant(null);
                     }}
                   >
-                    Hủy
+                    {justCreatedVariant ? 'Hủy' : 'Hủy'}
                   </Button>
                 </Space>
               </Form.Item>
@@ -1205,6 +1705,146 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
                 </Select>
               </Form.Item>
 
+              <Form.Item 
+                label={
+                  <Space>
+                    <span>Hình ảnh biến thể</span>
+                    <Tag color="orange">Ảnh riêng của biến thể này</Tag>
+                  </Space>
+                }
+                extra={
+                  <Typography.Text type="secondary">
+                    <PictureOutlined /> Ảnh này chỉ hiển thị khi khách hàng chọn biến thể này. 
+                    Nếu không có ảnh, sẽ dùng ảnh của sản phẩm chính.
+                  </Typography.Text>
+                }
+              >
+                <Tabs
+                  items={[
+                    {
+                      key: 'upload',
+                      label: 'Tải lên file',
+                      children: (
+                        <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                          <Dragger
+                            customRequest={handleVariantDraftImageUpload}
+                            accept="image/*"
+                            multiple
+                            showUploadList={false}
+                          >
+                            <p className="ant-upload-drag-icon">
+                              <InboxOutlined />
+                            </p>
+                            <p className="ant-upload-text">Click hoặc kéo thả file vào đây</p>
+                            <p className="ant-upload-hint">Hỗ trợ chọn nhiều file</p>
+                          </Dragger>
+                          
+                          {variantDraftImageItems.filter(item => item.type === 'file').length > 0 && (
+                            <Row gutter={[8, 8]}>
+                              {variantDraftImageItems
+                                .filter(item => item.type === 'file' && item.file)
+                                .map((item, index) => {
+                                  const actualIndex = variantDraftImageItems.findIndex(i => i === item);
+                                  const previewUrl = item.file ? URL.createObjectURL(item.file) : null;
+                                  return (
+                                    <Col key={index} xs={12} sm={8} md={6}>
+                                      <Card
+                                        hoverable
+                                        cover={
+                                          previewUrl ? (
+                                            <Image
+                                              src={previewUrl}
+                                              alt={`Variant Draft ${index + 1}`}
+                                              style={{ height: 100, objectFit: 'cover' }}
+                                              preview={false}
+                                            />
+                                          ) : (
+                                            <div style={{ height: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                              <Spin />
+                                            </div>
+                                          )
+                                        }
+                                        actions={[
+                                          <Button
+                                            key="delete"
+                                            danger
+                                            size="small"
+                                            icon={<DeleteOutlined />}
+                                            onClick={() => {
+                                              if (previewUrl) {
+                                                URL.revokeObjectURL(previewUrl);
+                                              }
+                                              handleVariantDraftImageRemove(actualIndex);
+                                            }}
+                                          >
+                                            Xóa
+                                          </Button>,
+                                        ]}
+                                      >
+                                        <Card.Meta
+                                          title={item.file?.name || 'File'}
+                                          description="Sẽ upload khi tạo sản phẩm"
+                                        />
+                                      </Card>
+                                    </Col>
+                                  );
+                                })}
+                            </Row>
+                          )}
+                        </Space>
+                      ),
+                    },
+                    {
+                      key: 'url',
+                      label: 'Nhập URL',
+                      children: (
+                        <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                          {variantDraftImageItems
+                            .filter(item => item.type === 'url')
+                            .map((item, index) => {
+                              const actualIndex = variantDraftImageItems.findIndex(i => i === item);
+                              return (
+                                <Space key={index} style={{ width: '100%' }} align="start">
+                                  <div style={{ flex: 1 }}>
+                                    <Input
+                                      placeholder="Nhập URL hình ảnh"
+                                      value={item.url}
+                                      onChange={(e) => handleVariantDraftImageUrlChange(actualIndex, e.target.value)}
+                                    />
+                                    {item.url && (
+                                      <Image
+                                        src={item.url}
+                                        alt={`Preview ${index + 1}`}
+                                        style={{ marginTop: 8, maxWidth: '100%', maxHeight: 150 }}
+                                        preview
+                                      />
+                                    )}
+                                  </div>
+                                  <Button
+                                    danger
+                                    icon={<DeleteOutlined />}
+                                    onClick={() => handleVariantDraftImageRemove(actualIndex)}
+                                  >
+                                    Xóa
+                                  </Button>
+                                </Space>
+                              );
+                            })}
+                          <Button
+                            type="dashed"
+                            icon={<PlusOutlined />}
+                            onClick={handleAddVariantDraftImageUrl}
+                            style={{ width: '100%' }}
+                          >
+                            Thêm URL hình ảnh
+                          </Button>
+                        </Space>
+                      ),
+                    },
+                  ]}
+                />
+              </Form.Item>
+
               <Form.Item>
                 <Space>
                   <Button type="primary" htmlType="submit">
@@ -1215,6 +1855,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
                       setVariantDraftModalOpen(false);
                       setVariantDraftEditingIndex(null);
                       variantDraftForm.resetFields();
+                      setVariantDraftImageItems([]);
                     }}
                   >
                     Hủy
@@ -1231,25 +1872,21 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
     return formContent;
   }
 
-  // Page mode - hiển thị với Card và header
+  // Page mode - hiển thị với AdminPageContent
   return (
-    <div>
-      <Card>
-        <div style={{ marginBottom: 24 }}>
-          <Button
-            icon={<ArrowLeftOutlined />}
-            onClick={() => navigate('/admin/products')}
-            style={{ marginBottom: 16 }}
-          >
-            Quay lại
-          </Button>
-          <Title level={2} style={{ margin: 0 }}>
-            {isEditMode ? 'Chỉnh sửa sản phẩm' : 'Tạo sản phẩm mới'}
-          </Title>
-        </div>
-        {formContent}
-      </Card>
-    </div>
+    <AdminPageContent
+      title={isEditMode ? 'Chỉnh sửa sản phẩm' : 'Tạo sản phẩm mới'}
+      extra={
+        <Button
+          icon={<ArrowLeftOutlined />}
+          onClick={() => navigate('/admin/products')}
+        >
+          Quay lại
+        </Button>
+      }
+    >
+      {formContent}
+    </AdminPageContent>
   );
 };
 

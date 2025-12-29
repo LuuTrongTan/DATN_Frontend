@@ -9,7 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { Banner, CategorySection, ProductSection } from './components';
 import { useAppDispatch, useAppSelector } from '../../shares/stores';
 import { fetchCart } from '../ProductManagement/stores/cartSlice';
-import { fetchCategories, fetchProducts } from '../ProductManagement/stores/productsSlice';
+import { fetchProducts, fetchCategories } from '../ProductManagement/stores/productsSlice';
 import { fetchRecentOrders } from '../Orders/stores/ordersSlice';
 import { Order } from '../../shares/types';
 import { logger } from '../../shares/utils/logger';
@@ -40,8 +40,8 @@ const Home: React.FC = () => {
         
         // Fetch từ Redux
         await Promise.all([
-          dispatch(fetchCategories()),
           dispatch(fetchProducts()),
+          dispatch(fetchCategories()),
           dispatch(fetchCart()),
           dispatch(fetchRecentOrders(5)),
         ]);
@@ -82,44 +82,6 @@ const Home: React.FC = () => {
         <CategorySection categories={categories} />
       )}
 
-      {/* User Stats Section (only show if user has orders or cart) */}
-      {(stats.totalOrders > 0 || stats.cartItems > 0) && (
-        <Row gutter={[16, 16]} style={{ marginBottom: 48 }}>
-          <Col xs={24} sm={12} lg={8}>
-            <Card>
-              <Statistic
-                title="Đơn hàng của tôi"
-                value={stats.totalOrders}
-                prefix={<FileTextOutlined />}
-                valueStyle={{ color: '#1890ff' }}
-              />
-            </Card>
-          </Col>
-          <Col xs={24} sm={12} lg={8}>
-            <Card>
-              <Statistic
-                title="Tổng chi tiêu"
-                value={stats.totalSpent}
-                prefix={<DollarOutlined />}
-                suffix="VNĐ"
-                precision={0}
-                valueStyle={{ color: '#cf1322' }}
-              />
-            </Card>
-          </Col>
-          <Col xs={24} sm={12} lg={8}>
-            <Card>
-              <Statistic
-                title="Giỏ hàng"
-                value={stats.cartItems}
-                prefix={<ShoppingCartOutlined />}
-                valueStyle={{ color: '#722ed1' }}
-              />
-            </Card>
-          </Col>
-        </Row>
-      )}
-
       {/* Featured Products Section */}
       {products.length > 0 && (
         <ProductSection
@@ -138,92 +100,6 @@ const Home: React.FC = () => {
         />
       )}
 
-      {/* Quick Access Section */}
-      <Row gutter={[16, 16]} style={{ marginTop: 48 }}>
-        <Col xs={24} lg={12}>
-          <Card 
-            title="Giỏ hàng của tôi" 
-            style={{ minHeight: 300 }}
-            extra={
-              cartItems.length > 0 && (
-                <Button type="link" onClick={() => navigate('/cart')}>
-                  Xem tất cả
-                </Button>
-              )
-            }
-          >
-            {cartItems.length > 0 ? (
-              <Space direction="vertical" style={{ width: '100%' }}>
-                {cartItems.slice(0, 5).map((item) => (
-                  <div key={item.id} style={{ padding: '8px 0', borderBottom: '1px solid #f0f0f0' }}>
-                    <Typography.Text strong>{item.product?.name || 'Sản phẩm'}</Typography.Text>
-                    <br />
-                    <Typography.Text type="secondary">
-                      Số lượng: {item.quantity} | Giá: {item.product?.price?.toLocaleString('vi-VN')} VNĐ
-                    </Typography.Text>
-                  </div>
-                ))}
-              </Space>
-            ) : (
-              <Empty 
-                description="Giỏ hàng trống" 
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
-              >
-                <Button type="primary" onClick={() => navigate('/products')}>
-                  Mua sắm ngay
-                </Button>
-              </Empty>
-            )}
-          </Card>
-        </Col>
-        <Col xs={24} lg={12}>
-          <Card 
-            title="Đơn hàng gần đây" 
-            style={{ minHeight: 300 }}
-            extra={
-              orders.length > 0 && (
-                <Button type="link" onClick={() => navigate('/orders')}>
-                  Xem tất cả
-                </Button>
-              )
-            }
-          >
-            {orders.length > 0 ? (
-              <Space direction="vertical" style={{ width: '100%' }}>
-                {orders.map((order: Order) => (
-                  <div key={order.id} style={{ padding: '8px 0', borderBottom: '1px solid #f0f0f0' }}>
-                    <Typography.Text strong>#{order.order_number}</Typography.Text>
-                    <br />
-                    <Typography.Text type="secondary">
-                      {(() => {
-                        const status = (order as any).order_status || (order as any).status || order.order_status;
-                        const map: Record<string, string> = {
-                          pending: 'Chờ xử lý',
-                          confirmed: 'Đã xác nhận',
-                          processing: 'Đang xử lý',
-                          shipping: 'Đang giao hàng',
-                          delivered: 'Đã giao hàng',
-                          cancelled: 'Đã hủy',
-                        };
-                        return map[status] || status || '-';
-                      })()} | {order.total_amount.toLocaleString('vi-VN')} VNĐ
-                    </Typography.Text>
-                  </div>
-                ))}
-              </Space>
-            ) : (
-              <Empty 
-                description="Chưa có đơn hàng nào" 
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
-              >
-                <Button type="primary" onClick={() => navigate('/products')}>
-                  Mua sắm ngay
-                </Button>
-              </Empty>
-            )}
-          </Card>
-        </Col>
-      </Row>
     </div>
   );
 };

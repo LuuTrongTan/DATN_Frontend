@@ -202,7 +202,17 @@ const ProductDetail: React.FC = () => {
     );
   }
 
-  const images = product.image_urls || (product.image_url ? [product.image_url] : []);
+  // Lấy images để hiển thị: ưu tiên variant images nếu có variant được chọn và variant có images
+  const getDisplayImages = () => {
+    if (selectedVariant && selectedVariant.image_urls && selectedVariant.image_urls.length > 0) {
+      // Nếu có variant được chọn và variant có images, hiển thị variant images
+      return selectedVariant.image_urls;
+    }
+    // Ngược lại, hiển thị product images
+    return product.image_urls || (product.image_url ? [product.image_url] : []);
+  };
+  
+  const displayImages = getDisplayImages();
   
   // Calculate current price and stock based on selected variant
   const currentPrice = selectedVariant 
@@ -252,19 +262,46 @@ const ProductDetail: React.FC = () => {
         {/* Hình ảnh sản phẩm */}
         <Col xs={24} md={12}>
           <Card>
-            {images.length > 0 ? (
-              <Carousel autoplay>
-                {images.map((url, index) => (
-                  <div key={index}>
-                    <Image
-                      src={url}
-                      alt={`${product.name} ${index + 1}`}
-                      style={{ width: '100%', height: 500, objectFit: 'contain' }}
-                      preview
-                    />
-                  </div>
+            {displayImages.length > 0 ? (
+              <Image.PreviewGroup>
+                {displayImages.length === 1 ? (
+                  // Nếu chỉ có 1 ảnh, hiển thị trực tiếp
+                  <Image
+                    src={displayImages[0]}
+                    alt={product.name}
+                    style={{ width: '100%', height: 500, objectFit: 'contain' }}
+                    preview={{
+                      mask: 'Xem',
+                    }}
+                  />
+                ) : (
+                  // Nếu có nhiều ảnh, dùng Carousel
+                  <Carousel autoplay>
+                    {displayImages.map((url, index) => (
+                      <div key={index}>
+                        <Image
+                          src={url}
+                          alt={`${product.name} ${index + 1}`}
+                          style={{ width: '100%', height: 500, objectFit: 'contain' }}
+                          preview={{
+                            mask: `Xem tất cả (${displayImages.length})`,
+                          }}
+                        />
+                      </div>
+                    ))}
+                  </Carousel>
+                )}
+                {/* Render tất cả images trong PreviewGroup để có thể navigate trong preview */}
+                {displayImages.map((url, index) => (
+                  <Image
+                    key={`preview-group-${index}`}
+                    src={url}
+                    alt={`${product.name} - ${index + 1}`}
+                    style={{ display: 'none' }}
+                    preview={{}}
+                  />
                 ))}
-              </Carousel>
+              </Image.PreviewGroup>
             ) : (
               <div
                 style={{
@@ -280,9 +317,22 @@ const ProductDetail: React.FC = () => {
               </div>
             )}
 
-            {/* Video nếu có */}
+            {/* Thông báo nếu đang hiển thị variant images */}
+            {selectedVariant && selectedVariant.image_urls && selectedVariant.image_urls.length > 0 && (
+              <Alert
+                message={`Đang hiển thị ảnh của biến thể: ${Object.entries(selectedVariant.variant_attributes || {})
+                  .map(([key, val]) => `${key}: ${val}`)
+                  .join(', ')}`}
+                type="info"
+                style={{ marginTop: 16 }}
+                showIcon
+              />
+            )}
+
+            {/* Video nếu có (chỉ hiển thị video của product, không phải variant) */}
             {product.video_url && (
               <div style={{ marginTop: 16 }}>
+                <Divider>Video sản phẩm</Divider>
                 <video
                   src={product.video_url}
                   controls
@@ -357,6 +407,17 @@ const ProductDetail: React.FC = () => {
                             return matchesCurrentAttr && matchesOtherAttrs && v.stock_quantity > 0;
                           });
                           
+                          // Tìm variant phù hợp để kiểm tra xem có images không
+                          const matchingVariant = availableVariants.find(v => {
+                            if (!v.variant_attributes) return false;
+                            const matchesCurrentAttr = v.variant_attributes[attrName] === value;
+                            const matchesOtherAttrs = Object.keys(selectedAttributes)
+                              .filter(key => key !== attrName)
+                              .every(key => v.variant_attributes[key] === selectedAttributes[key]);
+                            return matchesCurrentAttr && matchesOtherAttrs;
+                          });
+                          const hasVariantImages = matchingVariant?.image_urls && matchingVariant.image_urls.length > 0;
+                          
                           return (
                             <Button
                               key={value}
@@ -366,10 +427,26 @@ const ProductDetail: React.FC = () => {
                               style={{
                                 minWidth: 80,
                                 border: isSelected ? '2px solid #1890ff' : undefined,
+                                position: 'relative',
                               }}
                             >
-                              {value}
-                              {!hasAvailableVariant && ' (Hết)'}
+                              <Space size={4}>
+                                <span>{value}</span>
+                                {hasVariantImages && (
+                                  <Tag 
+                                    color="orange" 
+                                    style={{ 
+                                      fontSize: 10,
+                                      lineHeight: '14px',
+                                      padding: '0 4px',
+                                      margin: 0
+                                    }}
+                                  >
+                                    Ảnh
+                                  </Tag>
+                                )}
+                                {!hasAvailableVariant && <span>(Hết)</span>}
+                              </Space>
                             </Button>
                           );
                         })}
