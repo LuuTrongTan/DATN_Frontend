@@ -30,7 +30,7 @@ import {
   EditOutlined,
 } from '@ant-design/icons';
 import type { UploadProps } from 'antd';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { productService } from '../../../shares/services/productService';
 import { variantService } from '../../../shares/services/variantService';
 import { Category, ProductVariant } from '../../../shares/types';
@@ -73,6 +73,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
   const [form] = Form.useForm();
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
   const dispatch = useAppDispatch();
   const { categories, categoriesLoading } = useAppSelector((state) => state.products);
   const [loading, setLoading] = useState(false);
@@ -106,6 +107,18 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
     if (isEditMode) {
       fetchProduct();
       fetchVariants();
+      
+      // Kiểm tra query param để tự động mở modal tạo biến thể
+      if (searchParams.get('openVariantModal') === 'true') {
+        // Xóa query param
+        searchParams.delete('openVariantModal');
+        setSearchParams(searchParams, { replace: true });
+        
+        // Mở modal sau một chút để đảm bảo data đã load xong
+        setTimeout(() => {
+          setVariantModalOpen(true);
+        }, 500);
+      }
     } else {
       // Khi tạo mới, không cần khởi tạo gì
       setImageItems([]);
@@ -113,7 +126,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
       setVariantDrafts([]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, isEditMode]);
+  }, [id, isEditMode, searchParams]);
 
   const fetchProduct = async () => {
     try {
@@ -305,8 +318,23 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
           content: 'Tạo sản phẩm thành công',
           key: 'create-product',
         });
+        
+        // Nếu không có variantDrafts, tự động mở modal tạo biến thể
+        if (!variantDrafts || variantDrafts.length === 0) {
+          if (onSuccess) {
+            // Modal mode: đóng modal và thông báo
+            message.info('Vui lòng quay lại để tạo biến thể cho sản phẩm');
+            onSuccess();
+            return; // Return sớm để không chạy code bên dưới
+          } else {
+            // Page mode: chuyển sang edit mode và mở modal
+            navigate(`/admin/products/${createdProductId}?openVariantModal=true`);
+            return; // Return sớm để không navigate đến /admin/products
+          }
+        }
       }
       
+      // Nếu có variantDrafts hoặc không phải create mode, xử lý bình thường
       if (onSuccess) {
         onSuccess();
       } else {
