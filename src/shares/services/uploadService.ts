@@ -1,5 +1,5 @@
 /**
- * Upload Service - Gửi file lên Backend để upload lên Cloudflare
+ * Upload Service - Gửi file lên Backend để upload qua server (local storage)
  */
 import { API_BASE_URL, getAuthToken } from '../api';
 

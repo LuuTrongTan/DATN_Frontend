@@ -51,7 +51,11 @@ export const productService = {
     description?: string;
     price: number;
     stock_quantity: number;
+    image_urls?: string[]; // URLs của hình ảnh (đã upload trước)
+    video_url?: string; // URL của video (đã upload trước hoặc URL trực tiếp)
     is_active?: boolean;
+    sku?: string;
+    brand?: string;
   }): Promise<ApiResponse<Product>> => {
     return apiClient.post('/products', data);
   },
@@ -63,7 +67,11 @@ export const productService = {
     description?: string;
     price?: number;
     stock_quantity?: number;
+    image_urls?: string[]; // URLs của hình ảnh (đã upload trước)
+    video_url?: string; // URL của video (đã upload trước hoặc URL trực tiếp)
     is_active?: boolean;
+    sku?: string;
+    brand?: string;
   }): Promise<ApiResponse<Product>> => {
     return apiClient.put(`/products/${id}`, data);
   },
