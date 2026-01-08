@@ -17,6 +17,8 @@ import {
   Popconfirm,
   Tag,
   Checkbox,
+  Select,
+  Switch,
 } from 'antd';
 import { 
   UserOutlined, 
@@ -35,6 +37,7 @@ import {
 import { useAuth } from '../../../shares/contexts/AuthContext';
 import { authService } from '../../../shares/services/authService';
 import { addressService, UserAddress, CreateAddressInput, UpdateAddressInput } from '../../../shares/services/addressService';
+import { provincesService, Province, District, Ward } from '../../../shares/services/provincesService';
 import { useNavigate } from 'react-router-dom';
 
 const { Title, Text } = Typography;
@@ -54,6 +57,16 @@ const Profile: React.FC = () => {
   const [otpCode, setOtpCode] = useState('');
   const [sendingOtp, setSendingOtp] = useState(false);
   const [verifyingOtp, setVerifyingOtp] = useState(false);
+
+  // Provinces data for address form
+  const [provinces, setProvinces] = useState<Province[]>([]);
+  const [districts, setDistricts] = useState<District[]>([]);
+  const [wards, setWards] = useState<Ward[]>([]);
+  const [loadingProvinces, setLoadingProvinces] = useState(false);
+  const [loadingDistricts, setLoadingDistricts] = useState(false);
+  const [loadingWards, setLoadingWards] = useState(false);
+  const [selectedProvinceCode, setSelectedProvinceCode] = useState<number | null>(null);
+  const [selectedDistrictCode, setSelectedDistrictCode] = useState<number | null>(null);
 
   useEffect(() => {
     // Set form values from user context (no need to fetch on mount)
@@ -144,15 +157,125 @@ const Profile: React.FC = () => {
     }
   };
 
-  const handleCreateAddress = () => {
+  // Fetch provinces
+  const fetchProvinces = async () => {
+    try {
+      console.log('[Profile] fetchProvinces called');
+      setLoadingProvinces(true);
+      const response = await provincesService.getProvinces(1);
+      console.log('[Profile] fetchProvinces response:', response);
+      if (response.success && response.data) {
+        setProvinces(response.data);
+        console.log('[Profile] Provinces loaded:', response.data.length);
+      }
+    } catch (error: any) {
+      console.error('[Profile] Error fetching provinces:', error);
+    } finally {
+      setLoadingProvinces(false);
+    }
+  };
+
+  // Fetch districts
+  const fetchDistricts = async (provinceCode: number) => {
+    try {
+      setLoadingDistricts(true);
+      setDistricts([]);
+      setWards([]);
+      setSelectedDistrictCode(null);
+      addressForm.setFieldsValue({ district: undefined, ward: undefined });
+
+      const response = await provincesService.getDistricts(provinceCode, 1);
+      if (response.success && response.data) {
+        setDistricts(response.data);
+      }
+    } catch (error: any) {
+      console.error('[Profile] Error fetching districts:', error);
+    } finally {
+      setLoadingDistricts(false);
+    }
+  };
+
+  // Fetch wards
+  const fetchWards = async (districtCode: number) => {
+    try {
+      setLoadingWards(true);
+      setWards([]);
+      addressForm.setFieldsValue({ ward: undefined });
+
+      const response = await provincesService.getWards(districtCode);
+      if (response.success && response.data) {
+        setWards(response.data);
+      }
+    } catch (error: any) {
+      console.error('[Profile] Error fetching wards:', error);
+    } finally {
+      setLoadingWards(false);
+    }
+  };
+
+  const handleProvinceChange = (provinceCode: number) => {
+    setSelectedProvinceCode(provinceCode);
+    fetchDistricts(provinceCode);
+  };
+
+  const handleDistrictChange = (districtCode: number) => {
+    setSelectedDistrictCode(districtCode);
+    fetchWards(districtCode);
+  };
+
+  const handleCreateAddress = async () => {
+    console.log('[Profile] handleCreateAddress called');
     setEditingAddress(null);
+    setSelectedProvinceCode(null);
+    setSelectedDistrictCode(null);
+    setDistricts([]);
+    setWards([]);
     addressForm.resetFields();
+    
+    // Load provinces when opening modal
+    if (provinces.length === 0) {
+      console.log('[Profile] Provinces empty, fetching...');
+      await fetchProvinces();
+    } else {
+      console.log('[Profile] Provinces already loaded:', provinces.length);
+    }
+    
     setModalVisible(true);
   };
 
-  const handleEditAddress = (address: UserAddress) => {
+  const handleEditAddress = async (address: UserAddress) => {
+    console.log('[Profile] handleEditAddress called');
     setEditingAddress(address);
-    addressForm.setFieldsValue(address);
+    
+    // Load provinces if needed
+    if (provinces.length === 0) {
+      await fetchProvinces();
+    }
+    
+    // Find province and load districts/wards
+    const province = provinces.find(p => p.name === address.province);
+    if (province) {
+      setSelectedProvinceCode(province.code);
+      const districtsResponse = await provincesService.getDistricts(province.code, 1);
+      if (districtsResponse.success && districtsResponse.data) {
+        setDistricts(districtsResponse.data);
+        const district = districtsResponse.data.find(d => d.name === address.district);
+        if (district) {
+          setSelectedDistrictCode(district.code);
+          const wardsResponse = await provincesService.getWards(district.code);
+          if (wardsResponse.success && wardsResponse.data) {
+            setWards(wardsResponse.data);
+          }
+        }
+      }
+    }
+    
+    addressForm.setFieldsValue({
+      ...address,
+      province: address.province,
+      district: address.district,
+      ward: address.ward,
+    });
     setModalVisible(true);
   };
 
@@ -641,47 +764,84 @@ const Profile: React.FC = () => {
             />
           </Form.Item>
 
-          <Row gutter={16}>
-            <Col span={8}>
-              <Form.Item
-                label={<Text strong>Tỉnh/Thành phố</Text>}
-                name="province"
-                rules={[{ required: true, message: 'Vui lòng nhập tỉnh/thành phố' }]}
-              >
-                <Input 
-                  placeholder="Tỉnh/TP" 
-                  size="large"
-                  style={{ borderRadius: '12px' }}
-                />
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item
-                label={<Text strong>Quận/Huyện</Text>}
-                name="district"
-                rules={[{ required: true, message: 'Vui lòng nhập quận/huyện' }]}
-              >
-                <Input 
-                  placeholder="Quận/Huyện" 
-                  size="large"
-                  style={{ borderRadius: '12px' }}
-                />
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item
-                label={<Text strong>Phường/Xã</Text>}
-                name="ward"
-                rules={[{ required: true, message: 'Vui lòng nhập phường/xã' }]}
-              >
-                <Input 
-                  placeholder="Phường/Xã" 
-                  size="large"
-                  style={{ borderRadius: '12px' }}
-                />
-              </Form.Item>
-            </Col>
-          </Row>
+          <Form.Item
+            label={<Text strong>Tỉnh/Thành phố</Text>}
+            name="province"
+            rules={[{ required: true, message: 'Vui lòng chọn tỉnh/thành phố' }]}
+          >
+            <Select
+              placeholder="Chọn tỉnh/thành phố"
+              loading={loadingProvinces}
+              showSearch
+              filterOption={(input, option) =>
+                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+              }
+              options={provinces.map(p => ({
+                value: p.name,
+                label: p.name,
+                code: p.code,
+              }))}
+              onChange={(value, option) => {
+                const code = (option as any)?.code;
+                if (code) {
+                  handleProvinceChange(code);
+                }
+              }}
+              size="large"
+              style={{ borderRadius: '12px' }}
+            />
+          </Form.Item>
+
+          <Form.Item
+            label={<Text strong>Quận/Huyện</Text>}
+            name="district"
+            rules={[{ required: true, message: 'Vui lòng chọn quận/huyện' }]}
+          >
+            <Select
+              placeholder="Chọn quận/huyện"
+              loading={loadingDistricts}
+              disabled={!selectedProvinceCode}
+              showSearch
+              filterOption={(input, option) =>
+                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+              }
+              options={districts.map(d => ({
+                value: d.name,
+                label: d.name,
+                code: d.code,
+              }))}
+              onChange={(value, option) => {
+                const code = (option as any)?.code;
+                if (code) {
+                  handleDistrictChange(code);
+                }
+              }}
+              size="large"
+              style={{ borderRadius: '12px' }}
+            />
+          </Form.Item>
+
+          <Form.Item
+            label={<Text strong>Phường/Xã</Text>}
+            name="ward"
+            rules={[{ required: true, message: 'Vui lòng chọn phường/xã' }]}
+          >
+            <Select
+              placeholder="Chọn phường/xã"
+              loading={loadingWards}
+              disabled={!selectedDistrictCode}
+              showSearch
+              filterOption={(input, option) =>
+                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+              }
+              options={wards.map(w => ({
+                value: w.name,
+                label: w.name,
+              }))}
+              size="large"
+              style={{ borderRadius: '12px' }}
+            />
+          </Form.Item>
 
           <Form.Item
             label={<Text strong>Địa chỉ cụ thể</Text>}
@@ -695,9 +855,12 @@ const Profile: React.FC = () => {
             />
           </Form.Item>
 
-          <Form.Item name="is_default" valuePropName="checked">
-            <Checkbox>Đặt làm địa chỉ mặc định</Checkbox>
+          <Form.Item name="is_default" valuePropName="checked" style={{ marginBottom: 8 }}>
+            <Switch />
           </Form.Item>
+          <div style={{ marginBottom: 16 }}>
+            <span style={{ marginLeft: 8 }}>Đặt làm địa chỉ mặc định</span>
+          </div>
 
           <Form.Item>
             <Space>

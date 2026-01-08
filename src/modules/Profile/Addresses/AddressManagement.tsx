@@ -28,6 +28,8 @@ import { provincesService, Province, District, Ward } from '../../../shares/serv
 const { Title } = Typography;
 
 const AddressManagement: React.FC = () => {
+  console.log('[AddressManagement] Component rendering...');
+  
   const [addresses, setAddresses] = useState<UserAddress[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
@@ -64,14 +66,19 @@ const AddressManagement: React.FC = () => {
   // Fetch provinces
   const fetchProvinces = async () => {
     try {
+      console.log('[AddressManagement] fetchProvinces called');
       setLoadingProvinces(true);
       const response = await provincesService.getProvinces(1);
+      console.log('[AddressManagement] fetchProvinces response:', response);
       if (response.success && response.data) {
         setProvinces(response.data);
+        console.log('[AddressManagement] Provinces loaded:', response.data.length);
       } else {
+        console.error('[AddressManagement] Failed to load provinces:', response.message);
         message.error(response.message || 'Không thể tải danh sách tỉnh/thành phố');
       }
     } catch (error: any) {
+      console.error('[AddressManagement] Error fetching provinces:', error);
       message.error('Không thể tải danh sách tỉnh/thành phố');
     } finally {
       setLoadingProvinces(false);
@@ -122,6 +129,7 @@ const AddressManagement: React.FC = () => {
 
   // Load data on mount
   useEffect(() => {
+    console.log('[AddressManagement] Component mounted, loading data...');
     const loadData = async () => {
       try {
         await fetchAddresses();
@@ -130,6 +138,7 @@ const AddressManagement: React.FC = () => {
       }
       
       try {
+        console.log('[AddressManagement] Loading provinces on mount...');
         await fetchProvinces();
       } catch (error) {
         console.error('Error loading provinces:', error);
@@ -152,6 +161,9 @@ const AddressManagement: React.FC = () => {
   };
 
   const handleCreate = async () => {
+    console.log('[AddressManagement] handleCreate called');
+    console.log('[AddressManagement] Current provinces state:', provinces.length);
+    
     setEditingAddress(null);
     setSelectedProvinceCode(null);
     setSelectedDistrictCode(null);
@@ -159,11 +171,16 @@ const AddressManagement: React.FC = () => {
     setWards([]);
     form.resetFields();
     
-    // Ensure provinces are loaded
+    // ALWAYS ensure provinces are loaded when opening modal
+    console.log('[AddressManagement] Ensuring provinces are loaded...');
     if (provinces.length === 0) {
+      console.log('[AddressManagement] Provinces empty, fetching now...');
       await fetchProvinces();
+    } else {
+      console.log('[AddressManagement] Provinces already loaded:', provinces.length);
     }
     
+    console.log('[AddressManagement] Opening modal...');
     setModalVisible(true);
   };
 
