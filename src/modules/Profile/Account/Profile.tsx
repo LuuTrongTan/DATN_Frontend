@@ -162,7 +162,7 @@ const Profile: React.FC = () => {
     try {
       console.log('[Profile] fetchProvinces called');
       setLoadingProvinces(true);
-      const response = await provincesService.getProvinces(1);
+      const response = await provincesService.getProvinces();
       console.log('[Profile] fetchProvinces response:', response);
       if (response.success && response.data) {
         setProvinces(response.data);
@@ -184,7 +184,7 @@ const Profile: React.FC = () => {
       setSelectedDistrictCode(null);
       addressForm.setFieldsValue({ district: undefined, ward: undefined });
 
-      const response = await provincesService.getDistricts(provinceCode, 1);
+      const response = await provincesService.getDistricts(provinceCode);
       if (response.success && response.data) {
         setDistricts(response.data);
       }
@@ -256,7 +256,7 @@ const Profile: React.FC = () => {
     const province = provinces.find(p => p.name === address.province);
     if (province) {
       setSelectedProvinceCode(province.code);
-      const districtsResponse = await provincesService.getDistricts(province.code, 1);
+      const districtsResponse = await provincesService.getDistricts(province.code);
       if (districtsResponse.success && districtsResponse.data) {
         setDistricts(districtsResponse.data);
         const district = districtsResponse.data.find(d => d.name === address.district);

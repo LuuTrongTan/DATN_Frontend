@@ -51,7 +51,12 @@ export const updateCartItemQuantity = createAsyncThunk(
   async ({ id, quantity }: { id: number; quantity: number }, { dispatch }) => {
     const response = await cartService.updateCartItem(id, quantity);
     if (!response.success) {
-      throw new Error(response.message || 'Không thể cập nhật giỏ hàng');
+      const err: any = new Error(response.message || 'Không thể cập nhật giỏ hàng');
+      if (response.error?.code) {
+        err.code = response.error.code;
+        err.details = response.error.details;
+      }
+      throw err;
     }
     await dispatch(fetchCart());
     return;
@@ -75,7 +80,12 @@ export const addToCart = createAsyncThunk(
   async (data: { product_id: number; variant_id?: number | null; quantity: number }, { dispatch }) => {
     const response = await cartService.addToCart(data);
     if (!response.success) {
-      throw new Error(response.message || 'Không thể thêm vào giỏ hàng');
+      const err: any = new Error(response.message || 'Không thể thêm vào giỏ hàng');
+      if (response.error?.code) {
+        err.code = response.error.code;
+        err.details = response.error.details;
+      }
+      throw err;
     }
     await dispatch(fetchCart());
     return;

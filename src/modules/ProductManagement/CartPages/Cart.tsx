@@ -47,6 +47,19 @@ const Cart: React.FC = () => {
       await dispatch(updateCartItemQuantity({ id: itemId, quantity })).unwrap();
       message.success('Cập nhật giỏ hàng thành công');
     } catch (error: any) {
+      if (error.code === 'INSUFFICIENT_STOCK') {
+        const available = error.details?.available;
+        message.error(
+          available !== undefined
+            ? `Số lượng sản phẩm không đủ. Chỉ còn ${available} sản phẩm trong kho.`
+            : 'Số lượng sản phẩm không đủ trong kho.'
+        );
+        return;
+      }
+      if (error.code === 'STOCK_NOT_AVAILABLE') {
+        message.error('Không xác định được tồn kho sản phẩm. Vui lòng tải lại trang và thử lại.');
+        return;
+      }
       message.error(error.message || 'Có lỗi xảy ra');
     }
   };

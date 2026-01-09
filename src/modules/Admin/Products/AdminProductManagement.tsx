@@ -205,7 +205,7 @@ const AdminProductManagement: React.FC = () => {
 
   const handleDuplicateProduct = async (product: Product) => {
     try {
-      // Lấy thông tin đầy đủ của sản phẩm và variants
+      // Lấy thông tin đầy đủ của sản phẩm và variants (đã dùng model mới với variant_attributes)
       const productResponse = await productService.getProductById(product.id);
       if (!productResponse.success || !productResponse.data) {
         message.error('Không thể lấy thông tin sản phẩm');
@@ -213,13 +213,14 @@ const AdminProductManagement: React.FC = () => {
       }
 
       const fullProduct = productResponse.data;
-      
+
       // Lấy variants nếu có
-      let variants: any[] = [];
+      let variants: Product['variants'] = [];
       if (fullProduct.variants && fullProduct.variants.length > 0) {
         variants = fullProduct.variants;
       }
 
+      // Tạo sản phẩm mới với dữ liệu từ sản phẩm gốc
       // Tạo sản phẩm mới với dữ liệu từ sản phẩm gốc
       const newProductData: any = {
         category_id: fullProduct.category_id,
@@ -247,18 +248,21 @@ const AdminProductManagement: React.FC = () => {
 
       const newProductId = createResponse.data.id;
 
-      // Tạo variants nếu có
-      if (variants.length > 0) {
+      // Tạo variants nếu có (sử dụng model mới variant_attributes)
+      if (variants && variants.length > 0) {
         message.loading({ content: 'Đang tạo biến thể...', key: 'duplicate-variants' });
         const { variantService } = await import('../../../shares/services/variantService');
-        
+
         for (const variant of variants) {
           await variantService.createVariant(newProductId, {
-            variant_type: variant.variant_type,
-            variant_value: variant.variant_value,
+            sku: variant.sku || null,
+            variant_attributes: variant.variant_attributes || {},
             price_adjustment: variant.price_adjustment || 0,
             stock_quantity: variant.stock_quantity || 0,
-            image_urls: variant.image_urls || [],
+            // AdminProductManagement hiện chỉ nhận được image_urls (nếu backend trả),
+            // nếu không có thì bỏ qua để dùng ảnh sản phẩm gốc.
+            image_urls: variant.image_urls || undefined,
+            is_active: variant.is_active !== false,
           });
         }
         message.success({ content: 'Tạo biến thể thành công', key: 'duplicate-variants' });
@@ -671,7 +675,13 @@ const AdminProductManagement: React.FC = () => {
                             variant.image_urls && variant.image_urls.length > 0 ? (
                               <Image
                                 src={variant.image_urls[0]}
-                                alt={`${variant.variant_type}: ${variant.variant_value}`}
+                                alt={
+                                  variant.variant_attributes
+                                    ? Object.entries(variant.variant_attributes)
+                                        .map(([key, val]) => `${key}: ${val}`)
+                                        .join(', ')
+                                    : `Biến thể #${variant.id}`
+                                }
                                 height={120}
                                 style={{ objectFit: 'cover' }}
                               />
@@ -692,8 +702,17 @@ const AdminProductManagement: React.FC = () => {
                           <Card.Meta
                             title={
                               <div>
-                                <Tag color="blue">{variant.variant_type}</Tag>
-                                <Tag>{variant.variant_value}</Tag>
+                                {variant.variant_attributes ? (
+                                  Object.entries(variant.variant_attributes).map(
+                                    ([key, val]) => (
+                                      <Tag key={key} color="blue">
+                                        {key}: {val}
+                                      </Tag>
+                                    )
+                                  )
+                                ) : (
+                                  <Tag color="blue">Biến thể #{variant.id}</Tag>
+                                )}
                               </div>
                             }
                             description={
@@ -852,7 +871,12 @@ const AdminProductManagement: React.FC = () => {
               >
                 {inventoryTargetProduct.variants.map((v) => (
                   <Select.Option key={v.id} value={v.id}>
-                    {v.variant_type}: {v.variant_value} (Tồn: {v.stock_quantity})
+                    {v.variant_attributes
+                      ? Object.entries(v.variant_attributes)
+                          .map(([key, val]) => `${key}: ${val}`)
+                          .join(', ')
+                      : `Biến thể #${v.id}`}{' '}
+                    (Tồn: {v.stock_quantity})
                   </Select.Option>
                 ))}
               </Select>

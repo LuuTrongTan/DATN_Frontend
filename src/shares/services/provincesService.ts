@@ -71,11 +71,10 @@ export interface SearchResponse {
 export const provincesService = {
   /**
    * Get all provinces (tỉnh/thành phố)
-   * @param depth - Độ sâu dữ liệu (1-3), mặc định là 1
    */
-  getProvinces: async (depth: number = 1): Promise<ProvincesResponse> => {
-    console.log('[provincesService] Calling getProvinces with depth:', depth);
-    const result = await apiClient.get(`/provinces?depth=${depth}`);
+  getProvinces: async (): Promise<ProvincesResponse> => {
+    console.log('[provincesService] Calling getProvinces');
+    const result = await apiClient.get(`/provinces`);
     console.log('[provincesService] getProvinces result:', result);
     return result;
   },
@@ -83,20 +82,18 @@ export const provincesService = {
   /**
    * Get province by code
    * @param code - Mã tỉnh/thành phố
-   * @param depth - Độ sâu dữ liệu (1-3), mặc định là 2
    */
-  getProvinceByCode: async (code: number, depth: number = 2): Promise<ProvinceResponse> => {
-    return apiClient.get(`/provinces/${code}?depth=${depth}`);
+  getProvinceByCode: async (code: number): Promise<ProvinceResponse> => {
+    return apiClient.get(`/provinces/${code}`);
   },
 
   /**
    * Get districts by province code
    * @param provinceCode - Mã tỉnh/thành phố
-   * @param depth - Độ sâu dữ liệu (1-2), mặc định là 1
    */
-  getDistricts: async (provinceCode: number, depth: number = 1): Promise<DistrictsResponse> => {
-    console.log('[provincesService] Calling getDistricts with provinceCode:', provinceCode, 'depth:', depth);
-    const result = await apiClient.get(`/provinces/${provinceCode}/districts?depth=${depth}`);
+  getDistricts: async (provinceCode: number): Promise<DistrictsResponse> => {
+    console.log('[provincesService] Calling getDistricts with provinceCode:', provinceCode);
+    const result = await apiClient.get(`/provinces/${provinceCode}/districts`);
     console.log('[provincesService] getDistricts result:', result);
     return result;
   },
@@ -104,10 +101,9 @@ export const provincesService = {
   /**
    * Get district by code
    * @param code - Mã quận/huyện
-   * @param depth - Độ sâu dữ liệu (1-2), mặc định là 1
    */
-  getDistrictByCode: async (code: number, depth: number = 1): Promise<DistrictResponse> => {
-    return apiClient.get(`/provinces/districts/${code}?depth=${depth}`);
+  getDistrictByCode: async (code: number): Promise<DistrictResponse> => {
+    return apiClient.get(`/provinces/districts/${code}`);
   },
 
   /**

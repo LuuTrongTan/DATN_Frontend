@@ -166,16 +166,32 @@ const ProductDetail: React.FC = () => {
     }
 
     try {
-      await dispatch(addToCart({
-        product_id: product.id,
-        variant_id: selectedVariant?.id || null,
-        quantity,
-      })).unwrap();
+      await dispatch(
+        addToCart({
+          product_id: product.id,
+          variant_id: selectedVariant?.id || null,
+          quantity,
+        })
+      ).unwrap();
       message.success('Đã thêm vào giỏ hàng');
       setQuantity(1);
       setSelectedVariant(null);
       setSelectedAttributes({});
     } catch (error: any) {
+      // Map một số mã lỗi quan trọng từ backend sang thông điệp thân thiện
+      if (error.code === 'INSUFFICIENT_STOCK') {
+        const available = error.details?.available;
+        message.error(
+          available !== undefined
+            ? `Số lượng sản phẩm không đủ. Chỉ còn ${available} sản phẩm trong kho.`
+            : 'Số lượng sản phẩm không đủ trong kho.'
+        );
+        return;
+      }
+      if (error.code === 'STOCK_NOT_AVAILABLE') {
+        message.error('Không xác định được tồn kho sản phẩm. Vui lòng tải lại trang và thử lại.');
+        return;
+      }
       message.error(error.message || 'Có lỗi xảy ra khi thêm vào giỏ hàng');
     }
   };

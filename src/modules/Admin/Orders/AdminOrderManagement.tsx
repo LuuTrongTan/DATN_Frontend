@@ -21,6 +21,8 @@ import {
   Empty,
   Tabs,
   Badge,
+  Popconfirm,
+  InputNumber,
 } from 'antd';
 import {
   ReloadOutlined,
@@ -42,6 +44,7 @@ import {
   setSearchFilter as setAdminSearchFilter,
   updateAdminOrderStatus,
 } from '../stores/adminOrdersSlice';
+import { shippingService, TrackingResponse } from '../../../shares/services/shippingService';
 import { useEffectOnce } from '../../../shares/hooks';
 import AdminPageContent from '../../../shares/components/layouts/AdminPageContent';
 
@@ -62,7 +65,12 @@ const AdminOrderManagement: React.FC = () => {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [orderDetail, setOrderDetail] = useState<Order | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const [trackingInfo, setTrackingInfo] = useState<TrackingResponse | null>(null);
+  const [trackingLoading, setTrackingLoading] = useState(false);
   const [form] = Form.useForm();
+  const [codForm] = Form.useForm();
+  const [codModalVisible, setCodModalVisible] = useState(false);
+  const [codUpdating, setCodUpdating] = useState(false);
   const [activeTab, setActiveTab] = useState<string>('all');
 
   // Fetch orders on mount
@@ -117,6 +125,7 @@ const AdminOrderManagement: React.FC = () => {
       setIsDetailDrawerVisible(true);
       const detail = await dispatch(fetchAdminOrderById(order.id)).unwrap();
       setOrderDetail(detail);
+      setTrackingInfo(null);
     } catch (error: any) {
       message.error(error.message || 'Có lỗi xảy ra khi tải chi tiết đơn hàng');
     } finally {
@@ -574,6 +583,16 @@ const getStatusLabel = (status: OrderStatus) => {
               <Descriptions.Item label="Phí vận chuyển">
                 {(orderDetail.shipping_fee || 0).toLocaleString('vi-VN')} VNĐ
               </Descriptions.Item>
+              {orderDetail.shipping_provider && (
+                <Descriptions.Item label="Đơn vị vận chuyển">
+                  <Tag color="geekblue">{orderDetail.shipping_provider}</Tag>
+                </Descriptions.Item>
+              )}
+              {orderDetail.tracking_number && (
+                <Descriptions.Item label="Mã vận đơn">
+                  <Text copyable>{orderDetail.tracking_number}</Text>
+                </Descriptions.Item>
+              )}
               <Descriptions.Item label="Phương thức thanh toán">
                 <Tag>{orderDetail.payment_method === 'online' ? 'Online' : 'COD'}</Tag>
               </Descriptions.Item>
@@ -684,7 +703,7 @@ const getStatusLabel = (status: OrderStatus) => {
             )}
 
             <Divider />
-            <Space>
+            <Space wrap>
               <Button
                 type="primary"
                 icon={<EditOutlined />}
@@ -695,7 +714,153 @@ const getStatusLabel = (status: OrderStatus) => {
               >
                 Cập nhật trạng thái
               </Button>
+              {orderDetail.tracking_number && (
+                <>
+                  <Button
+                    icon={<FileTextOutlined />}
+                    loading={trackingLoading}
+                    onClick={async () => {
+                      try {
+                        setTrackingLoading(true);
+                        const res = await shippingService.trackOrder(orderDetail.tracking_number!);
+                        if (res.success && res.data) {
+                          setTrackingInfo(res.data);
+                        } else {
+                          message.error(res.message || 'Không lấy được thông tin vận đơn');
+                        }
+                      } catch (error: any) {
+                        console.error('Error tracking order:', error);
+                        message.error(error.message || 'Lỗi khi tra cứu vận đơn GHN');
+                      } finally {
+                        setTrackingLoading(false);
+                      }
+                    }}
+                  >
+                    Xem trạng thái GHN
+                  </Button>
+                  <Button
+                    danger
+                    onClick={() => {
+                      setCodModalVisible(true);
+                      codForm.setFieldsValue({
+                        cod_amount: orderDetail.total_amount || 0,
+                      });
+                    }}
+                  >
+                    Cập nhật COD GHN
+                  </Button>
+                  <Popconfirm
+                    title="Bạn có chắc muốn hủy đơn GHN này?"
+                    okText="Hủy đơn GHN"
+                    cancelText="Không"
+                    onConfirm={async () => {
+                      try {
+                        if (!orderDetail.tracking_number) {
+                          message.error('Không có mã vận đơn GHN để hủy');
+                          return;
+                        }
+                        const res = await shippingService.cancelOrder({
+                          order_codes: [orderDetail.tracking_number],
+                        });
+                        if (res.success) {
+                          message.success('Hủy đơn GHN thành công');
+                        } else {
+                          message.error(res.message || 'Không thể hủy đơn GHN');
+                        }
+                      } catch (error: any) {
+                        console.error('Error cancel GHN order:', error);
+                        message.error(error.message || 'Lỗi khi hủy đơn GHN');
+                      }
+                    }}
+                  >
+                    <Button danger>Hủy đơn GHN</Button>
+                  </Popconfirm>
+                </>
+              )}
             </Space>
+
+            {trackingInfo && (
+              <>
+                <Divider>Trạng thái vận đơn GHN</Divider>
+                <Descriptions bordered column={1} size="small">
+                  <Descriptions.Item label="Mã vận đơn">
+                    <Text strong>{trackingInfo.tracking_number}</Text>
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Trạng thái hiện tại">
+                    <Tag color="processing">{trackingInfo.status}</Tag>
+                  </Descriptions.Item>
+                  {trackingInfo.estimated_delivery_date && (
+                    <Descriptions.Item label="Dự kiến giao">
+                      {new Date(trackingInfo.estimated_delivery_date).toLocaleString('vi-VN')}
+                    </Descriptions.Item>
+                  )}
+                  {trackingInfo.current_location && (
+                    <Descriptions.Item label="Vị trí hiện tại">
+                      {trackingInfo.current_location}
+                    </Descriptions.Item>
+                  )}
+                </Descriptions>
+              </>
+            )}
+
+            <Modal
+              title="Cập nhật COD GHN"
+              open={codModalVisible}
+              onCancel={() => {
+                setCodModalVisible(false);
+                codForm.resetFields();
+              }}
+              onOk={() => codForm.submit()}
+              confirmLoading={codUpdating}
+              okText="Cập nhật COD"
+              cancelText="Hủy"
+            >
+              <Form
+                form={codForm}
+                layout="vertical"
+                onFinish={async (values) => {
+                  try {
+                    if (!orderDetail?.tracking_number) {
+                      message.error('Không có mã vận đơn GHN');
+                      return;
+                    }
+                    setCodUpdating(true);
+                    const res = await shippingService.updateCOD({
+                      order_code: orderDetail.tracking_number,
+                      cod_amount: Number(values.cod_amount || 0),
+                    });
+                    if (res.success && res.data?.success) {
+                      message.success('Cập nhật COD GHN thành công');
+                      setCodModalVisible(false);
+                      codForm.resetFields();
+                    } else {
+                      message.error(res.data?.message || res.message || 'Không thể cập nhật COD GHN');
+                    }
+                  } catch (error: any) {
+                    console.error('Error updating GHN COD:', error);
+                    message.error(error.message || 'Lỗi khi cập nhật COD GHN');
+                  } finally {
+                    setCodUpdating(false);
+                  }
+                }}
+              >
+                <Form.Item
+                  label="Số tiền COD (VNĐ)"
+                  name="cod_amount"
+                  rules={[{ required: true, message: 'Vui lòng nhập số tiền COD' }]}
+                >
+                  <InputNumber
+                    style={{ width: '100%' }}
+                    min={0}
+                    step={1000}
+                    formatter={(value) =>
+                      `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+                    }
+                    parser={(value) => (value ? value.replace(/,/g, '') : '')}
+                  />
+                </Form.Item>
+              </Form>
+            </Modal>
           </div>
         ) : (
           <Empty description="Không tìm thấy thông tin đơn hàng" />

@@ -30,6 +30,7 @@ import { useNavigate } from 'react-router-dom';
 import { orderService } from '../../../shares/services/orderService';
 import { paymentService } from '../../../shares/services/paymentService';
 import { addressService, UserAddress } from '../../../shares/services/addressService';
+import { shippingService } from '../../../shares/services/shippingService';
 import { CartItem, PaymentMethod } from '../../../shares/types';
 import { useAppDispatch, useAppSelector } from '../../../shares/stores';
 import { fetchCart, clearCart } from '../../ProductManagement/stores/cartSlice';
@@ -46,6 +47,9 @@ const PlaceOrder: React.FC = () => {
   const [addresses, setAddresses] = useState<UserAddress[]>([]);
   const [loadingAddresses, setLoadingAddresses] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [calculatingShipping, setCalculatingShipping] = useState(false);
+  const [shippingFee, setShippingFee] = useState<number>(0);
+  const [estimatedDays, setEstimatedDays] = useState<number | null>(null);
   const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cod');
   const [form] = Form.useForm();
@@ -98,12 +102,6 @@ const PlaceOrder: React.FC = () => {
     [cartItems]
   );
 
-  // Tính phí vận chuyển: miễn phí cho đơn từ 500.000 VNĐ
-  const shippingFee = useMemo(() => {
-    if (subtotal === 0) return 0;
-    return subtotal >= 500_000 ? 0 : 30_000;
-  }, [subtotal]);
-
   const totalAmount = useMemo(() => subtotal + shippingFee, [subtotal, shippingFee]);
 
   const selectedAddress = useMemo(
@@ -118,6 +116,51 @@ const PlaceOrder: React.FC = () => {
     return `${address.full_name} - ${address.phone}\n${address.street_address}, ${address.ward}, ${address.district}, ${address.province}`;
   };
 
+  // Tính phí vận chuyển qua GHN dựa trên địa chỉ đã chọn + tổng giá trị đơn
+  const recalculateShippingFee = async (address: UserAddress | null, currentSubtotal: number) => {
+    if (!address || currentSubtotal <= 0) {
+      setShippingFee(0);
+      setEstimatedDays(null);
+      return;
+    }
+
+    try {
+      setCalculatingShipping(true);
+      const res = await shippingService.calculateFee({
+        province: address.province,
+        district: address.district,
+        ward: address.ward,
+        weight: 1,
+        value: currentSubtotal,
+      });
+
+      if (res.success && res.data) {
+        setShippingFee(res.data.fee);
+        setEstimatedDays(res.data.estimated_days || null);
+      } else {
+        setShippingFee(30000);
+        setEstimatedDays(3);
+        if (res.message) {
+          message.warning(res.message);
+        }
+      }
+    } catch (error: any) {
+      console.error('Error calculating shipping fee via GHN:', error);
+      setShippingFee(30000);
+      setEstimatedDays(3);
+      message.warning(error.message || 'Không tính được phí vận chuyển, dùng phí mặc định.');
+    } finally {
+      setCalculatingShipping(false);
+    }
+  };
+
+  // Tự động tính lại phí ship khi địa chỉ chọn hoặc subtotal thay đổi
+  useEffect(() => {
+    const addr = addresses.find((a) => a.id === selectedAddressId) || null;
+    recalculateShippingFee(addr, subtotal);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedAddressId, subtotal, addresses.length]);
+
   const handlePlaceOrder = async (values: { notes?: string }) => {
     if (!selectedAddress) {
       message.error('Vui lòng chọn địa chỉ giao hàng');
@@ -127,6 +170,11 @@ const PlaceOrder: React.FC = () => {
     if (cartItems.length === 0) {
       message.error('Giỏ hàng của bạn đang trống');
       navigate('/cart');
+      return;
+    }
+
+    if (calculatingShipping) {
+      message.warning('Hệ thống đang tính phí vận chuyển, vui lòng đợi trong giây lát...');
       return;
     }
 
@@ -165,10 +213,18 @@ const PlaceOrder: React.FC = () => {
               window.location.href = paymentResponse.data.payment_url;
               return;
             }
-            message.warning(
+
+            const baseMessage =
               paymentResponse.message ||
-                'Không tạo được URL thanh toán online, đơn hàng sẽ được xử lý như COD.'
-            );
+              'Không tạo được URL thanh toán online, đơn hàng sẽ được xử lý như COD.';
+
+            if (baseMessage.includes('VNPay chưa được cấu hình')) {
+              message.warning(
+                'Cổng thanh toán VNPay chưa được cấu hình. Đơn hàng của bạn vẫn được tạo với hình thức COD.'
+              );
+            } else {
+              message.warning(baseMessage);
+            }
           } catch (error: any) {
             logger.error(
               'Error creating VNPay payment',
@@ -192,7 +248,26 @@ const PlaceOrder: React.FC = () => {
         // Điều hướng đến trang chi tiết đơn hàng
         navigate(`/orders/${orderId}`);
       } else {
-        message.error(response.message || 'Không thể tạo đơn hàng');
+        const code = response.error?.code;
+        if (code === 'INSUFFICIENT_STOCK') {
+          message.error(
+            'Một số sản phẩm trong giỏ không đủ số lượng. Vui lòng kiểm tra lại giỏ hàng trước khi đặt.'
+          );
+        } else if (code === 'PRODUCT_NOT_FOUND_OR_INACTIVE') {
+          message.error(
+            'Một số sản phẩm trong giỏ đã ngừng kinh doanh hoặc bị xóa. Vui lòng cập nhật lại giỏ hàng.'
+          );
+        } else if (code === 'VARIANT_NOT_FOUND_OR_INACTIVE') {
+          message.error(
+            'Biến thể bạn chọn không còn hợp lệ. Vui lòng chọn lại tùy chọn sản phẩm rồi thử lại.'
+          );
+        } else if (code === 'STOCK_NOT_AVAILABLE') {
+          message.error(
+            'Không xác định được tồn kho cho một số sản phẩm. Vui lòng tải lại trang và thử lại.'
+          );
+        } else {
+          message.error(response.message || 'Không thể tạo đơn hàng');
+        }
       }
     } catch (error: any) {
       console.error('Error placing order:', error);
@@ -464,9 +539,14 @@ const PlaceOrder: React.FC = () => {
                         <Text strong ellipsis style={{ display: 'block', marginBottom: 4 }}>
                           {item.product?.name}
                         </Text>
-                        {item.variant && (
-                          <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
-                            {item.variant.variant_type}: {item.variant.variant_value}
+                        {item.variant && item.variant.variant_attributes && (
+                          <Text
+                            type="secondary"
+                            style={{ fontSize: 12, display: 'block', marginBottom: 4 }}
+                          >
+                            {Object.entries(item.variant.variant_attributes)
+                              .map(([key, val]) => `${key}: ${val}`)
+                              .join(', ')}
                           </Text>
                         )}
                         <Text type="secondary" style={{ fontSize: 12 }}>
@@ -492,7 +572,18 @@ const PlaceOrder: React.FC = () => {
               {/* Phí vận chuyển */}
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <Text>Phí vận chuyển</Text>
-                <Text>{shippingFee === 0 ? 'Miễn phí' : formatCurrency(shippingFee)}</Text>
+                <Text>
+                  {calculatingShipping
+                    ? 'Đang tính...'
+                    : shippingFee === 0
+                    ? 'Miễn phí'
+                    : formatCurrency(shippingFee)}
+                  {estimatedDays !== null && !calculatingShipping && (
+                    <span style={{ marginLeft: 8, fontSize: 12, color: '#888' }}>
+                      (Dự kiến {estimatedDays} ngày)
+                    </span>
+                  )}
+                </Text>
               </div>
 
               {subtotal < 500_000 && (
