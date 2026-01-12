@@ -75,36 +75,35 @@ const AdminOrderManagement: React.FC = () => {
 
   // Fetch orders on mount
   useEffect(() => {
-    console.log('AdminOrderManagement component mounted, fetching orders...');
     dispatch(fetchAdminOrders())
       .then((result) => {
-        console.log('Admin orders fetch result:', result);
-        if (result.type === 'adminOrders/fetchAll/fulfilled') {
-          console.log('Admin orders items:', result.payload);
-        } else if (result.type === 'adminOrders/fetchAll/rejected') {
-          console.error('Admin orders fetch error:', result.error);
-          const errorMessage = typeof result.payload === 'string' ? result.payload : result.error?.message || 'Không thể tải danh sách đơn hàng';
+        if (fetchAdminOrders.rejected.match(result)) {
+          const errorMessage =
+            (result.payload as string | undefined) ||
+            result.error?.message ||
+            'Không thể tải danh sách đơn hàng';
           message.error(errorMessage);
         }
       })
-      .catch((error) => {
-        console.error('Unhandled error during admin orders fetch:', error);
+      .catch(() => {
         message.error('Có lỗi xảy ra khi tải danh sách đơn hàng');
       });
   }, [dispatch]);
 
   // Gọi lại khi filters thay đổi
   useEffect(() => {
-    console.log('Filters changed, refetching orders...', filters);
     dispatch(fetchAdminOrders())
       .then((result) => {
-        if (result.type === 'adminOrders/fetchAll/rejected') {
-          const errorMessage = typeof result.payload === 'string' ? result.payload : result.error?.message || 'Không thể tải danh sách đơn hàng';
+        if (fetchAdminOrders.rejected.match(result)) {
+          const errorMessage =
+            (result.payload as string | undefined) ||
+            result.error?.message ||
+            'Không thể tải danh sách đơn hàng';
           message.error(errorMessage);
         }
       })
-      .catch((error) => {
-        console.error('Error refetching orders:', error);
+      .catch(() => {
+        // Error already handled in message.error above
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, filters.status, filters.paymentMethod, filters.search]);
@@ -151,12 +150,10 @@ const AdminOrderManagement: React.FC = () => {
         notes: values.notes || undefined,
       };
 
-      console.log('Updating order status:', { orderId: editingOrder.id, updateData });
-      const result = await dispatch(
+      await dispatch(
         updateAdminOrderStatus({ orderId: editingOrder.id, data: updateData })
       ).unwrap();
       
-      console.log('Order status updated successfully:', result);
       message.success('Cập nhật trạng thái đơn hàng thành công');
       setIsModalVisible(false);
       setEditingOrder(null);
@@ -729,7 +726,6 @@ const getStatusLabel = (status: OrderStatus) => {
                           message.error(res.message || 'Không lấy được thông tin vận đơn');
                         }
                       } catch (error: any) {
-                        console.error('Error tracking order:', error);
                         message.error(error.message || 'Lỗi khi tra cứu vận đơn GHN');
                       } finally {
                         setTrackingLoading(false);
@@ -768,7 +764,6 @@ const getStatusLabel = (status: OrderStatus) => {
                           message.error(res.message || 'Không thể hủy đơn GHN');
                         }
                       } catch (error: any) {
-                        console.error('Error cancel GHN order:', error);
                         message.error(error.message || 'Lỗi khi hủy đơn GHN');
                       }
                     }}
@@ -837,7 +832,6 @@ const getStatusLabel = (status: OrderStatus) => {
                       message.error(res.data?.message || res.message || 'Không thể cập nhật COD GHN');
                     }
                   } catch (error: any) {
-                    console.error('Error updating GHN COD:', error);
                     message.error(error.message || 'Lỗi khi cập nhật COD GHN');
                   } finally {
                     setCodUpdating(false);
@@ -856,7 +850,6 @@ const getStatusLabel = (status: OrderStatus) => {
                     formatter={(value) =>
                       `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
                     }
-                    parser={(value) => (value ? value.replace(/,/g, '') : '')}
                   />
                 </Form.Item>
               </Form>

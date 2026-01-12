@@ -40,8 +40,14 @@ export const notificationService = {
     const endpoint = `/notifications${queryString ? `?${queryString}` : ''}`;
     
     const res = await apiClient.get(endpoint);
-    // Backend trả về: { success: true, data: { data: [], pagination: {} } }
-    return res.data || { data: [], pagination: { page: 1, limit: 20, total: 0, totalPages: 0 } };
+    // Backend trả về: { success: true, data: [], pagination: { page, limit, total, totalPages } }
+    if (res.data && res.data.success) {
+      return {
+        data: res.data.data || [],
+        pagination: res.data.pagination || { page: 1, limit: 20, total: 0, totalPages: 0 },
+      };
+    }
+    return { data: [], pagination: { page: 1, limit: 20, total: 0, totalPages: 0 } };
   },
 
   async markAsRead(id: number): Promise<Notification> {

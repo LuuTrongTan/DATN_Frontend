@@ -35,17 +35,13 @@ export const fetchOrders = createAsyncThunk<
   { state: { orders: OrdersState } }
 >('orders/fetchOrders', async (_, { rejectWithValue }) => {
   try {
-    console.log('Fetching orders from API...');
     const response = await orderService.getOrders();
-    console.log('Orders API response:', response);
     
     if (!response.success) {
-      console.error('Orders API error:', response.message);
       return rejectWithValue(response.message || 'Không thể tải danh sách đơn hàng');
     }
     
     if (!response.data) {
-      console.warn('Orders API returned no data');
       return [];
     }
     
@@ -64,10 +60,8 @@ export const fetchOrders = createAsyncThunk<
       orders = response.data as Order[];
     }
     
-    console.log('Orders received:', orders);
     return orders;
   } catch (error: any) {
-    console.error('Orders fetch exception:', error);
     return rejectWithValue(error.message || 'Lỗi khi tải danh sách đơn hàng');
   }
 });
@@ -105,17 +99,13 @@ export const fetchRecentOrders = createAsyncThunk<
 
 export const fetchOrderById = createAsyncThunk('orders/fetchOrderById', async (id: number, { rejectWithValue }) => {
   try {
-    console.log('Fetching order by ID from API:', id);
     const response = await orderService.getOrderById(id);
-    console.log('Order by ID API response:', response);
     
     if (!response.success) {
-      console.error('Order by ID API error:', response.message);
       return rejectWithValue(response.message || 'Không thể tải đơn hàng');
     }
     
     if (!response.data) {
-      console.warn('Order by ID API returned no data');
       return rejectWithValue('Không tìm thấy đơn hàng');
     }
     
@@ -127,10 +117,8 @@ export const fetchOrderById = createAsyncThunk('orders/fetchOrderById', async (i
       order = response.data as Order;
     }
     
-    console.log('Order received:', order);
     return order;
   } catch (error: any) {
-    console.error('Order by ID fetch exception:', error);
     return rejectWithValue(error.message || 'Lỗi khi tải đơn hàng');
   }
 });
@@ -167,7 +155,6 @@ const ordersSlice = createSlice({
       .addCase(fetchOrders.pending, (state) => {
         state.listLoading = true;
         state.listError = null;
-        console.log('Orders fetch pending...');
       })
       .addCase(fetchOrders.fulfilled, (state, action: PayloadAction<Order[]>) => {
         state.listLoading = false;
@@ -177,12 +164,10 @@ const ordersSlice = createSlice({
         action.payload.forEach((order: Order) => {
           state.byId[order.id] = order;
         });
-        console.log('Orders fetch fulfilled, orders count:', action.payload.length);
       })
       .addCase(fetchOrders.rejected, (state, action) => {
         state.listLoading = false;
         state.listError = action.error.message || 'Không thể tải danh sách đơn hàng';
-        console.error('Orders fetch rejected:', action.error);
       })
       .addCase(fetchRecentOrders.pending, (state) => {
         state.recentLoading = true;
@@ -202,19 +187,16 @@ const ordersSlice = createSlice({
       .addCase(fetchOrderById.pending, (state) => {
         state.detailLoading = true;
         state.detailError = null;
-        console.log('Order by ID fetch pending...');
       })
       .addCase(fetchOrderById.fulfilled, (state, action) => {
         state.detailLoading = false;
         const order = action.payload;
         state.byId[order.id] = order;
-        console.log('Order by ID fetch fulfilled, order:', order);
       })
       .addCase(fetchOrderById.rejected, (state, action) => {
         state.detailLoading = false;
         const errorMessage = typeof action.payload === 'string' ? action.payload : action.error.message || 'Không thể tải đơn hàng';
         state.detailError = errorMessage;
-        console.error('Order by ID fetch rejected:', action.error, action.payload);
       })
       .addCase(fetchOrderByNumber.pending, (state) => {
         state.detailLoading = true;

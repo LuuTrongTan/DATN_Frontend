@@ -144,7 +144,11 @@ export const shippingService = {
 
   // Lấy danh sách dịch vụ GHN (Nhanh/Chuẩn/Tiết kiệm)
   getServices: async (params: { from_district: number; to_district: number }): Promise<ApiResponse<GHNService[]>> => {
-    return apiClient.get('/shipping/services', { params });
+    const query = new URLSearchParams({
+      from_district: String(params.from_district),
+      to_district: String(params.to_district),
+    }).toString();
+    return apiClient.get(`/shipping/services?${query}`);
   },
 
   // Tính thời gian giao hàng dự kiến
@@ -154,7 +158,13 @@ export const shippingService = {
 
   // Lấy danh sách bưu cục
   getStations: async (params?: { district_id?: number }): Promise<ApiResponse<GHNStation[]>> => {
-    return apiClient.get('/shipping/stations', { params });
+    if (params?.district_id) {
+      const query = new URLSearchParams({
+        district_id: String(params.district_id),
+      }).toString();
+      return apiClient.get(`/shipping/stations?${query}`);
+    }
+    return apiClient.get('/shipping/stations');
   },
 
   // Tạo đơn vận chuyển GHN (admin/staff)

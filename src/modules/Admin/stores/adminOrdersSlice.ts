@@ -39,7 +39,6 @@ export const fetchAdminOrders = createAsyncThunk<
   const { status, paymentMethod, search } = state.adminOrders.filters;
 
   try {
-    console.log('Fetching admin orders from API...');
     const requestParams: any = {
       limit: 100,
     };
@@ -49,10 +48,8 @@ export const fetchAdminOrders = createAsyncThunk<
     }
     
     const response = await adminService.getAllOrders(requestParams);
-    console.log('Admin orders API response:', response);
 
     if (!response.success) {
-      console.error('Admin orders API error:', response.message);
       return rejectWithValue(response.message || 'Không thể tải danh sách đơn hàng');
     }
 
@@ -67,8 +64,6 @@ export const fetchAdminOrders = createAsyncThunk<
         orders = (response.data as any).orders as Order[];
       }
     }
-
-    console.log('Admin orders received:', orders.length);
 
     // Filter by payment method
     if (paymentMethod) {
@@ -87,7 +82,6 @@ export const fetchAdminOrders = createAsyncThunk<
 
     return orders;
   } catch (error: any) {
-    console.error('Error in fetchAdminOrders thunk:', error);
     return rejectWithValue(error.message || 'Lỗi khi tải danh sách đơn hàng');
   }
 });
@@ -110,12 +104,9 @@ export const updateAdminOrderStatus = createAsyncThunk<
   { rejectValue: string }
 >('adminOrders/updateStatus', async ({ orderId, data }, { rejectWithValue }) => {
   try {
-    console.log('Updating order status:', { orderId, data });
     const response = await adminService.updateOrderStatus(orderId, data);
-    console.log('Update order status API response:', response);
 
     if (!response.success) {
-      console.error('Update order status API error:', response.message);
       return rejectWithValue(response.message || 'Không thể cập nhật trạng thái đơn hàng');
     }
 
@@ -132,7 +123,6 @@ export const updateAdminOrderStatus = createAsyncThunk<
       }
     } else {
       // Fallback: refetch order
-      console.log('No order in response, refetching...');
       const detail = await orderService.getOrderById(orderId);
       if (!detail.success || !detail.data) {
         return rejectWithValue(detail.message || 'Không thể tải lại đơn hàng sau khi cập nhật');
@@ -144,10 +134,8 @@ export const updateAdminOrderStatus = createAsyncThunk<
       }
     }
 
-    console.log('Order updated successfully:', order);
     return order;
   } catch (error: any) {
-    console.error('Error in updateAdminOrderStatus thunk:', error);
     return rejectWithValue(error.message || 'Lỗi khi cập nhật trạng thái đơn hàng');
   }
 });
@@ -171,18 +159,15 @@ const adminOrdersSlice = createSlice({
       .addCase(fetchAdminOrders.pending, (state) => {
         state.loading = true;
         state.error = null;
-        console.log('Admin orders fetch pending...');
       })
       .addCase(fetchAdminOrders.fulfilled, (state, action: PayloadAction<Order[]>) => {
         state.loading = false;
         state.items = action.payload;
-        console.log('Admin orders fetch fulfilled, orders count:', action.payload.length);
       })
       .addCase(fetchAdminOrders.rejected, (state, action) => {
         state.loading = false;
         const errorMessage = typeof action.payload === 'string' ? action.payload : action.error.message || 'Không thể tải danh sách đơn hàng';
         state.error = errorMessage;
-        console.error('Admin orders fetch rejected:', action.error, action.payload);
       })
       .addCase(updateAdminOrderStatus.pending, (state) => {
         state.loading = true;

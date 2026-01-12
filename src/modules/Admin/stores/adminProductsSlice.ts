@@ -71,41 +71,25 @@ export const fetchAdminProducts = createAsyncThunk<
   };
 
   try {
-    console.log('[AdminProducts] Fetching products with params:', requestParams);
-    
     const response = await adminService.getAdminProducts({
       search: requestParams.search,
       category_id: requestParams.category_id,
       include_deleted: requestParams.include_deleted,
       limit: requestParams.limit,
     });
-    
-    // Log để debug
-    console.log('[AdminProducts] API Response:', {
-      success: response?.success,
-      hasData: !!response?.data,
-      dataType: Array.isArray(response?.data) ? 'array' : typeof response?.data,
-      dataLength: Array.isArray(response?.data) ? response.data.length : 'N/A',
-      message: response?.message,
-      fullResponse: response,
-    });
 
     if (!response || !response.success) {
-      console.error('[AdminProducts] API Error:', response);
       return rejectWithValue(response?.message || 'Không thể tải sản phẩm (admin)');
     }
 
     if (!response.data) {
-      console.warn('[AdminProducts] No data in response');
       return [];
     }
 
     // Đảm bảo data là mảng
     const products = Array.isArray(response.data) ? response.data : [];
-    console.log('[AdminProducts] Products fetched:', products.length);
     return products;
   } catch (error: any) {
-    console.error('[AdminProducts] Fetch error:', error);
     return rejectWithValue(error?.message || 'Lỗi khi tải sản phẩm');
   }
 });
@@ -152,12 +136,10 @@ const adminProductsSlice = createSlice({
         state.loading = false;
         state.items = Array.isArray(action.payload) ? action.payload : [];
         state.error = null;
-        console.log('[AdminProducts] State updated with products:', state.items.length);
       })
       .addCase(fetchAdminProducts.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message || action.payload || 'Không thể tải sản phẩm';
-        console.error('[AdminProducts] Fetch rejected:', state.error);
       });
   },
 });

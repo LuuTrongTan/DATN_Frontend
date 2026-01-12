@@ -27,20 +27,17 @@ const OrderList: React.FC = () => {
       return;
     }
 
-    console.log('OrderList component mounted, fetching orders...');
     dispatch(fetchOrders())
       .then((result) => {
-        console.log('Orders fetch result:', result);
-        if (result.type === 'orders/fetchOrders/fulfilled') {
-          console.log('Orders received:', result.payload);
-        } else if (result.type === 'orders/fetchOrders/rejected') {
-          console.error('Orders fetch error:', result.error);
-          const errorMessage = result.error?.message || 'Không thể tải danh sách đơn hàng';
+        if (fetchOrders.rejected.match(result)) {
+          const errorMessage =
+            (result.payload as string | undefined) ||
+            result.error?.message ||
+            'Không thể tải danh sách đơn hàng';
           message.error(errorMessage);
         }
       })
-      .catch((error) => {
-        console.error('Orders fetch exception:', error);
+      .catch(() => {
         message.error('Có lỗi xảy ra khi tải danh sách đơn hàng');
       });
   }, [dispatch, navigate]);

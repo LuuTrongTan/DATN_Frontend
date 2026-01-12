@@ -37,16 +37,10 @@ const Navbar: React.FC<NavbarProps> = ({ collapsed, onToggle }) => {
   // Fetch cart và wishlist khi đăng nhập (chỉ fetch một lần khi user.id thay đổi)
   useEffect(() => {
     if (isAuthenticated && user?.id) {
-      console.log('Navbar: User authenticated, fetching cart and wishlist...');
       dispatch(fetchCart());
       dispatch(fetchWishlist());
     }
   }, [isAuthenticated, user?.id, dispatch]); // Chỉ fetch khi user.id thay đổi (đăng nhập mới)
-
-  // Log wishlist count changes
-  useEffect(() => {
-    console.log('Navbar: Wishlist count changed:', wishlistCount, 'items:', wishlistItems);
-  }, [wishlistCount, wishlistItems]);
 
   const handleLogout = async () => {
     try {

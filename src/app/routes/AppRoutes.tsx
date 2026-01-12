@@ -49,7 +49,9 @@ const AdminOrderManagement = lazy(() => import('../../modules/Admin/Orders/Admin
 const AdminAccountsManagement = lazy(
   () => import('../../modules/Admin/Users/AdminAccountsManagement')
 );
-// Inventory module tạm thời không dùng nên bỏ route
+const RefundsList = lazy(() => import('../../modules/Admin/Refunds/RefundsList'));
+const RefundDetail = lazy(() => import('../../modules/Admin/Refunds/RefundDetail'));
+const AdminReviewsManagement = lazy(() => import('../../modules/Admin/Reviews/AdminReviewsManagement'));
 
 const AppRoutes: React.FC = () => {
   const { user } = useAuth();
@@ -106,6 +108,9 @@ const AppRoutes: React.FC = () => {
           <Route path="/admin/products/:id/edit" element={<ProductForm />} />
           <Route path="/admin/categories" element={<CategoryManagement />} />
           <Route path="/admin/orders" element={<AdminOrderManagement />} />
+          <Route path="/admin/reviews" element={<AdminReviewsManagement />} />
+          <Route path="/admin/refunds" element={<RefundsList />} />
+          <Route path="/admin/refunds/:id" element={<RefundDetail />} />
           <Route
             path="/admin/accounts"
             element={

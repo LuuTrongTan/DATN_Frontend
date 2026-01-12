@@ -24,20 +24,17 @@ const Cart: React.FC = () => {
       return;
     }
 
-    console.log('Cart component mounted, fetching cart...');
     dispatch(fetchCart())
       .then((result) => {
-        console.log('Cart fetch result:', result);
-        if (result.type === 'cart/fetchCart/fulfilled') {
-          console.log('Cart items:', result.payload);
-        } else if (result.type === 'cart/fetchCart/rejected') {
-          console.error('Cart fetch error:', result.error);
-          const errorMessage = result.error?.message || 'Không thể tải giỏ hàng';
+        if (fetchCart.rejected.match(result)) {
+          const errorMessage =
+            (result.payload as string | undefined) ||
+            result.error?.message ||
+            'Không thể tải giỏ hàng';
           message.error(errorMessage);
         }
       })
-      .catch((error) => {
-        console.error('Cart fetch exception:', error);
+      .catch(() => {
         message.error('Có lỗi xảy ra khi tải giỏ hàng');
       });
   }, [dispatch, navigate]);

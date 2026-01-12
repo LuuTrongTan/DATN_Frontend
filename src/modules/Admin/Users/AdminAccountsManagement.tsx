@@ -5,9 +5,28 @@ import UserManagement from './UserManagement';
 import StaffManagement from '../Staff/StaffManagement';
 import AdminPageContent from '../../../shares/components/layouts/AdminPageContent';
 
-const { TabPane } = Tabs;
-
 const AdminAccountsManagement: React.FC = () => {
+  const tabItems = [
+    {
+      key: 'customers',
+      label: (
+        <span>
+          <UserOutlined /> Khách hàng
+        </span>
+      ),
+      children: <UserManagement showTitle={false} withCard={false} />,
+    },
+    {
+      key: 'staff',
+      label: (
+        <span>
+          <TeamOutlined /> Nhân viên
+        </span>
+      ),
+      children: <StaffManagement showTitle={false} withCard={false} />,
+    },
+  ];
+
   return (
     <AdminPageContent
       className="admin-accounts-page"
@@ -23,28 +42,8 @@ const AdminAccountsManagement: React.FC = () => {
         type="card"
         tabBarGutter={32}
         className="admin-accounts-tabs"
-      >
-        <TabPane
-          tab={
-            <span>
-              <UserOutlined /> Khách hàng
-            </span>
-          }
-          key="customers"
-        >
-          <UserManagement showTitle={false} withCard={false} />
-        </TabPane>
-        <TabPane
-          tab={
-            <span>
-              <TeamOutlined /> Nhân viên
-            </span>
-          }
-          key="staff"
-        >
-          <StaffManagement showTitle={false} withCard={false} />
-        </TabPane>
-      </Tabs>
+        items={tabItems}
+      />
     </AdminPageContent>
   );
 };

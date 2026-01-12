@@ -63,7 +63,6 @@ const PlaceOrder: React.FC = () => {
       return;
     }
 
-    console.log('PlaceOrder component mounted, fetching cart and addresses...');
     dispatch(fetchCart());
     fetchAddresses();
   }, [dispatch, navigate]);
@@ -187,12 +186,10 @@ const PlaceOrder: React.FC = () => {
         notes: values.notes || undefined,
       };
 
-      console.log('Placing order with payload:', payload);
       const response = await orderService.createOrder(payload);
       
       if (response.success && response.data) {
         const createdOrder = response.data;
-        console.log('Order created successfully:', createdOrder);
 
         // Kiểm tra order ID hợp lệ
         if (!createdOrder || !createdOrder.id || isNaN(Number(createdOrder.id))) {

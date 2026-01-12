@@ -1,17 +1,8 @@
-import React from 'react';
-import {
-  HomeOutlined,
-  DashboardOutlined,
-  UserOutlined,
-  TeamOutlined,
-  ShoppingOutlined,
-  FileTextOutlined,
-  AppstoreOutlined,
-  WarningOutlined,
-  HistoryOutlined,
-} from '@ant-design/icons';
+import React, { useMemo } from 'react';
+import { HomeOutlined, DashboardOutlined, UserOutlined, ShoppingOutlined, FileTextOutlined, AppstoreOutlined, UndoOutlined, StarOutlined } from '@ant-design/icons';
 import BaseSidebar from './BaseSidebar';
 import type { MenuProps } from 'antd';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface AdminSidebarProps {
   collapsed: boolean;
@@ -19,7 +10,12 @@ interface AdminSidebarProps {
 }
 
 const AdminSidebar: React.FC<AdminSidebarProps> = ({ collapsed, onToggle }) => {
-  const menuItems: MenuProps['items'] = [
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
+
+  const menuItems: MenuProps['items'] = useMemo(
+    () =>
+      [
     {
       key: '/home',
       icon: <HomeOutlined />,
@@ -46,11 +42,23 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ collapsed, onToggle }) => {
       label: 'Đơn hàng',
     },
     {
+          key: '/admin/reviews',
+          icon: <StarOutlined />,
+          label: 'Đánh giá',
+        },
+        {
+          key: '/admin/refunds',
+          icon: <UndoOutlined />,
+          label: 'Hoàn trả',
+        },
+        isAdmin && {
       key: '/admin/accounts',
       icon: <UserOutlined />,
       label: 'Tài khoản',
     },
-  ];
+      ].filter(Boolean) as MenuProps['items'],
+    [isAdmin]
+  );
 
   return (
     <BaseSidebar

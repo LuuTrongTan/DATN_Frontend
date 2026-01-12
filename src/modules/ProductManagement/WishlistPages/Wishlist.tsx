@@ -39,23 +39,17 @@ const Wishlist: React.FC = () => {
       return;
     }
 
-    console.log('Wishlist component mounted, fetching wishlist...');
     dispatch(fetchWishlist())
       .then((result) => {
-        console.log('Wishlist fetch result:', result);
-        if (result.type === 'wishlist/fetchWishlist/fulfilled') {
-          console.log('Wishlist items:', result.payload);
-          if (Array.isArray(result.payload) && result.payload.length === 0) {
-            console.log('Wishlist is empty');
-          }
-        } else if (result.type === 'wishlist/fetchWishlist/rejected') {
-          console.error('Wishlist fetch error:', result.error);
-          const errorMessage = result.error?.message || 'Không thể tải danh sách yêu thích';
+        if (fetchWishlist.rejected.match(result)) {
+          const errorMessage =
+            (result.payload as string | undefined) ||
+            result.error?.message ||
+            'Không thể tải danh sách yêu thích';
           message.error(errorMessage);
         }
       })
-      .catch((error) => {
-        console.error('Wishlist fetch exception:', error);
+      .catch(() => {
         message.error('Có lỗi xảy ra khi tải danh sách yêu thích');
       });
   }, [dispatch, navigate]);

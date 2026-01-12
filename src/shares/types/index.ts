@@ -32,6 +32,15 @@ export interface Category {
   updated_at: string;
 }
 
+// Product Tag Types
+export interface ProductTag {
+  id: number;
+  name: string;
+  slug: string;
+  created_at?: string;
+  product_count?: number;
+}
+
 // Product Types
 export interface Product {
   id: number;
@@ -46,6 +55,7 @@ export interface Product {
   video_url?: string | null; // Video (nếu backend trả về)
   is_active: boolean;
   variants?: ProductVariant[];
+  tags?: ProductTag[]; // Tags của sản phẩm
   is_in_wishlist?: boolean; // Indicates if product is in user's wishlist
   sku?: string | null;
   view_count?: number;
@@ -54,26 +64,6 @@ export interface Product {
   review_count?: number;
   created_at: string;
   updated_at: string;
-}
-
-// Variant Attribute Definition Types
-export interface VariantAttributeDefinition {
-  id: number;
-  product_id: number;
-  attribute_name: string; // e.g., 'Size', 'Color'
-  display_name: string; // e.g., 'Kích cỡ', 'Màu sắc'
-  display_order: number;
-  is_required: boolean;
-  created_at: string;
-  values?: VariantAttributeValue[];
-}
-
-export interface VariantAttributeValue {
-  id: number;
-  definition_id: number;
-  value: string; // e.g., 'M', 'L', 'XL' or 'Đỏ', 'Xanh'
-  display_order: number;
-  created_at: string;
 }
 
 // Product Variant Types
@@ -120,6 +110,8 @@ export interface Order {
   status: OrderStatus; // Main status field (keep for backward compat)
   order_status?: OrderStatus; // Alias (backend trả order_status)
   shipping_fee?: number;
+  shipping_provider?: string | null;
+  tracking_number?: string | null;
   notes: string | null;
   items?: OrderItem[];
   customer_name?: string | null;
@@ -132,6 +124,7 @@ export interface Order {
   cancelled_at?: string | null;
   cancelled_by?: number | null;
   cancellation_reason?: string | null;
+  refunds?: Refund[]; // Refunds của order
   created_at: string;
   updated_at: string;
 }
@@ -146,6 +139,37 @@ export interface OrderItem {
   quantity: number;
   price: number;
   created_at: string;
+}
+
+// Refund Types
+export type RefundType = 'refund' | 'return' | 'exchange';
+export type RefundStatus = 'pending' | 'approved' | 'rejected' | 'processing' | 'completed' | 'cancelled';
+
+export interface RefundItem {
+  id: number;
+  order_item_id: number;
+  quantity: number;
+  refund_amount: number;
+  reason?: string | null;
+}
+
+export interface Refund {
+  id: number;
+  refund_number: string;
+  order_id: number;
+  user_id: string;
+  type: RefundType;
+  reason: string;
+  status: RefundStatus;
+  refund_amount: number | null;
+  admin_notes?: string | null;
+  processed_by?: string | null;
+  processed_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  items?: RefundItem[];
+  order_number?: string;
+  order_total?: number;
 }
 
 // Review Types

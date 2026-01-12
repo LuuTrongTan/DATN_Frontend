@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Card, List, Typography, Tag, Space, Button, Spin, Empty, Pagination } from 'antd';
+import { Card, List, Typography, Tag, Space, Button, Spin, Empty, Pagination, message } from 'antd';
 import { BellOutlined, CheckOutlined } from '@ant-design/icons';
 import { notificationService, Notification } from '../../shares/services/notificationService';
 import { useNavigate } from 'react-router-dom';
@@ -39,7 +39,7 @@ const NotificationsPage: React.FC = () => {
       setItems(response.data || []);
       setPagination(response.pagination || { page: 1, limit: 20, total: 0, totalPages: 0 });
     } catch (error) {
-      console.error('Error loading notifications:', error);
+      message.error('Không thể tải thông báo');
     } finally {
       setLoading(false);
     }
@@ -71,12 +71,12 @@ const NotificationsPage: React.FC = () => {
   const handleMarkAll = async () => {
     try {
       setMarkingAll(true);
-      const response = await notificationService.markAllAsRead();
+      await notificationService.markAllAsRead();
       setItems(prev => prev.map(n => ({ ...n, is_read: true })));
       // Reload để cập nhật pagination nếu cần
       await load(pagination.page, pagination.limit);
     } catch {
-      // ignore
+      message.error('Không thể đánh dấu tất cả thông báo');
     } finally {
       setMarkingAll(false);
     }

@@ -26,11 +26,12 @@ import {
   ArrowLeftOutlined,
   StarOutlined,
 } from '@ant-design/icons';
-import { Order, OrderItem, OrderStatus, PaymentStatus } from '../../../shares/types';
+import { Order, OrderItem, OrderStatus, PaymentStatus, Refund } from '../../../shares/types';
 import { useAppDispatch, useAppSelector } from '../../../shares/stores';
 import { fetchOrderById } from '../stores/ordersSlice';
 import { createReview } from '../../ProductManagement/stores/reviewsSlice';
 import { orderService } from '../../../shares/services/orderService';
+import RefundRequestForm from '../Refund/RefundRequestForm';
 
 const { Title, Text } = Typography;
 
@@ -54,6 +55,7 @@ const OrderDetail: React.FC = () => {
     description?: string;
   } | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  const [refundModalVisible, setRefundModalVisible] = useState(false);
 
   useEffect(() => {
     if (!orderId) {
@@ -62,10 +64,8 @@ const OrderDetail: React.FC = () => {
       return;
     }
     
-    console.log('OrderDetail component mounted, fetching order:', orderId);
     dispatch(fetchOrderById(orderId))
       .then((result) => {
-        console.log('Order fetch result:', result);
         if (fetchOrderById.rejected.match(result)) {
           const errorMessage =
             (result.payload as any) ||
@@ -76,7 +76,6 @@ const OrderDetail: React.FC = () => {
         }
       })
       .catch((error: any) => {
-        console.error('Order fetch exception:', error);
         message.error(error.message || 'Không tìm thấy đơn hàng');
         navigate('/orders');
       });

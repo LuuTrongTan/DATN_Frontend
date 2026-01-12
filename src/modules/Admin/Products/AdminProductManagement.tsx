@@ -1,42 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Table,
-  Button,
-  Space,
-  Typography,
-  Tag,
-  Card,
-  Input,
-  Select,
-  message,
-  Popconfirm,
-  Switch,
-  Modal,
-  Image,
-  Badge,
-  Row,
-  Col,
-  Form,
-  InputNumber,
-  Dropdown,
-  TreeSelect,
-} from 'antd';
-import {
-  EditOutlined,
-  EyeOutlined,
-  ReloadOutlined,
-  ShoppingOutlined,
-  PlusOutlined,
-  DeleteOutlined,
-  CheckCircleOutlined,
-  CloseCircleOutlined,
-  PictureOutlined,
-  AppstoreOutlined,
-  UndoOutlined,
-  DatabaseOutlined,
-  MoreOutlined,
-  CopyOutlined,
-} from '@ant-design/icons';
+import { Table, Button, Space, Typography, Tag, Card, Input, message, Popconfirm, Modal, Image, Badge, Row, Col, Dropdown, TreeSelect, Switch } from 'antd';
+import { EditOutlined, EyeOutlined, ReloadOutlined, ShoppingOutlined, PlusOutlined, DeleteOutlined, CheckCircleOutlined, CloseCircleOutlined, PictureOutlined, AppstoreOutlined, UndoOutlined, MoreOutlined, CopyOutlined } from '@ant-design/icons';
 import { productService } from '../../../shares/services/productService';
 import { Product, Category } from '../../../shares/types';
 import { useNavigate } from 'react-router-dom';
@@ -47,7 +11,6 @@ import { useAppDispatch, useAppSelector } from '../../../shares/stores';
 import { fetchAdminProducts, fetchAdminCategories, setSearch, setCategory, setIncludeDeleted } from '../stores/adminProductsSlice';
 import { adminService } from '../../../shares/services/adminService';
 import AdminPageContent from '../../../shares/components/layouts/AdminPageContent';
-import { inventoryService } from '../../../shares/services/inventoryService';
 
 const { Search } = Input;
 
@@ -107,22 +70,7 @@ const AdminProductManagement: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<number | undefined>();
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [showDeleted, setShowDeleted] = useState(false);
-  const [inventoryModalOpen, setInventoryModalOpen] = useState(false);
-  const [inventoryMode, setInventoryMode] = useState<'stock-in' | 'stock-adjustment'>('stock-in');
-  const [inventoryTargetProduct, setInventoryTargetProduct] = useState<Product | null>(null);
-  const [inventoryTargetVariantId, setInventoryTargetVariantId] = useState<number | undefined>(undefined);
-  const [inventoryLoading, setInventoryLoading] = useState(false);
-  const [inventoryForm] = Form.useForm();
 
-  // Debug log
-  useEffect(() => {
-    console.log('[AdminProductManagement] State:', {
-      productsCount: products.length,
-      loading,
-      error,
-      filters,
-    });
-  }, [products, loading, error, filters]);
 
   // Sử dụng useEffectOnce để tránh gọi API 2 lần trong StrictMode
   // Chỉ gọi fetchAdminCategories nếu categories chưa có trong store
@@ -303,13 +251,7 @@ const AdminProductManagement: React.FC = () => {
         const imageCount = safeUrls.length;
         if (imageCount > 0) {
           return (
-            <Image.PreviewGroup
-              preview={{
-                onChange: (current, prev) => {
-                  console.log(`Preview từ ảnh ${prev} sang ảnh ${current}`);
-                },
-              }}
-            >
+            <Image.PreviewGroup>
               <Badge count={imageCount > 1 ? imageCount : 0} offset={[-5, 5]}>
                 <Image
                   src={safeUrls[0]}
@@ -497,25 +439,6 @@ const AdminProductManagement: React.FC = () => {
                   block
                 >
                   Sao chép
-                </Button>
-              ),
-            },
-            {
-              key: 'inventory',
-              label: (
-                <Button
-                  type="text"
-                  icon={<DatabaseOutlined />}
-                  onClick={() => {
-                    setInventoryTargetProduct(record);
-                    setInventoryTargetVariantId(undefined);
-                    setInventoryMode('stock-in');
-                    inventoryForm.resetFields();
-                    setInventoryModalOpen(true);
-                  }}
-                  block
-                >
-                  Kho
                 </Button>
               ),
             },
@@ -785,124 +708,6 @@ const AdminProductManagement: React.FC = () => {
           }}
           onCancel={() => setIsModalVisible(false)}
         />
-      </Modal>
-
-      {/* Modal xử lý tồn kho ngay trên trang sản phẩm */}
-      <Modal
-        title={
-          <Space>
-            <DatabaseOutlined />
-            <span>
-              {inventoryMode === 'stock-in' ? 'Nhập kho' : 'Điều chỉnh tồn kho'}
-            </span>
-          </Space>
-        }
-        open={inventoryModalOpen}
-        onCancel={() => {
-          setInventoryModalOpen(false);
-          setInventoryTargetProduct(null);
-          setInventoryTargetVariantId(undefined);
-          inventoryForm.resetFields();
-        }}
-        okText="Thực hiện"
-        cancelText="Hủy"
-        confirmLoading={inventoryLoading}
-        onOk={() => inventoryForm.submit()}
-      >
-        <Form
-          form={inventoryForm}
-          layout="vertical"
-          initialValues={{ mode: 'stock-in', quantity: 1 }}
-          onFinish={async (values) => {
-            if (!inventoryTargetProduct) return;
-            const product_id = inventoryTargetVariantId ? undefined : inventoryTargetProduct.id;
-            const variant_id = inventoryTargetVariantId;
-            try {
-              setInventoryLoading(true);
-              if (values.mode === 'stock-in') {
-                await inventoryService.stockIn({
-                  product_id,
-                  variant_id,
-                  quantity: values.quantity,
-                });
-                message.success('Nhập kho thành công');
-              } else {
-                await inventoryService.stockAdjustment({
-                  product_id,
-                  variant_id,
-                  new_quantity: values.new_quantity,
-                });
-                message.success('Điều chỉnh kho thành công');
-              }
-              setInventoryModalOpen(false);
-              setInventoryTargetProduct(null);
-              setInventoryTargetVariantId(undefined);
-              inventoryForm.resetFields();
-              dispatch(fetchAdminProducts({ 
-                search: filters.search || undefined, 
-                category_id: filters.category_id,
-                include_deleted: filters.include_deleted,
-                limit: 100 
-              }));
-            } catch (error: any) {
-              message.error(error.message || 'Có lỗi khi xử lý kho');
-            } finally {
-              setInventoryLoading(false);
-            }
-          }}
-        >
-          <Form.Item label="Chế độ" name="mode">
-            <Select
-              onChange={(value) => setInventoryMode(value)}
-              options={[
-                { value: 'stock-in', label: 'Nhập thêm' },
-                { value: 'stock-adjustment', label: 'Điều chỉnh về số lượng mới' },
-              ]}
-            />
-          </Form.Item>
-
-          {inventoryTargetProduct?.variants?.length ? (
-            <Form.Item label="Biến thể" name="variant_id">
-              <Select
-                allowClear
-                placeholder="Chọn biến thể (bỏ trống để áp dụng cho sản phẩm gốc)"
-                value={inventoryTargetVariantId}
-                onChange={(val) => setInventoryTargetVariantId(val)}
-              >
-                {inventoryTargetProduct.variants.map((v) => (
-                  <Select.Option key={v.id} value={v.id}>
-                    {v.variant_attributes
-                      ? Object.entries(v.variant_attributes)
-                          .map(([key, val]) => `${key}: ${val}`)
-                          .join(', ')
-                      : `Biến thể #${v.id}`}{' '}
-                    (Tồn: {v.stock_quantity})
-                  </Select.Option>
-                ))}
-              </Select>
-            </Form.Item>
-          ) : (
-            <Tag color="blue">Sản phẩm không có biến thể, thao tác trực tiếp trên tồn kho sản phẩm.</Tag>
-          )}
-
-          {inventoryMode === 'stock-in' ? (
-            <Form.Item
-              label="Số lượng nhập thêm"
-              name="quantity"
-              rules={[{ required: true, message: 'Nhập số lượng' }, { type: 'number', min: 1, message: '>= 1' }]}
-            >
-              <InputNumber style={{ width: '100%' }} min={1} />
-            </Form.Item>
-          ) : (
-            <Form.Item
-              label="Số lượng mới"
-              name="new_quantity"
-              rules={[{ required: true, message: 'Nhập số lượng mới' }, { type: 'number', min: 0, message: '>= 0' }]}
-            >
-              <InputNumber style={{ width: '100%' }} min={0} />
-            </Form.Item>
-          )}
-        </Form>
       </Modal>
     </AdminPageContent>
   );
