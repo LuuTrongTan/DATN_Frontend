@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Table, Button, Space, Typography, Tag, Card, Input, message, Popconfirm, Modal, Image, Badge, Row, Col, Dropdown, TreeSelect, Switch } from 'antd';
+import { Table, Button, Space, Typography, Tag, Card, Input, InputNumber, message, Popconfirm, Modal, Image, Badge, Row, Col, Dropdown, TreeSelect, Switch } from 'antd';
 import { EditOutlined, EyeOutlined, ReloadOutlined, ShoppingOutlined, PlusOutlined, DeleteOutlined, CheckCircleOutlined, CloseCircleOutlined, PictureOutlined, AppstoreOutlined, UndoOutlined, MoreOutlined, CopyOutlined } from '@ant-design/icons';
 import { productService } from '../../../shares/services/productService';
+import { variantService } from '../../../shares/services/variantService';
 import { Product, Category } from '../../../shares/types';
 import { useNavigate } from 'react-router-dom';
 import ProductForm from './ProductForm';
@@ -230,6 +231,25 @@ const AdminProductManagement: React.FC = () => {
     } catch (error: any) {
       message.error({ content: error.message || 'Có lỗi xảy ra khi tạo bản sao sản phẩm', key: 'duplicate-product' });
       logger.error('Error duplicating product', error instanceof Error ? error : new Error(String(error)));
+    }
+  };
+
+  const handleUpdateVariantStock = async (variantId: number, newStock: number, productId: number) => {
+    try {
+      await variantService.updateVariant(variantId, {
+        stock_quantity: newStock,
+      });
+      message.success('Cập nhật tồn kho thành công');
+      // Refresh danh sách sản phẩm
+      dispatch(fetchAdminProducts({ 
+        search: filters.search || undefined, 
+        category_id: filters.category_id,
+        include_deleted: filters.include_deleted,
+        limit: 100 
+      }));
+    } catch (error: any) {
+      logger.error('Error updating variant stock', error instanceof Error ? error : new Error(String(error)));
+      message.error(error.message || 'Có lỗi xảy ra khi cập nhật tồn kho');
     }
   };
 
@@ -641,17 +661,29 @@ const AdminProductManagement: React.FC = () => {
                             description={
                               <div style={{ marginTop: 8 }}>
                                 <div>
-                                  <Typography.Text type="secondary">Giá điều chỉnh: </Typography.Text>
+                                  <Typography.Text type="secondary">Giá: </Typography.Text>
                                   <Typography.Text strong>
-                                    {variant.price_adjustment >= 0 ? '+' : ''}
-                                    {variant.price_adjustment.toLocaleString('vi-VN')} VNĐ
+                                    {(() => {
+                                      const basePrice = Number(record.price) || 0;
+                                      const adjustment = variant.price_adjustment || 0;
+                                      const finalPrice = basePrice + adjustment;
+                                      return finalPrice.toLocaleString('vi-VN');
+                                    })()} VNĐ
                                   </Typography.Text>
                                 </div>
-                                <div style={{ marginTop: 4 }}>
+                                <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
                                   <Typography.Text type="secondary">Tồn kho: </Typography.Text>
-                                  <Tag color={variant.stock_quantity > 0 ? 'green' : 'red'}>
-                                    {variant.stock_quantity}
-                                  </Tag>
+                                  <InputNumber
+                                    min={0}
+                                    value={variant.stock_quantity || 0}
+                                    onChange={(value) => {
+                                      if (value !== null && value !== undefined) {
+                                        handleUpdateVariantStock(variant.id, value, record.id);
+                                      }
+                                    }}
+                                    size="small"
+                                    style={{ width: 100 }}
+                                  />
                                 </div>
                                 {variant.image_urls && variant.image_urls.length > 0 && (
                                   <div style={{ marginTop: 4 }}>
