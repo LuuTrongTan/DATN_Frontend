@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Card,
@@ -50,30 +50,32 @@ const ProductDetail: React.FC = () => {
   const [selectedAttributes, setSelectedAttributes] = useState<Record<string, string>>({});
   const [variantsByAttribute, setVariantsByAttribute] = useState<Record<string, string[]>>({});
   const [availableVariants, setAvailableVariants] = useState<ProductVariant[]>([]);
-  
-  // Lấy trạng thái từ Redux
+  const [selectedImageIndex, setSelectedImageIndex] = useState<number>(0);
+  const [isZooming, setIsZooming] = useState<boolean>(false);
+  const [zoomPosition, setZoomPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isMobile, setIsMobile] = useState<boolean>(false);
+
+  // Lấy trạng thái từ Redux - PHẢI gọi trước các useEffect
   const { loading: cartLoading } = useAppSelector((state) => state.cart);
   const { loading: wishlistLoading, checkedProducts } = useAppSelector((state) => state.wishlist);
   const { items: reviews, loading: reviewsLoading } = useAppSelector((state) => state.reviews);
+
+  // Detect mobile screen size
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
   const productId = id ? Number(id) : null;
   const isInWishlist = productId ? (checkedProducts[productId] ?? false) : false;
   const addingToCart = cartLoading;
 
-  useEffect(() => {
-    if (id) {
-      fetchProduct();
-      if (productId) {
-        // Chỉ check wishlist nếu user đã đăng nhập
-        if (isAuthenticated) {
-          dispatch(checkWishlist(productId));
-        }
-        // Reviews là public API, có thể fetch luôn
-        dispatch(fetchProductReviews({ productId, limit: 10 }));
-      }
-    }
-  }, [id, dispatch, productId, isAuthenticated]);
-
-  const fetchProduct = async () => {
+  // Định nghĩa fetchProduct trước khi sử dụng trong useEffect
+  const fetchProduct = useCallback(async () => {
+    if (!id) return;
     try {
       setLoading(true);
       const response = await productService.getProductById(Number(id));
@@ -113,7 +115,34 @@ const ProductDetail: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, navigate]);
+
+  useEffect(() => {
+    if (id) {
+      fetchProduct();
+      if (productId) {
+        // Chỉ check wishlist nếu user đã đăng nhập
+        if (isAuthenticated) {
+          dispatch(checkWishlist(productId));
+        }
+        // Reviews là public API, có thể fetch luôn
+        dispatch(fetchProductReviews({ productId, limit: 10 }));
+      }
+    }
+  }, [id, dispatch, productId, isAuthenticated, fetchProduct]);
+
+  // Reset selectedImageIndex khi displayImages thay đổi - PHẢI đặt trước early return
+  useEffect(() => {
+    if (product) {
+      const displayImages = selectedVariant && selectedVariant.image_urls && selectedVariant.image_urls.length > 0
+        ? selectedVariant.image_urls
+        : product.image_urls || (product.image_url ? [product.image_url] : []);
+      
+      if (displayImages.length > 0 && selectedImageIndex >= displayImages.length) {
+        setSelectedImageIndex(0);
+      }
+    }
+  }, [product, selectedVariant, selectedImageIndex]);
 
 
   const handleToggleWishlist = async () => {
@@ -283,36 +312,185 @@ const ProductDetail: React.FC = () => {
       <Row gutter={[24, 24]}>
         {/* Hình ảnh sản phẩm */}
         <Col xs={24} md={12}>
-          <Card>
+          <Card
+            style={{
+              borderRadius: 8,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+            }}
+          >
             {displayImages.length > 0 ? (
               <Image.PreviewGroup>
-                {displayImages.length === 1 ? (
-                  // Nếu chỉ có 1 ảnh, hiển thị trực tiếp
-                  <Image
-                    src={displayImages[0]}
-                    alt={product.name}
-                    style={{ width: '100%', height: 500, objectFit: 'contain' }}
-                    preview={{
-                      mask: 'Xem',
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: isMobile ? 'column' : 'row',
+                    gap: 16,
+                  }}
+                >
+                  {/* Thumbnail Gallery - Desktop: bên trái, Mobile: trên */}
+                  {displayImages.length > 1 && (
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexDirection: isMobile ? 'row' : 'column',
+                        gap: 8,
+                        flexShrink: 0,
+                        overflowX: isMobile ? 'auto' : 'visible',
+                        overflowY: isMobile ? 'visible' : 'auto',
+                        maxHeight: isMobile ? 'none' : '500px',
+                        maxWidth: isMobile ? '100%' : '80px',
+                        paddingBottom: isMobile ? 8 : 0,
+                        WebkitOverflowScrolling: 'touch',
+                        scrollbarWidth: 'thin',
+                      }}
+                    >
+                      {displayImages.map((url, index) => (
+                        <div
+                          key={index}
+                          onClick={() => setSelectedImageIndex(index)}
+                          style={{
+                            width: 80,
+                            height: 80,
+                            minWidth: 80,
+                            minHeight: 80,
+                            border: selectedImageIndex === index ? '2px solid #1890ff' : '2px solid #e8e8e8',
+                            borderRadius: 4,
+                            padding: 4,
+                            cursor: 'pointer',
+                            backgroundColor: '#ffffff',
+                            transition: 'all 0.3s ease',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            overflow: 'hidden',
+                            boxShadow: selectedImageIndex === index ? '0 2px 8px rgba(24,144,255,0.2)' : 'none',
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!isMobile) {
+                              e.currentTarget.style.borderColor = '#1890ff';
+                              e.currentTarget.style.transform = 'scale(1.05)';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!isMobile) {
+                              if (selectedImageIndex !== index) {
+                                e.currentTarget.style.borderColor = '#e8e8e8';
+                              }
+                              e.currentTarget.style.transform = 'scale(1)';
+                            }
+                          }}
+                        >
+                          <Image
+                            src={url}
+                            alt={`${product.name} thumbnail ${index + 1}`}
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'contain',
+                            }}
+                            preview={false}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Main Image Container */}
+                  <div
+                    style={{
+                      flex: 1,
+                      position: 'relative',
+                      aspectRatio: '1 / 1',
+                      backgroundColor: '#ffffff',
+                      borderRadius: 4,
+                      overflow: 'hidden',
+                      border: '1px solid #f0f0f0',
+                      minHeight: isMobile ? 300 : 0,
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
                     }}
-                  />
-                ) : (
-                  // Nếu có nhiều ảnh, dùng Carousel
-                  <Carousel autoplay>
-                    {displayImages.map((url, index) => (
-                      <div key={index}>
+                  >
+                    {/* Desktop: Main image with zoom */}
+                    {!isMobile && (
+                      <div
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          position: 'relative',
+                          overflow: 'hidden',
+                        }}
+                        onMouseEnter={() => setIsZooming(true)}
+                        onMouseLeave={() => {
+                          setIsZooming(false);
+                          setZoomPosition({ x: 50, y: 50 });
+                        }}
+                        onMouseMove={(e) => {
+                          if (!isZooming) return;
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          const x = ((e.clientX - rect.left) / rect.width) * 100;
+                          const y = ((e.clientY - rect.top) / rect.height) * 100;
+                          setZoomPosition({ x, y });
+                        }}
+                      >
                         <Image
-                          src={url}
-                          alt={`${product.name} ${index + 1}`}
-                          style={{ width: '100%', height: 500, objectFit: 'contain' }}
+                          src={displayImages[selectedImageIndex]}
+                          alt={`${product.name} ${selectedImageIndex + 1}`}
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'contain',
+                            transform: isZooming ? 'scale(2)' : 'scale(1)',
+                            transformOrigin: `${zoomPosition.x}% ${zoomPosition.y}%`,
+                            transition: isZooming ? 'none' : 'transform 0.3s ease',
+                            cursor: isZooming ? 'zoom-in' : 'pointer',
+                          }}
                           preview={{
-                            mask: `Xem tất cả (${displayImages.length})`,
+                            mask: 'Xem',
                           }}
                         />
                       </div>
-                    ))}
-                  </Carousel>
-                )}
+                    )}
+
+                    {/* Mobile: Carousel */}
+                    {isMobile && (
+                      <Carousel
+                        dots={true}
+                        afterChange={(current) => setSelectedImageIndex(current)}
+                        initialSlide={selectedImageIndex}
+                        style={{ height: '100%' }}
+                      >
+                        {displayImages.map((url, index) => (
+                          <div
+                            key={index}
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              backgroundColor: '#ffffff',
+                            }}
+                          >
+                            <Image
+                              src={url}
+                              alt={`${product.name} ${index + 1}`}
+                              style={{
+                                maxWidth: '100%',
+                                maxHeight: '100%',
+                                width: 'auto',
+                                height: 'auto',
+                                objectFit: 'contain',
+                              }}
+                              preview={{
+                                mask: `Xem tất cả (${displayImages.length})`,
+                              }}
+                            />
+                          </div>
+                        ))}
+                      </Carousel>
+                    )}
+                  </div>
+                </div>
+
                 {/* Render tất cả images trong PreviewGroup để có thể navigate trong preview */}
                 {displayImages.map((url, index) => (
                   <Image
@@ -328,11 +506,12 @@ const ProductDetail: React.FC = () => {
               <div
                 style={{
                   width: '100%',
-                  height: 500,
+                  aspectRatio: '1 / 1',
                   background: '#f0f0f0',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
+                  borderRadius: 4,
                 }}
               >
                 <Text type="secondary">Không có hình ảnh</Text>
@@ -358,7 +537,7 @@ const ProductDetail: React.FC = () => {
                 <video
                   src={product.video_url}
                   controls
-                  style={{ width: '100%', maxHeight: 400 }}
+                  style={{ width: '100%', maxHeight: 400, borderRadius: 4 }}
                 />
               </div>
             )}

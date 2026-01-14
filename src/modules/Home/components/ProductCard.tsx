@@ -5,6 +5,7 @@ import { Product } from '../../../shares/types';
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../../shares/stores';
 import { addToWishlist, removeFromWishlist, checkWishlist } from '../../ProductManagement/stores/wishlistSlice';
+import { useAuth } from '../../../shares/contexts/AuthContext';
 
 const { Text, Paragraph } = Typography;
 
@@ -16,16 +17,18 @@ interface ProductCardProps {
 const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const { isAuthenticated } = useAuth();
   
   const { loading: wishlistLoading, checkedProducts } = useAppSelector((state) => state.wishlist);
   const isInWishlist = checkedProducts[product.id] ?? false;
 
   useEffect(() => {
-    if (!checkedProducts.hasOwnProperty(product.id)) {
+    // Chỉ check wishlist nếu user đã đăng nhập
+    if (isAuthenticated && !checkedProducts.hasOwnProperty(product.id)) {
       dispatch(checkWishlist(product.id));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [product.id, dispatch]);
+  }, [product.id, dispatch, isAuthenticated]);
 
   const handleToggleWishlist = useCallback(async () => {
     if (wishlistLoading) return;

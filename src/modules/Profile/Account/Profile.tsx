@@ -19,6 +19,7 @@ import {
   Checkbox,
   Select,
   Switch,
+  Alert,
 } from 'antd';
 import { 
   UserOutlined, 
@@ -57,6 +58,9 @@ const Profile: React.FC = () => {
   const [otpCode, setOtpCode] = useState('');
   const [sendingOtp, setSendingOtp] = useState(false);
   const [verifyingOtp, setVerifyingOtp] = useState(false);
+  const [changePasswordModalVisible, setChangePasswordModalVisible] = useState(false);
+  const [changePasswordForm] = Form.useForm();
+  const [changingPassword, setChangingPassword] = useState(false);
 
   // Provinces data for address form
   const [provinces, setProvinces] = useState<Province[]>([]);
@@ -381,6 +385,27 @@ const Profile: React.FC = () => {
     }
   };
 
+  const handleChangePassword = async (values: any) => {
+    try {
+      setChangingPassword(true);
+      const response = await authService.changePassword(
+        values.oldPassword, 
+        values.newPassword, 
+        values.confirmPassword
+      );
+      
+      if (response.success) {
+        message.success('Đổi mật khẩu thành công!');
+        changePasswordForm.resetFields();
+        setChangePasswordModalVisible(false);
+      }
+    } catch (error: any) {
+      message.error(error.message || 'Có lỗi xảy ra khi đổi mật khẩu');
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
   return (
     <div className="profile-page" style={{ padding: '2rem' }}>
       <Title 
@@ -562,18 +587,11 @@ const Profile: React.FC = () => {
                 Lưu thông tin
               </Button>
               <Button
-                onClick={() => form.resetFields()}
-                size="large"
-                        style={{
-                          borderRadius: '12px',
-                          height: '48px',
-                        }}
-              >
-                Đặt lại
-              </Button>
-              <Button
                 icon={<LockOutlined />}
-                onClick={() => navigate('/profile/change-password')}
+                onClick={() => {
+                  changePasswordForm.resetFields();
+                  setChangePasswordModalVisible(true);
+                }}
                 size="large"
                         style={{
                           borderRadius: '12px',
@@ -970,6 +988,138 @@ const Profile: React.FC = () => {
               </Button>
             </Space>
           </Space>
+        </div>
+      </Modal>
+
+      {/* Modal đổi mật khẩu */}
+      <Modal
+        title={
+          <span style={{ 
+            background: 'linear-gradient(135deg, rgba(255, 182, 193, 0.9) 0%, rgba(255, 218, 185, 0.9) 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            fontWeight: 600,
+          }}>
+            Đổi mật khẩu
+          </span>
+        }
+        open={changePasswordModalVisible}
+        onCancel={() => {
+          setChangePasswordModalVisible(false);
+          changePasswordForm.resetFields();
+        }}
+        footer={null}
+        width={500}
+        style={{ borderRadius: '16px' }}
+      >
+        <div style={{ padding: '8px 0' }}>
+          <Alert
+            message="Lưu ý"
+            description="Mật khẩu mới phải có ít nhất 8 ký tự."
+            type="info"
+            showIcon
+            style={{ marginBottom: 24, borderRadius: '12px' }}
+          />
+
+          <Form
+            form={changePasswordForm}
+            layout="vertical"
+            onFinish={handleChangePassword}
+            autoComplete="off"
+          >
+            <Form.Item
+              label={<Text strong>Mật khẩu hiện tại</Text>}
+              name="oldPassword"
+              rules={[
+                { required: true, message: 'Vui lòng nhập mật khẩu hiện tại' },
+              ]}
+            >
+              <Input.Password
+                prefix={<LockOutlined style={{ color: '#ff3c3c' }} />}
+                placeholder="Nhập mật khẩu hiện tại"
+                size="large"
+                style={{
+                  borderRadius: '12px',
+                  border: '1px solid #e0e0e0',
+                }}
+              />
+            </Form.Item>
+
+            <Form.Item
+              label={<Text strong>Mật khẩu mới</Text>}
+              name="newPassword"
+              rules={[
+                { required: true, message: 'Vui lòng nhập mật khẩu mới' },
+                { min: 8, message: 'Mật khẩu phải có ít nhất 8 ký tự' },
+              ]}
+            >
+              <Input.Password
+                prefix={<LockOutlined style={{ color: '#ff3c3c' }} />}
+                placeholder="Nhập mật khẩu mới"
+                size="large"
+                style={{
+                  borderRadius: '12px',
+                  border: '1px solid #e0e0e0',
+                }}
+              />
+            </Form.Item>
+
+            <Form.Item
+              label={<Text strong>Xác nhận mật khẩu mới</Text>}
+              name="confirmPassword"
+              dependencies={['newPassword']}
+              rules={[
+                { required: true, message: 'Vui lòng xác nhận mật khẩu mới' },
+                ({ getFieldValue }) => ({
+                  validator(_, value) {
+                    if (!value || getFieldValue('newPassword') === value) {
+                      return Promise.resolve();
+                    }
+                    return Promise.reject(new Error('Mật khẩu xác nhận không khớp'));
+                  },
+                }),
+              ]}
+            >
+              <Input.Password
+                prefix={<LockOutlined style={{ color: '#ff3c3c' }} />}
+                placeholder="Nhập lại mật khẩu mới"
+                size="large"
+                style={{
+                  borderRadius: '12px',
+                  border: '1px solid #e0e0e0',
+                }}
+              />
+            </Form.Item>
+
+            <Form.Item style={{ marginBottom: 0 }}>
+              <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
+                <Button
+                  onClick={() => {
+                    setChangePasswordModalVisible(false);
+                    changePasswordForm.resetFields();
+                  }}
+                  style={{ borderRadius: '12px', height: '40px' }}
+                >
+                  Hủy
+                </Button>
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  icon={<SaveOutlined />}
+                  loading={changingPassword}
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(255, 182, 193, 0.9) 0%, rgba(255, 218, 185, 0.9) 100%)',
+                    border: 'none',
+                    borderRadius: '12px',
+                    height: '40px',
+                    fontWeight: 600,
+                  }}
+                >
+                  Đổi mật khẩu
+                </Button>
+              </Space>
+            </Form.Item>
+          </Form>
         </div>
       </Modal>
     </div>

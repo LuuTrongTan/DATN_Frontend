@@ -41,20 +41,18 @@ const Home: React.FC = () => {
         setLoading(true);
         
         // Fetch public data (products, categories) luôn luôn
-        const publicPromises = [
+        await Promise.all([
           dispatch(fetchProducts()),
           dispatch(fetchCategories()),
-        ];
+        ]);
         
         // Chỉ fetch cart và orders nếu user đã đăng nhập
         if (isAuthenticated) {
-          publicPromises.push(
+          await Promise.all([
             dispatch(fetchCart()),
-            dispatch(fetchRecentOrders(5))
-          );
+            dispatch(fetchRecentOrders(5)),
+          ]);
         }
-        
-        await Promise.all(publicPromises);
       } catch (error) {
         logger.error('Error fetching home data', error instanceof Error ? error : new Error(String(error)));
       } finally {

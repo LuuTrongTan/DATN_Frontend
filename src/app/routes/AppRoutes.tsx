@@ -26,7 +26,6 @@ const NotificationsPage = lazy(() => import('../../modules/Notifications/Notific
 
 // Profile
 const Profile = lazy(() => import('../../modules/Profile/Account/Profile'));
-const ChangePassword = lazy(() => import('../../modules/Profile/Security/ChangePassword'));
 const AddressManagement = lazy(() => import('../../modules/Profile/Addresses/AddressManagement'));
 
 // Orders
@@ -45,6 +44,7 @@ const AdminProductManagement = lazy(
 );
 const ProductForm = lazy(() => import('../../modules/Admin/Products/ProductForm'));
 const CategoryManagement = lazy(() => import('../../modules/Admin/Categories/CategoryManagement'));
+const TagManagement = lazy(() => import('../../modules/Admin/Tags/TagManagement'));
 const AdminOrderManagement = lazy(() => import('../../modules/Admin/Orders/AdminOrderManagement'));
 const AdminAccountsManagement = lazy(
   () => import('../../modules/Admin/Users/AdminAccountsManagement')
@@ -107,6 +107,7 @@ const AppRoutes: React.FC = () => {
           <Route path="/admin/products/new" element={<ProductForm />} />
           <Route path="/admin/products/:id/edit" element={<ProductForm />} />
           <Route path="/admin/categories" element={<CategoryManagement />} />
+          <Route path="/admin/tags" element={<TagManagement />} />
           <Route path="/admin/orders" element={<AdminOrderManagement />} />
           <Route path="/admin/reviews" element={<AdminReviewsManagement />} />
           <Route path="/admin/refunds" element={<RefundsList />} />
@@ -152,7 +153,6 @@ const AppRoutes: React.FC = () => {
           {/* FAQ / Support routes đã bỏ theo yêu cầu */}
 
           <Route path="/profile" element={<Profile />} />
-          <Route path="/profile/change-password" element={<ChangePassword />} />
           <Route path="/profile/addresses" element={<AddressManagement />} />
           <Route path="/wishlist" element={<Wishlist />} />
           <Route path="/notifications" element={<NotificationsPage />} />

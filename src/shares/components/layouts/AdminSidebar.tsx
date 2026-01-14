@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { HomeOutlined, DashboardOutlined, UserOutlined, ShoppingOutlined, FileTextOutlined, AppstoreOutlined, UndoOutlined, StarOutlined } from '@ant-design/icons';
+import { HomeOutlined, DashboardOutlined, UserOutlined, ShoppingOutlined, FileTextOutlined, AppstoreOutlined, UndoOutlined, StarOutlined, TagOutlined } from '@ant-design/icons';
 import BaseSidebar from './BaseSidebar';
 import type { MenuProps } from 'antd';
 import { useAuth } from '../../contexts/AuthContext';
@@ -35,6 +35,11 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ collapsed, onToggle }) => {
       key: '/admin/categories',
       icon: <AppstoreOutlined />,
       label: 'Danh mục',
+    },
+    {
+      key: '/admin/tags',
+      icon: <TagOutlined />,
+      label: 'Tags',
     },
     {
       key: '/admin/orders',

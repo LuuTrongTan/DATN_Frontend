@@ -98,8 +98,8 @@ export const authService = {
   forgotPassword: async (email?: string, phone?: string) => {
     return apiClient.post('/auth/forgot-password', { email, phone });
   },
-  changePassword: async (oldPassword: string, newPassword: string) => {
-    return apiClient.post('/auth/change-password', { oldPassword, newPassword });
+  changePassword: async (oldPassword: string, newPassword: string, confirmPassword: string) => {
+    return apiClient.post('/auth/change-password', { oldPassword, newPassword, confirmPassword });
   },
   logout: async () => {
     return apiClient.post('/auth/logout', {});

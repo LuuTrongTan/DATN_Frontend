@@ -99,6 +99,8 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
   const [justCreatedVariant, setJustCreatedVariant] = useState<ProductVariant | null>(null); // Lưu variant vừa tạo để duplicate
   const [tags, setTags] = useState<ProductTag[]>([]);
   const [tagsLoading, setTagsLoading] = useState(false);
+  const [tagSearchValue, setTagSearchValue] = useState<string>('');
+  const [tagSelectOpen, setTagSelectOpen] = useState<boolean>(false);
   
   // Sử dụng hook để quản lý variant images (dùng chung cho cả edit và create mode)
   const variantImages = useVariantImages();
@@ -1051,57 +1053,119 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
             name="tag_ids"
             tooltip="Chọn hoặc tạo tags để phân loại sản phẩm"
           >
-            <Select
-              mode="multiple"
-              placeholder="Chọn tags hoặc nhập để tạo tag mới"
-              loading={tagsLoading}
-              filterOption={(input, option) =>
-                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-              }
-              options={tags.map(tag => ({
-                label: tag.name,
-                value: tag.id,
-              }))}
-              notFoundContent={tagsLoading ? <Spin size="small" /> : null}
-              onSearch={async (value) => {
-                // Nếu người dùng nhập tag mới, tự động tạo khi blur hoặc select
-                if (value && !tags.some(t => t.name.toLowerCase() === value.toLowerCase())) {
-                  // Không tự động tạo, chỉ hiển thị option để user chọn
+            <div>
+              <Select
+                mode="multiple"
+                placeholder="Chọn tags hoặc nhập để tạo tag mới"
+                loading={tagsLoading}
+                showSearch
+                open={tagSelectOpen}
+                style={{ width: '100%', marginBottom: 8 }}
+                filterOption={(input, option) =>
+                  (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
                 }
-              }}
-              dropdownRender={(menu) => (
-                <>
-                  {menu}
-                  <Divider style={{ margin: '8px 0' }} />
-                  <Space style={{ padding: '0 8px 4px' }}>
-                    <Button
-                      type="text"
-                      icon={<PlusOutlined />}
-                      onClick={async () => {
-                        const input = document.querySelector('.ant-select-selection-search-input') as HTMLInputElement;
-                        const tagName = input?.value?.trim();
-                        if (tagName && !tags.some(t => t.name.toLowerCase() === tagName.toLowerCase())) {
-                          try {
-                            const response = await tagService.createTag({ name: tagName });
-                            if (response.success && response.data) {
-                              setTags([...tags, response.data]);
-                              const currentTagIds = form.getFieldValue('tag_ids') || [];
-                              form.setFieldsValue({ tag_ids: [...currentTagIds, response.data.id] });
-                              message.success('Tạo tag thành công');
-                            }
-                          } catch (error: any) {
-                            message.error(error.message || 'Lỗi khi tạo tag');
-                          }
-                        }
-                      }}
-                      style={{ width: '100%' }}
-                    >
-                      Tạo tag mới
-                    </Button>
-                  </Space>
-                </>
+                options={tags.map(tag => ({
+                  label: tag.name,
+                  value: tag.id,
+                }))}
+                notFoundContent={tagsLoading ? <Spin size="small" /> : null}
+                onSearch={(value) => {
+                  setTagSearchValue(value);
+                  // Tự động mở dropdown khi nhập text
+                  if (value.trim() && !tagSelectOpen) {
+                    setTagSelectOpen(true);
+                  }
+                }}
+                onFocus={() => {
+                  // Mở dropdown khi focus vào field
+                  if (!tagSelectOpen) {
+                    setTagSelectOpen(true);
+                  }
+                }}
+                onDropdownVisibleChange={(open) => {
+                  // Không đóng dropdown khi đang tạo tag
+                  if (!tagsLoading) {
+                    setTagSelectOpen(open);
+                    // KHÔNG reset search value khi dropdown đóng
+                    // Chỉ reset khi user thực sự muốn (sau khi tạo tag thành công hoặc cancel)
+                    // Việc reset sẽ được xử lý trong onClick handler của button
+                  }
+                }}
+              />
+              {tagSearchValue.trim() && 
+                !tags.some(t => t.name.toLowerCase() === tagSearchValue.trim().toLowerCase()) && (
+                <Button
+                  type="primary"
+                  icon={<PlusOutlined />}
+                  loading={tagsLoading}
+                  onClick={async (e) => {
+                    // Prevent form submission và event bubbling
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (e.nativeEvent) {
+                      e.nativeEvent.stopImmediatePropagation();
+                    }
+                    
+                    const tagName = tagSearchValue.trim();
+                    
+                    if (!tagName) {
+                      message.warning('Vui lòng nhập tên tag');
+                      return;
+                    }
+                    
+                    if (tags.some(t => t.name.toLowerCase() === tagName.toLowerCase())) {
+                      message.warning('Tag này đã tồn tại');
+                      return;
+                    }
+                    
+                    try {
+                      setTagsLoading(true);
+                      
+                      const response = await tagService.createTag({ name: tagName });
+                      
+                      if (response.success && response.data) {
+                        // Thêm tag mới vào danh sách
+                        setTags([...tags, response.data]);
+                        
+                        // Thêm tag vào form
+                        const currentTagIds = form.getFieldValue('tag_ids') || [];
+                        form.setFieldsValue({ tag_ids: [...currentTagIds, response.data.id] });
+                        
+                        // Reset search value
+                        setTagSearchValue('');
+                        
+                        message.success(`Đã tạo tag "${tagName}" thành công`);
+                        
+                        // Đóng dropdown sau khi tạo thành công
+                        setTimeout(() => {
+                          setTagSelectOpen(false);
+                        }, 300);
+                      } else {
+                        message.error(response.message || 'Không thể tạo tag');
+                      }
+                    } catch (error: any) {
+                      const errorMessage = error.message || error.response?.data?.message || 'Lỗi khi tạo tag';
+                      
+                      // Log chi tiết lỗi để debug
+                      if (error.statusCode === 401) {
+                        message.error('Bạn cần đăng nhập để tạo tag');
+                      } else if (error.statusCode === 403) {
+                        message.error('Bạn không có quyền tạo tag (cần quyền staff hoặc admin)');
+                      } else {
+                        message.error(errorMessage);
+                      }
+                    } finally {
+                      setTagsLoading(false);
+                    }
+                  }}
+                  htmlType="button"
+                  block
+                  style={{ marginTop: 8 }}
+                >
+                  {tagsLoading ? 'Đang tạo...' : `Tạo tag "${tagSearchValue.trim()}"`}
+                </Button>
               )}
-            />
+            </div>
           </Form.Item>
 
           <Row gutter={16}>

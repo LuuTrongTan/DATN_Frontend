@@ -25,10 +25,13 @@ import {
   AppstoreOutlined,
   SearchOutlined,
   UploadOutlined,
+  InboxOutlined,
 } from '@ant-design/icons';
 import { adminService, CreateCategoryRequest, UpdateCategoryRequest } from '../../../shares/services/adminService';
 import { uploadFile } from '../../../shares/services/uploadService';
 import type { UploadProps } from 'antd';
+
+const { Dragger } = Upload;
 import { Category } from '../../../shares/types';
 import { useAppDispatch, useAppSelector } from '../../../shares/stores';
 import { fetchAdminCategories } from '../stores/adminCategoriesSlice';
@@ -50,6 +53,7 @@ const CategoryManagement: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [previewImageUrl, setPreviewImageUrl] = useState<string>('');
   const [imageUploading, setImageUploading] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'deleted'>('all');
   const [form] = Form.useForm();
 
@@ -107,6 +111,7 @@ const CategoryManagement: React.FC = () => {
   const handleCreate = () => {
     setEditingCategory(null);
     setPreviewImageUrl('');
+    setImageFile(null);
     form.resetFields();
     setIsModalVisible(true);
   };
@@ -123,12 +128,27 @@ const CategoryManagement: React.FC = () => {
 
   const handleSubmit = async (values: CategoryFormValues) => {
     try {
+      setImageUploading(true);
+      
+      // Upload image file nếu có
+      let finalImageUrl = values.image_url;
+      if (imageFile) {
+        try {
+          finalImageUrl = await uploadFile(imageFile);
+          message.success('Upload hình ảnh thành công');
+        } catch (uploadError: any) {
+          message.error(uploadError.message || 'Có lỗi xảy ra khi upload hình ảnh');
+          setImageUploading(false);
+          return;
+        }
+      }
+
       if (editingCategory) {
         const updateData: UpdateCategoryRequest = {
           name: values.name,
           slug: values.slug || undefined,
           description: values.description,
-          image_url: values.image_url || undefined,
+          image_url: finalImageUrl || undefined,
           parent_id: values.parent_id ?? null,
           display_order: values.display_order,
           is_active: values.is_active,
@@ -140,7 +160,7 @@ const CategoryManagement: React.FC = () => {
           name: values.name,
           slug: values.slug,
           description: values.description,
-          image_url: values.image_url || undefined,
+          image_url: finalImageUrl || undefined,
           parent_id: values.parent_id ?? null,
           display_order: values.display_order,
           is_active: values.is_active,
@@ -151,6 +171,7 @@ const CategoryManagement: React.FC = () => {
       setIsModalVisible(false);
       setEditingCategory(null);
       setPreviewImageUrl('');
+      setImageFile(null);
       form.resetFields();
       dispatch(fetchAdminCategories({ includeDeleted: true }));
     } catch (error) {
@@ -160,6 +181,8 @@ const CategoryManagement: React.FC = () => {
         ip: window.location.href,
       });
       message.error(errorMessage);
+    } finally {
+      setImageUploading(false);
     }
   };
 
@@ -208,30 +231,48 @@ const CategoryManagement: React.FC = () => {
     }
   };
 
-  const handleImageUpload: UploadProps['beforeUpload'] = async (file) => {
+  const handleImageUpload: UploadProps['customRequest'] = async ({ file, onSuccess, onError }) => {
     try {
-      setImageUploading(true);
-      const url = await uploadFile(file as File);
-      form.setFieldsValue({ image_url: url });
-      setPreviewImageUrl(url);
-      message.success('Upload hình ảnh danh mục thành công');
+      const fileObj = file as File;
+      
+      // Kiểm tra file type
+      if (!fileObj.type.startsWith('image/')) {
+        message.error('Chỉ chấp nhận file hình ảnh');
+        onError?.(new Error('Invalid file type'));
+        return;
+      }
+
+      // Lưu file vào state để upload khi submit form
+      setImageFile(fileObj);
+      
+      // Tạo preview URL từ file
+      const previewUrl = URL.createObjectURL(fileObj);
+      setPreviewImageUrl(previewUrl);
+      
+      onSuccess?.(file);
     } catch (error: any) {
       const errorMessage =
-        error instanceof Error ? error.message : 'Có lỗi xảy ra khi upload hình ảnh';
+        error instanceof Error ? error.message : 'Có lỗi xảy ra khi chọn hình ảnh';
       logger.error(
-        'Error uploading category image',
+        'Error selecting category image',
         error instanceof Error ? error : new Error(String(error)),
         {
-          fileName: file.name,
+          fileName: (file as File)?.name,
           ip: window.location.href,
         }
       );
       message.error(errorMessage);
-    } finally {
-      setImageUploading(false);
+      onError?.(error);
     }
-    // Ngăn AntD tự upload, vì ta đã xử lý thủ công
-    return false;
+  };
+
+  const handleImageRemove = () => {
+    if (previewImageUrl && previewImageUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(previewImageUrl);
+    }
+    setImageFile(null);
+    setPreviewImageUrl('');
+    form.setFieldsValue({ image_url: undefined });
   };
 
   const columns = [
@@ -446,7 +487,11 @@ const CategoryManagement: React.FC = () => {
         onCancel={() => {
           setIsModalVisible(false);
           setEditingCategory(null);
+          if (previewImageUrl && previewImageUrl.startsWith('blob:')) {
+            URL.revokeObjectURL(previewImageUrl);
+          }
           setPreviewImageUrl('');
+          setImageFile(null);
           form.resetFields();
         }}
         onOk={() => form.submit()}
@@ -522,42 +567,54 @@ const CategoryManagement: React.FC = () => {
           <Form.Item
             label="Hình ảnh danh mục"
             name="image_url"
-            rules={[
-              { type: 'url', message: 'Vui lòng nhập URL hợp lệ', warningOnly: true },
-            ]}
           >
-            <Space.Compact style={{ width: '100%' }}>
-              <Input
-                placeholder="URL hình (ví dụ: https://example.com/image.jpg)"
-                onChange={(e) => setPreviewImageUrl(e.target.value)}
-              />
-              <Upload
-                showUploadList={false}
-                beforeUpload={handleImageUpload}
+            <Space direction="vertical" style={{ width: '100%' }} size="middle">
+              <Dragger
+                customRequest={handleImageUpload}
                 accept="image/*"
+                showUploadList={false}
+                multiple={false}
               >
-                <Button
-                  icon={<UploadOutlined />}
-                  loading={imageUploading}
+                <p className="ant-upload-drag-icon">
+                  <InboxOutlined />
+                </p>
+                <p className="ant-upload-text">Click hoặc kéo thả hình ảnh vào đây để chọn</p>
+                <p className="ant-upload-hint">
+                  Chỉ chấp nhận file hình ảnh. File sẽ được upload khi bạn submit form.
+                </p>
+              </Dragger>
+
+              {previewImageUrl && (
+                <Card
+                  hoverable
+                  cover={
+                    <Image
+                      src={previewImageUrl}
+                      alt="Preview"
+                      style={{ height: 200, objectFit: 'cover' }}
+                      preview
+                    />
+                  }
+                  actions={[
+                    <Button
+                      danger
+                      icon={<DeleteOutlined />}
+                      onClick={handleImageRemove}
+                      key="remove"
+                    >
+                      Xóa ảnh
+                    </Button>,
+                  ]}
                 >
-                  Upload
-                </Button>
-              </Upload>
-            </Space.Compact>
+                  <Card.Meta
+                    title={imageFile ? imageFile.name : 'Hình ảnh hiện có'}
+                    description={imageFile ? 'Chưa upload - sẽ upload khi submit' : 'Đã lưu trên server'}
+                  />
+                </Card>
+              )}
+            </Space>
           </Form.Item>
 
-          {previewImageUrl && (
-            <Form.Item label="Preview hình ảnh">
-              <Image
-                src={previewImageUrl}
-                alt="Preview"
-                width={200}
-                height={200}
-                style={{ objectFit: 'cover', borderRadius: 8 }}
-                fallback="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2YwZjBmMCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD48L3N2Zz4="
-              />
-            </Form.Item>
-          )}
         </Form>
       </Modal>
     </AdminPageContent>
