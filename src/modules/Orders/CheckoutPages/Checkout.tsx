@@ -101,7 +101,7 @@ const Checkout: React.FC = () => {
     value.toLocaleString('vi-VN', { maximumFractionDigits: 0 }) + ' VNĐ';
 
   const buildShippingAddressString = (address: UserAddress) => {
-    return `${address.full_name} - ${address.phone}\n${address.street_address}, ${address.ward}, ${address.district}, ${address.province}`;
+    return `${address.street_address}, ${address.ward}, ${address.district}, ${address.province}`;
   };
 
   const placeOrderButtonLabel =
@@ -118,9 +118,9 @@ const Checkout: React.FC = () => {
     try {
       setCalculatingShipping(true);
       const res = await shippingService.calculateFee({
-        province: address.province,
-        district: address.district,
-        ward: address.ward,
+        province: address.province_code ?? address.province,
+        district: address.district_code ?? address.district,
+        ward: address.ward_code ?? address.ward,
         // Đơn giản: ước lượng 1kg cho toàn bộ đơn, giá trị = subtotal
         weight: 1,
         value: currentSubtotal,
@@ -356,16 +356,13 @@ const Checkout: React.FC = () => {
                           <Radio value={address.id} />
                           <div>
                             <Space style={{ marginBottom: 4 }}>
-                              <Text strong>{address.full_name}</Text>
+                              <Text strong>Địa chỉ</Text>
                               {address.is_default && (
                                 <Tag color="green" icon={<CheckCircleOutlined />}>
                                   Mặc định
                                 </Tag>
                               )}
                             </Space>
-                            <div>
-                              <Text type="secondary">SĐT: {address.phone}</Text>
-                            </div>
                             <div style={{ marginTop: 4 }}>
                               <Text>
                                 {address.street_address}, {address.ward}, {address.district},{' '}

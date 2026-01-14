@@ -53,10 +53,6 @@ export interface UpdateUserRequest {
   password?: string;
 }
 
-export interface PhoneFirebaseConfig {
-  enabled: boolean;
-}
-
 export const adminService = {
   getStatistics: async (params?: any): Promise<{ statistics: StatisticsResponse }> => {
     const query = new URLSearchParams(params || {}).toString();
@@ -144,14 +140,6 @@ export const adminService = {
     const pagination = res?.data?.pagination || res?.pagination || null;
 
     return { users, pagination, raw: res };
-  },
-  getPhoneFirebaseConfig: async (): Promise<PhoneFirebaseConfig> => {
-    const res = await apiClient.get('/admin/settings/auth/phone-firebase');
-    return (res?.data as any) || { enabled: true };
-  },
-  updatePhoneFirebaseConfig: async (config: PhoneFirebaseConfig): Promise<PhoneFirebaseConfig> => {
-    const res = await apiClient.put('/admin/settings/auth/phone-firebase', config);
-    return (res?.data as any) || config;
   },
   createStaff: async (data: CreateStaffRequest): Promise<any> => {
     return apiClient.post('/admin/staff', data);

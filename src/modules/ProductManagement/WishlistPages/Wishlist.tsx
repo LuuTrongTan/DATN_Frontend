@@ -21,7 +21,6 @@ import {
 } from '@ant-design/icons';
 import { useAppDispatch, useAppSelector } from '../../../shares/stores';
 import { addWishlistItemToCart, fetchWishlist, removeFromWishlist } from '../stores/wishlistSlice';
-import { getAuthToken } from '../../../shares/api';
 
 const { Title, Text } = Typography;
 
@@ -31,14 +30,8 @@ const Wishlist: React.FC = () => {
   const { items: wishlistItems, loading, error } = useAppSelector((state) => state.wishlist);
 
   // Fetch wishlist khi component mount hoặc khi navigate vào trang
+  // ProtectedRoute đã xử lý việc kiểm tra authentication và hiển thị modal
   useEffect(() => {
-    const token = getAuthToken();
-    if (!token) {
-      message.warning('Vui lòng đăng nhập để xem danh sách yêu thích');
-      navigate('/login');
-      return;
-    }
-
     dispatch(fetchWishlist())
       .then((result) => {
         if (fetchWishlist.rejected.match(result)) {
@@ -52,7 +45,7 @@ const Wishlist: React.FC = () => {
       .catch(() => {
         message.error('Có lỗi xảy ra khi tải danh sách yêu thích');
       });
-  }, [dispatch, navigate]);
+  }, [dispatch]);
 
   const handleRemove = async (productId: number) => {
     try {

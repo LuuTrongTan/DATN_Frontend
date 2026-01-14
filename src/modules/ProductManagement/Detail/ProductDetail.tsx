@@ -34,6 +34,7 @@ import { addToCart } from '../stores/cartSlice';
 import { addToWishlist, removeFromWishlist, checkWishlist } from '../stores/wishlistSlice';
 import { fetchProductReviews } from '../stores/reviewsSlice';
 import { logger } from '../../../shares/utils/logger';
+import { useAuth } from '../../../shares/contexts/AuthContext';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -41,6 +42,7 @@ const ProductDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const { isAuthenticated } = useAuth();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
@@ -61,11 +63,15 @@ const ProductDetail: React.FC = () => {
     if (id) {
       fetchProduct();
       if (productId) {
-        dispatch(checkWishlist(productId));
+        // Chỉ check wishlist nếu user đã đăng nhập
+        if (isAuthenticated) {
+          dispatch(checkWishlist(productId));
+        }
+        // Reviews là public API, có thể fetch luôn
         dispatch(fetchProductReviews({ productId, limit: 10 }));
       }
     }
-  }, [id, dispatch, productId]);
+  }, [id, dispatch, productId, isAuthenticated]);
 
   const fetchProduct = async () => {
     try {

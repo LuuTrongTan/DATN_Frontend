@@ -668,10 +668,10 @@ const Profile: React.FC = () => {
                               </Tag>
                             )}
                             <Text strong style={{ fontSize: '16px', display: 'block' }}>
-                              {address.full_name}
+                              {user?.full_name || 'Chưa cập nhật'}
                             </Text>
                             <Text type="secondary" style={{ display: 'block', marginTop: '4px' }}>
-                              {address.phone}
+                              {user?.phone || 'Chưa cập nhật'}
                             </Text>
                           </div>
                           <Text style={{ color: '#666', lineHeight: '1.6' }}>

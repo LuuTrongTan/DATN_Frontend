@@ -14,12 +14,14 @@ import { fetchRecentOrders } from '../Orders/stores/ordersSlice';
 import { Order } from '../../shares/types';
 import { logger } from '../../shares/utils/logger';
 import { useEffectOnce } from '../../shares/hooks';
+import { useAuth } from '../../shares/contexts/AuthContext';
 
 const { Title } = Typography;
 
 const Home: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const { isAuthenticated } = useAuth();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalOrders: 0,
@@ -38,13 +40,21 @@ const Home: React.FC = () => {
       try {
         setLoading(true);
         
-        // Fetch từ Redux
-        await Promise.all([
+        // Fetch public data (products, categories) luôn luôn
+        const publicPromises = [
           dispatch(fetchProducts()),
           dispatch(fetchCategories()),
-          dispatch(fetchCart()),
-          dispatch(fetchRecentOrders(5)),
-        ]);
+        ];
+        
+        // Chỉ fetch cart và orders nếu user đã đăng nhập
+        if (isAuthenticated) {
+          publicPromises.push(
+            dispatch(fetchCart()),
+            dispatch(fetchRecentOrders(5))
+          );
+        }
+        
+        await Promise.all(publicPromises);
       } catch (error) {
         logger.error('Error fetching home data', error instanceof Error ? error : new Error(String(error)));
       } finally {
@@ -53,7 +63,7 @@ const Home: React.FC = () => {
     };
 
     fetchHomeData();
-  }, [dispatch]);
+  }, [dispatch, isAuthenticated]);
 
   // Cập nhật stats khi data thay đổi
   useEffect(() => {

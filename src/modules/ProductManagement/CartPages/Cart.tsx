@@ -6,7 +6,6 @@ import { message } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../../shares/stores';
 import { fetchCart, removeCartItem, updateCartItemQuantity } from '../stores/cartSlice';
-import { getAuthToken } from '../../../shares/api';
 
 const { Title, Text } = Typography;
 
@@ -16,14 +15,8 @@ const Cart: React.FC = () => {
   const navigate = useNavigate();
 
   // Fetch cart khi component mount hoặc khi navigate vào trang
+  // ProtectedRoute đã xử lý việc kiểm tra authentication và hiển thị modal
   useEffect(() => {
-    const token = getAuthToken();
-    if (!token) {
-      message.warning('Vui lòng đăng nhập để xem giỏ hàng');
-      navigate('/login');
-      return;
-    }
-
     dispatch(fetchCart())
       .then((result) => {
         if (fetchCart.rejected.match(result)) {
@@ -37,7 +30,7 @@ const Cart: React.FC = () => {
       .catch(() => {
         message.error('Có lỗi xảy ra khi tải giỏ hàng');
       });
-  }, [dispatch, navigate]);
+  }, [dispatch]);
 
   const handleUpdateQuantity = async (itemId: number, quantity: number) => {
     try {

@@ -35,7 +35,6 @@ import { CartItem, PaymentMethod } from '../../../shares/types';
 import { useAppDispatch, useAppSelector } from '../../../shares/stores';
 import { fetchCart, clearCart } from '../../ProductManagement/stores/cartSlice';
 import { logger } from '../../../shares/utils/logger';
-import { getAuthToken } from '../../../shares/api';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -55,17 +54,11 @@ const PlaceOrder: React.FC = () => {
   const [form] = Form.useForm();
 
   // Fetch cart và addresses khi component mount
+  // ProtectedRoute đã xử lý việc kiểm tra authentication và hiển thị modal
   useEffect(() => {
-    const token = getAuthToken();
-    if (!token) {
-      message.warning('Vui lòng đăng nhập để đặt hàng');
-      navigate('/login');
-      return;
-    }
-
     dispatch(fetchCart());
     fetchAddresses();
-  }, [dispatch, navigate]);
+  }, [dispatch]);
 
   const fetchAddresses = async () => {
     try {
@@ -112,7 +105,7 @@ const PlaceOrder: React.FC = () => {
     value.toLocaleString('vi-VN', { maximumFractionDigits: 0 }) + ' VNĐ';
 
   const buildShippingAddressString = (address: UserAddress) => {
-    return `${address.full_name} - ${address.phone}\n${address.street_address}, ${address.ward}, ${address.district}, ${address.province}`;
+    return `${address.street_address}, ${address.ward}, ${address.district}, ${address.province}`;
   };
 
   // Tính phí vận chuyển qua GHN dựa trên địa chỉ đã chọn + tổng giá trị đơn
@@ -126,9 +119,9 @@ const PlaceOrder: React.FC = () => {
     try {
       setCalculatingShipping(true);
       const res = await shippingService.calculateFee({
-        province: address.province,
-        district: address.district,
-        ward: address.ward,
+        province: address.province_code ?? address.province,
+        district: address.district_code ?? address.district,
+        ward: address.ward_code ?? address.ward,
         weight: 1,
         value: currentSubtotal,
       });
@@ -397,17 +390,14 @@ const PlaceOrder: React.FC = () => {
                         <Space align="start">
                           <Radio value={address.id} />
                           <div style={{ flex: 1 }}>
-                            <Space style={{ marginBottom: 8 }}>
-                              <Text strong>{address.full_name}</Text>
-                              {address.is_default && (
-                                <Tag color="green" icon={<CheckCircleOutlined />}>
-                                  Mặc định
-                                </Tag>
-                              )}
-                            </Space>
-                            <div>
-                              <Text type="secondary">SĐT: {address.phone}</Text>
-                            </div>
+                          <Space style={{ marginBottom: 8 }}>
+                            <Text strong>Địa chỉ</Text>
+                            {address.is_default && (
+                              <Tag color="green" icon={<CheckCircleOutlined />}>
+                                Mặc định
+                              </Tag>
+                            )}
+                          </Space>
                             <div style={{ marginTop: 4 }}>
                               <Text>
                                 {address.street_address}, {address.ward}, {address.district},{' '}

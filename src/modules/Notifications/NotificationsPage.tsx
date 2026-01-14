@@ -15,9 +15,6 @@ const typeColorMap: Record<string, string> = {
   payment_success: 'green',
   payment_failed: 'red',
   review_request: 'gold',
-  promotion: 'magenta',
-  system: 'default',
-  support_ticket: 'cyan',
 };
 
 const NotificationsPage: React.FC = () => {

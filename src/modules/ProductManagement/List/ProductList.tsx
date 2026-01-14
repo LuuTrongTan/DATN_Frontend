@@ -7,9 +7,11 @@ import { fetchWishlist } from '../stores/wishlistSlice';
 import { useEffectOnce } from '../../../shares/hooks';
 import { productService } from '../../../shares/services/productService';
 import { ProductSection, CategorySection } from '../../Home/components';
+import { useAuth } from '../../../shares/contexts/AuthContext';
 
 const ProductList: React.FC = () => {
   const dispatch = useAppDispatch();
+  const { isAuthenticated } = useAuth();
   const { items: products, categories, loading } = useAppSelector((state) => state.products);
   const [searchParams] = useSearchParams();
 
@@ -56,8 +58,11 @@ const ProductList: React.FC = () => {
   // Ở đây chỉ cần đảm bảo product + wishlist được tải khi vào trang.
   useEffectOnce(() => {
     dispatch(fetchCategories());
-    dispatch(fetchWishlist());
-  }, [dispatch]);
+    // Chỉ fetch wishlist nếu user đã đăng nhập
+    if (isAuthenticated) {
+      dispatch(fetchWishlist());
+    }
+  }, [dispatch, isAuthenticated]);
 
   // Lấy tên category từ URL để hiển thị title
   const categorySlug = searchParams.get('category_slug');

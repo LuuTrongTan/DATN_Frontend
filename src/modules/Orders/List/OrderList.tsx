@@ -7,7 +7,6 @@ import { useAppDispatch, useAppSelector } from '../../../shares/stores';
 import { fetchOrders } from '../stores/ordersSlice';
 import { orderService } from '../../../shares/services/orderService';
 import { message, Popconfirm } from 'antd';
-import { getAuthToken } from '../../../shares/api';
 
 const { Title, Text } = Typography;
 
@@ -19,14 +18,8 @@ const OrderList: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('all');
 
   // Fetch orders khi component mount hoặc khi navigate vào trang
+  // ProtectedRoute đã xử lý việc kiểm tra authentication và hiển thị modal
   useEffect(() => {
-    const token = getAuthToken();
-    if (!token) {
-      message.warning('Vui lòng đăng nhập để xem đơn hàng');
-      navigate('/login');
-      return;
-    }
-
     dispatch(fetchOrders())
       .then((result) => {
         if (fetchOrders.rejected.match(result)) {
@@ -40,7 +33,7 @@ const OrderList: React.FC = () => {
       .catch(() => {
         message.error('Có lỗi xảy ra khi tải danh sách đơn hàng');
       });
-  }, [dispatch, navigate]);
+  }, [dispatch]);
 
   const getStatusColor = (status: OrderStatus) => {
     const colors: Record<OrderStatus, string> = {

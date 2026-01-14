@@ -47,6 +47,7 @@ const AddressManagement: React.FC = () => {
   // Selected values
   const [selectedProvinceCode, setSelectedProvinceCode] = useState<number | null>(null);
   const [selectedDistrictCode, setSelectedDistrictCode] = useState<number | null>(null);
+  const [selectedWardCode, setSelectedWardCode] = useState<string | null>(null);
 
   // Fetch addresses
   const fetchAddresses = async () => {
@@ -167,6 +168,7 @@ const AddressManagement: React.FC = () => {
     setEditingAddress(null);
     setSelectedProvinceCode(null);
     setSelectedDistrictCode(null);
+    setSelectedWardCode(null);
     setDistricts([]);
     setWards([]);
     form.resetFields();
@@ -187,29 +189,26 @@ const AddressManagement: React.FC = () => {
   const handleEdit = async (address: UserAddress) => {
     setEditingAddress(address);
     
-    // Find province and load districts/wards
-    const province = provinces.find(p => p.name === address.province);
-    if (province) {
-      setSelectedProvinceCode(province.code);
-      const districtsResponse = await provincesService.getDistricts(province.code);
-      if (districtsResponse.success && districtsResponse.data) {
-        setDistricts(districtsResponse.data);
-        const district = districtsResponse.data.find(d => d.name === address.district);
-        if (district) {
-          setSelectedDistrictCode(district.code);
-          const wardsResponse = await provincesService.getWards(district.code);
-          if (wardsResponse.success && wardsResponse.data) {
-            setWards(wardsResponse.data);
-          }
-        }
+    // Dùng trực tiếp mã GHN đã lưu để nạp lại danh sách
+    setSelectedProvinceCode(address.province_code);
+    setSelectedDistrictCode(address.district_code);
+    setSelectedWardCode(address.ward_code);
+
+    const districtsResponse = await provincesService.getDistricts(address.province_code);
+    if (districtsResponse.success && districtsResponse.data) {
+      setDistricts(districtsResponse.data);
+      const wardsResponse = await provincesService.getWards(address.district_code);
+      if (wardsResponse.success && wardsResponse.data) {
+        setWards(wardsResponse.data);
       }
     }
     
     form.setFieldsValue({
-      ...address,
       province: address.province,
       district: address.district,
       ward: address.ward,
+      street_address: address.street_address,
+      is_default: address.is_default,
     });
     setModalVisible(true);
   };
@@ -229,14 +228,36 @@ const AddressManagement: React.FC = () => {
   const handleSubmit = async (values: CreateAddressInput | UpdateAddressInput) => {
     try {
       if (editingAddress) {
-        const response = await addressService.updateAddress(editingAddress.id, values);
+        const response = await addressService.updateAddress(editingAddress.id, {
+          ...values,
+          province_code: selectedProvinceCode ?? editingAddress.province_code,
+          district_code: selectedDistrictCode ?? editingAddress.district_code,
+          ward_code: selectedWardCode ?? editingAddress.ward_code,
+        });
         if (response.success) {
           message.success('Cập nhật địa chỉ thành công');
           setModalVisible(false);
           fetchAddresses();
         }
       } else {
-        const response = await addressService.createAddress(values as CreateAddressInput);
+        // Khi tạo mới, luôn yêu cầu đã chọn province/district/ward (và mã tương ứng)
+        if (!selectedProvinceCode || !selectedDistrictCode || !selectedWardCode) {
+          message.error('Vui lòng chọn đầy đủ Tỉnh/Thành phố, Quận/Huyện và Phường/Xã');
+          return;
+        }
+
+        const createPayload: CreateAddressInput = {
+          province: values.province as string,
+          district: values.district as string,
+          ward: values.ward as string,
+          street_address: values.street_address as string,
+          is_default: values.is_default,
+          province_code: selectedProvinceCode,
+          district_code: selectedDistrictCode,
+          ward_code: selectedWardCode,
+        };
+
+        const response = await addressService.createAddress(createPayload);
         if (response.success) {
           message.success('Thêm địa chỉ thành công');
           setModalVisible(false);
@@ -249,16 +270,6 @@ const AddressManagement: React.FC = () => {
   };
 
   const columns = [
-    {
-      title: 'Họ và tên',
-      dataIndex: 'full_name',
-      key: 'full_name',
-    },
-    {
-      title: 'Số điện thoại',
-      dataIndex: 'phone',
-      key: 'phone',
-    },
     {
       title: 'Địa chỉ',
       key: 'address',
@@ -350,25 +361,6 @@ const AddressManagement: React.FC = () => {
           onFinish={handleSubmit}
         >
           <Form.Item
-            label="Họ và tên"
-            name="full_name"
-            rules={[{ required: true, message: 'Vui lòng nhập họ và tên' }]}
-          >
-            <Input placeholder="Nhập họ và tên người nhận" />
-          </Form.Item>
-
-          <Form.Item
-            label="Số điện thoại"
-            name="phone"
-            rules={[
-              { required: true, message: 'Vui lòng nhập số điện thoại' },
-              { pattern: /^[0-9]{10}$/, message: 'Số điện thoại phải có 10 chữ số' },
-            ]}
-          >
-            <Input placeholder="Nhập số điện thoại" />
-          </Form.Item>
-
-          <Form.Item
             label="Tỉnh/Thành phố"
             name="province"
             rules={[{ required: true, message: 'Vui lòng chọn tỉnh/thành phố' }]}
@@ -380,15 +372,18 @@ const AddressManagement: React.FC = () => {
               filterOption={(input, option) =>
                 (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
               }
-              options={provinces.map(p => ({
-                value: p.name,
-                label: p.name,
-                code: p.code,
-              }))}
+          options={provinces.map(p => ({
+            value: p.name,
+            label: p.name,
+            code: p.code,
+          }))}
               onChange={(value, option) => {
                 const code = (option as any)?.code;
                 if (code) {
                   handleProvinceChange(code);
+              setSelectedProvinceCode(code);
+              setSelectedDistrictCode(null);
+              setSelectedWardCode(null);
                 }
               }}
             />
@@ -407,15 +402,17 @@ const AddressManagement: React.FC = () => {
               filterOption={(input, option) =>
                 (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
               }
-              options={districts.map(d => ({
-                value: d.name,
-                label: d.name,
-                code: d.code,
-              }))}
+          options={districts.map(d => ({
+            value: d.name,
+            label: d.name,
+            code: d.code,
+          }))}
               onChange={(value, option) => {
                 const code = (option as any)?.code;
                 if (code) {
                   handleDistrictChange(code);
+              setSelectedDistrictCode(code);
+              setSelectedWardCode(null);
                 }
               }}
             />
@@ -434,10 +431,17 @@ const AddressManagement: React.FC = () => {
               filterOption={(input, option) =>
                 (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
               }
-              options={wards.map(w => ({
-                value: w.name,
-                label: w.name,
-              }))}
+          options={wards.map(w => ({
+            value: w.name,
+            label: w.name,
+            code: w.code,
+          }))}
+          onChange={(value, option) => {
+            const code = (option as any)?.code;
+            if (code) {
+              setSelectedWardCode(String(code));
+            }
+          }}
             />
           </Form.Item>
 

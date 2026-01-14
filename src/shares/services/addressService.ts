@@ -4,11 +4,12 @@ import { ApiResponse } from '../types';
 export interface UserAddress {
   id: number;
   user_id: number;
-  full_name: string;
-  phone: string;
   province: string;
   district: string;
   ward: string;
+  province_code: number;
+  district_code: number;
+  ward_code: string;
   street_address: string;
   is_default: boolean;
   created_at: string;
@@ -16,21 +17,23 @@ export interface UserAddress {
 }
 
 export interface CreateAddressInput {
-  full_name: string;
-  phone: string;
   province: string;
   district: string;
   ward: string;
+  province_code: number;
+  district_code: number;
+  ward_code: string;
   street_address: string;
   is_default?: boolean;
 }
 
 export interface UpdateAddressInput {
-  full_name?: string;
-  phone?: string;
   province?: string;
   district?: string;
   ward?: string;
+  province_code?: number;
+  district_code?: number;
+  ward_code?: string;
   street_address?: string;
   is_default?: boolean;
 }

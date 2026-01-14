@@ -81,22 +81,9 @@ const handleResponse = async (response: Response) => {
         // Trigger storage event to notify AuthContext
         window.dispatchEvent(new Event('storage'));
         
-        // KHÔNG redirect ở đây vì sẽ gây conflict với React Router
-        // Để React Router và RouteGuards xử lý redirect
-        // Chỉ redirect nếu đang ở protected route và không phải auth pages
-        const protectedPaths = ['/home', '/profile', '/orders', '/cart', '/checkout', '/admin'];
-        
-        // Chỉ redirect nếu đang ở protected route và không phải auth pages
-        if (protectedPaths.some(path => currentPath.startsWith(path))) {
-          // Sử dụng window.location.href chỉ khi thực sự cần thiết (tránh conflict với React Router)
-          // Nhưng tốt hơn là để RouteGuards xử lý
-          // Chỉ redirect nếu không có React Router navigation đang diễn ra
-          if (!window.location.pathname.startsWith('/login')) {
-            setTimeout(() => {
-              window.location.href = '/login';
-            }, 100);
-          }
-        }
+        // KHÔNG redirect ở đây - để RouteGuards xử lý redirect
+        // RouteGuards sẽ hiển thị modal đăng nhập cho các protected routes
+        // Các public routes (home, products) sẽ không bị redirect và có thể hiển thị modal khi cần
       }
       // Nếu đang ở auth pages (đặc biệt là /verify) HOẶC đang verify, KHÔNG xóa token
       // Để component có thể tự xử lý logic của nó
