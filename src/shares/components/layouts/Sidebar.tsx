@@ -48,10 +48,10 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
               src={category.image_url}
               alt={category.name}
               style={{
-                width: 20,
-                height: 20,
+                width: 48,
+                height: 48,
                 objectFit: 'cover',
-                borderRadius: 4,
+                borderRadius: 8,
               }}
             />
           ) : (

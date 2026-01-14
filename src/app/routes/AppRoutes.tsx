@@ -121,14 +121,8 @@ const AppRoutes: React.FC = () => {
           />
         </Route>
 
-        {/* Protected Routes - Main layout cố định */}
-        <Route
-          element={
-            <ProtectedRoute>
-              <MainLayout />
-            </ProtectedRoute>
-          }
-        >
+        {/* Public Main Routes - không yêu cầu đăng nhập */}
+        <Route element={<MainLayout />}>
           <Route path="/home" element={<Home />} />
 
           <Route path="/products" element={<ProductList />} />
@@ -136,7 +130,16 @@ const AppRoutes: React.FC = () => {
           <Route path="/products/compare" element={<ProductCompare />} />
           <Route path="/products/:id" element={<ProductDetail />} />
           <Route path="/products/:id/reviews" element={<ProductReviews />} />
+        </Route>
 
+        {/* Protected Routes - Main layout cố định, yêu cầu đăng nhập */}
+        <Route
+          element={
+            <ProtectedRoute>
+              <MainLayout />
+            </ProtectedRoute>
+          }
+        >
           <Route path="/cart" element={<Cart />} />
           <Route path="/checkout" element={<Checkout />} />
           <Route path="/place-order" element={<PlaceOrder />} />
@@ -163,7 +166,7 @@ const AppRoutes: React.FC = () => {
               ? user.role === 'admin' || user.role === 'staff'
                 ? <Navigate to="/admin/dashboard" replace />
                 : <Navigate to="/home" replace />
-              : <Navigate to="/login" replace />
+              : <Navigate to="/home" replace />
           }
         />
         <Route
@@ -173,7 +176,7 @@ const AppRoutes: React.FC = () => {
               ? user.role === 'admin' || user.role === 'staff'
                 ? <Navigate to="/admin/dashboard" replace />
                 : <Navigate to="/home" replace />
-              : <Navigate to="/login" replace />
+              : <Navigate to="/home" replace />
           }
         />
       </Routes>

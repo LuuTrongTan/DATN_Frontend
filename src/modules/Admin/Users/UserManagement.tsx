@@ -17,6 +17,7 @@ import {
   Col,
   Statistic,
   Tooltip,
+  Divider,
 } from 'antd';
 import {
   EditOutlined,
@@ -27,7 +28,7 @@ import {
   TeamOutlined,
   UserDeleteOutlined,
 } from '@ant-design/icons';
-import { adminService, UpdateUserRequest } from '../../../shares/services/adminService';
+import { adminService, UpdateUserRequest, PhoneFirebaseConfig } from '../../../shares/services/adminService';
 import { User } from '../../../shares/types';
 import { useEffectOnce } from '../../../shares/hooks';
 
@@ -55,10 +56,13 @@ const UserManagement: React.FC<UserManagementProps> = ({
   const [roleFilter, setRoleFilter] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
+  const [phoneFirebaseConfig, setPhoneFirebaseConfig] = useState<PhoneFirebaseConfig | null>(null);
+  const [updatingConfig, setUpdatingConfig] = useState(false);
 
   // Sử dụng useEffectOnce để tránh gọi API 2 lần trong StrictMode (lần fetch đầu tiên)
   useEffectOnce(() => {
     fetchUsers();
+    fetchConfig();
   });
 
   // Gọi lại khi roleFilter thay đổi
@@ -98,6 +102,15 @@ const UserManagement: React.FC<UserManagementProps> = ({
       setTimeout(() => {
         globalFetchingUsers = false;
       }, 100);
+    }
+  };
+
+  const fetchConfig = async () => {
+    try {
+      const config = await adminService.getPhoneFirebaseConfig();
+      setPhoneFirebaseConfig(config);
+    } catch (error: any) {
+      message.error(error.message || 'Không thể tải cấu hình xác thực Firebase');
     }
   };
 
@@ -317,6 +330,35 @@ const UserManagement: React.FC<UserManagementProps> = ({
           </Card>
         </Col>
       </Row>
+
+      {/* Cấu hình đăng ký bằng số điện thoại */}
+      <Card style={{ marginBottom: 24 }} title="Cấu hình đăng ký bằng số điện thoại">
+        <Space direction="vertical" style={{ width: '100%' }}>
+          <Space align="center">
+            <Text strong>Bắt buộc xác thực qua Firebase khi đăng ký bằng số điện thoại</Text>
+            <Switch
+              checked={!!phoneFirebaseConfig?.enabled}
+              loading={updatingConfig || !phoneFirebaseConfig}
+              onChange={async (checked) => {
+                try {
+                  setUpdatingConfig(true);
+                  const newConfig = await adminService.updatePhoneFirebaseConfig({ enabled: checked });
+                  setPhoneFirebaseConfig(newConfig);
+                  message.success('Cập nhật cấu hình thành công');
+                } catch (error: any) {
+                  message.error(error.message || 'Không thể cập nhật cấu hình');
+                } finally {
+                  setUpdatingConfig(false);
+                }
+              }}
+            />
+          </Space>
+          <Text type="secondary">
+            - Khi **bật**: Người dùng đăng ký bằng số điện thoại bắt buộc phải xác thực qua Firebase (như hiện tại).<br />
+            - Khi **tắt**: Backend chỉ kiểm tra số điện thoại hợp lệ và chưa tồn tại, sau đó lưu trực tiếp, không cần Firebase.
+          </Text>
+        </Space>
+      </Card>
 
       <Space direction="vertical" size="large" style={{ width: '100%', marginBottom: 16 }}>
         <Row gutter={16}>

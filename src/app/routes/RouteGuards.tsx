@@ -1,7 +1,8 @@
-import React from 'react';
-import { Navigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { Spin } from 'antd';
 import { useAuth } from '../../shares/contexts/AuthContext';
+import { LoginRequiredModal } from '../../shares/components';
 
 type RouteGuardProps = {
   children: React.ReactNode;
@@ -9,6 +10,8 @@ type RouteGuardProps = {
 
 export const ProtectedRoute: React.FC<RouteGuardProps> = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
+  const navigate = useNavigate();
+  const [showModal, setShowModal] = useState(false);
 
   // Đợi cho đến khi load xong từ localStorage
   if (isLoading) {
@@ -19,8 +22,32 @@ export const ProtectedRoute: React.FC<RouteGuardProps> = ({ children }) => {
     );
   }
 
+  // Hiển thị modal thay vì redirect ngay
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      setShowModal(true);
+    } else {
+      setShowModal(false);
+    }
+  }, [isAuthenticated, isLoading]);
+
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+    return (
+      <>
+        <LoginRequiredModal 
+          isOpen={showModal} 
+          onClose={() => {
+            setShowModal(false);
+            // Quay về trang home khi đóng modal
+            navigate('/home');
+          }} 
+        />
+        {/* Vẫn render children nhưng sẽ bị modal che phủ */}
+        <div style={{ opacity: 0.3, pointerEvents: 'none' }}>
+          {children}
+        </div>
+      </>
+    );
   }
 
   return <>{children}</>;
@@ -30,6 +57,8 @@ export const RoleProtectedRoute: React.FC<
   RouteGuardProps & { allowedRoles: string[] }
 > = ({ children, allowedRoles }) => {
   const { isAuthenticated, user, isLoading } = useAuth();
+  const navigate = useNavigate();
+  const [showModal, setShowModal] = useState(false);
 
   // Đợi cho đến khi load xong từ localStorage
   if (isLoading) {
@@ -40,8 +69,30 @@ export const RoleProtectedRoute: React.FC<
     );
   }
 
+  // Hiển thị modal nếu chưa đăng nhập
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      setShowModal(true);
+    } else {
+      setShowModal(false);
+    }
+  }, [isAuthenticated, isLoading]);
+
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+    return (
+      <>
+        <LoginRequiredModal 
+          isOpen={showModal} 
+          onClose={() => {
+            setShowModal(false);
+            navigate('/home');
+          }} 
+        />
+        <div style={{ opacity: 0.3, pointerEvents: 'none' }}>
+          {children}
+        </div>
+      </>
+    );
   }
 
   if (!user || !allowedRoles.includes(user.role)) {

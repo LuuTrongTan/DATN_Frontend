@@ -64,7 +64,7 @@ const CategorySection: React.FC<CategorySectionProps> = ({
     
     // Nếu có scroll thật (nhiều danh mục)
     if (canScroll) {
-      const scrollAmount = (120 + 12) * 2.5; // ~330px
+      const scrollAmount = (140 + 12) * 2.5; // ~380px
       const currentScroll = container.scrollLeft;
       const maxScroll = Math.max(0, container.scrollWidth - container.clientWidth);
       
@@ -110,7 +110,7 @@ const CategorySection: React.FC<CategorySectionProps> = ({
     
     // Nếu có scroll thật (nhiều danh mục)
     if (canScroll) {
-      const scrollAmount = (120 + 12) * 2.5; // ~330px
+      const scrollAmount = (140 + 12) * 2.5; // ~380px
       const currentScroll = container.scrollLeft;
       const maxScroll = Math.max(0, container.scrollWidth - container.clientWidth);
       const isAtEnd = currentScroll + container.clientWidth >= container.scrollWidth - 10;
@@ -241,8 +241,8 @@ const CategorySection: React.FC<CategorySectionProps> = ({
             key={category.id}
             style={{
               flex: '0 0 auto',
-              width: 120,
-              minWidth: 120,
+              width: 140,
+              minWidth: 140,
               transition: 'transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s ease',
               transform: 'translateX(0)',
             }}
@@ -277,8 +277,8 @@ const CategorySection: React.FC<CategorySectionProps> = ({
               {category.image_url ? (
                 <div
                   style={{
-                    width: 70,
-                    height: 70,
+                    width: 90,
+                    height: 90,
                     margin: '0 auto 10px',
                     borderRadius: '50%',
                     background: `url(${category.image_url}) center/cover`,
@@ -300,8 +300,8 @@ const CategorySection: React.FC<CategorySectionProps> = ({
               ) : (
                 <div
                   style={{
-                    width: 70,
-                    height: 70,
+                    width: 90,
+                    height: 90,
                     margin: '0 auto 10px',
                     display: 'flex',
                     alignItems: 'center',
@@ -320,7 +320,7 @@ const CategorySection: React.FC<CategorySectionProps> = ({
                     e.currentTarget.style.borderColor = '#e5e7eb';
                   }}
                 >
-                  <ShoppingOutlined style={{ fontSize: 36, color: '#6b7280' }} />
+                  <ShoppingOutlined style={{ fontSize: 48, color: '#6b7280' }} />
                 </div>
               )}
               <Text 

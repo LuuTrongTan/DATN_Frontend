@@ -52,12 +52,20 @@ export const notificationService = {
 
   async markAsRead(id: number): Promise<Notification> {
     const res = await apiClient.post(`/notifications/${id}/read`, {});
-    return res.data;
+    // Backend dùng ResponseHandler.success => { success, data, message }
+    if (res.data && res.data.success) {
+      return (res.data.data || null) as Notification;
+    }
+    throw new Error('Không thể đánh dấu thông báo đã đọc');
   },
 
   async markAllAsRead(): Promise<MarkAllAsReadResponse> {
     const res = await apiClient.post('/notifications/read-all', {});
-    return res.data || { updatedCount: 0 };
+    // Hiện BE trả về { success, data: null }, không có count; service chuẩn hóa về updatedCount
+    if (res.data && res.data.success) {
+      return { updatedCount: 0 };
+    }
+    throw new Error('Không thể đánh dấu tất cả thông báo');
   },
 };
 
