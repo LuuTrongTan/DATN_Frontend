@@ -272,7 +272,7 @@ const AdminProductManagement: React.FC = () => {
         if (imageCount > 0) {
           return (
             <Image.PreviewGroup>
-              <Badge count={imageCount > 1 ? imageCount : 0} offset={[-5, 5]}>
+              <Badge count={imageCount > 1 ? imageCount : 0} offset={[0, 0]} className="cart-badge-no-animation">
                 <Image
                   src={safeUrls[0]}
                   alt={record.name}

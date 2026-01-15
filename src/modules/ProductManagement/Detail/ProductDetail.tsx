@@ -25,15 +25,12 @@ import {
   CloseCircleOutlined,
   HeartOutlined,
   HeartFilled,
-  StarFilled,
 } from '@ant-design/icons';
 import { productService } from '../../../shares/services/productService';
 import { Product, ProductVariant } from '../../../shares/types';
 import { useAppDispatch, useAppSelector } from '../../../shares/stores';
 import { addToCart } from '../stores/cartSlice';
 import { addToWishlist, removeFromWishlist, checkWishlist } from '../stores/wishlistSlice';
-import { fetchProductReviews } from '../stores/reviewsSlice';
-import { logger } from '../../../shares/utils/logger';
 import { useAuth } from '../../../shares/contexts/AuthContext';
 
 const { Title, Text, Paragraph } = Typography;
@@ -58,7 +55,6 @@ const ProductDetail: React.FC = () => {
   // Lấy trạng thái từ Redux - PHẢI gọi trước các useEffect
   const { loading: cartLoading } = useAppSelector((state) => state.cart);
   const { loading: wishlistLoading, checkedProducts } = useAppSelector((state) => state.wishlist);
-  const { items: reviews, loading: reviewsLoading } = useAppSelector((state) => state.reviews);
 
   // Detect mobile screen size
   useEffect(() => {
@@ -125,8 +121,6 @@ const ProductDetail: React.FC = () => {
         if (isAuthenticated) {
           dispatch(checkWishlist(productId));
         }
-        // Reviews là public API, có thể fetch luôn
-        dispatch(fetchProductReviews({ productId, limit: 10 }));
       }
     }
   }, [id, dispatch, productId, isAuthenticated, fetchProduct]);
@@ -553,12 +547,26 @@ const ProductDetail: React.FC = () => {
                 <Title level={2} style={{ margin: 0 }}>
                   {product.name}
                 </Title>
-                <Space style={{ marginTop: 8 }}>
+                <Space style={{ marginTop: 8 }} wrap>
                   <Tag color={product.is_active ? 'green' : 'red'}>
                     {product.is_active ? 'Đang bán' : 'Ngừng bán'}
                   </Tag>
                   {product.category && (
                     <Tag color="blue">{product.category.name}</Tag>
+                  )}
+                  {product.tags && product.tags.length > 0 && (
+                    <>
+                      {product.tags.map((tag) => (
+                        <Tag
+                          key={tag.id}
+                          color="purple"
+                          style={{ cursor: 'pointer' }}
+                          onClick={() => navigate(`/products/search?tag_ids=${tag.id}`)}
+                        >
+                          {tag.name}
+                        </Tag>
+                      ))}
+                    </>
                   )}
                 </Space>
               </div>
@@ -809,62 +817,6 @@ const ProductDetail: React.FC = () => {
         </Card>
       )}
 
-      {/* Đánh giá sản phẩm */}
-      <Card title="Đánh giá sản phẩm" style={{ marginTop: 24 }}>
-        {reviewsLoading ? (
-          <div style={{ textAlign: 'center', padding: '20px' }}>
-            <Spin />
-          </div>
-        ) : reviews.length === 0 ? (
-          <Empty description="Chưa có đánh giá nào" />
-        ) : (
-          <Space direction="vertical" style={{ width: '100%' }} size="large">
-            {reviews.map((review) => (
-              <Card key={review.id} size="small">
-                <Space direction="vertical" style={{ width: '100%' }} size="small">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <Text strong>{review.user?.full_name || 'Khách hàng'}</Text>
-                      <div style={{ marginTop: 4 }}>
-                        {Array.from({ length: 5 }).map((_, i) => (
-                          <StarFilled
-                            key={i}
-                            style={{
-                              color: i < review.rating ? '#faad14' : '#d9d9d9',
-                              fontSize: 16,
-                            }}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                    <Text type="secondary" style={{ fontSize: 12 }}>
-                      {new Date(review.created_at).toLocaleDateString('vi-VN')}
-                    </Text>
-                  </div>
-                  {review.comment && (
-                    <Paragraph style={{ margin: 0 }}>{review.comment}</Paragraph>
-                  )}
-                  {review.image_urls && review.image_urls.length > 0 && (
-                    <div>
-                      <Image.PreviewGroup>
-                        {review.image_urls.map((url, idx) => (
-                          <Image
-                            key={idx}
-                            src={url}
-                            width={80}
-                            height={80}
-                            style={{ objectFit: 'cover', marginRight: 8, borderRadius: 4 }}
-                          />
-                        ))}
-                      </Image.PreviewGroup>
-                    </div>
-                  )}
-                </Space>
-              </Card>
-            ))}
-          </Space>
-        )}
-      </Card>
     </div>
   );
 };

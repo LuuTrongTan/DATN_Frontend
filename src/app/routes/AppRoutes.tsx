@@ -19,7 +19,6 @@ const ProductList = lazy(() => import('../../modules/ProductManagement/List/Prod
 const ProductDetail = lazy(() => import('../../modules/ProductManagement/Detail/ProductDetail'));
 const ProductSearch = lazy(() => import('../../modules/ProductManagement/Search/ProductSearch'));
 const ProductCompare = lazy(() => import('../../modules/ProductManagement/Compare/ProductCompare'));
-const ProductReviews = lazy(() => import('../../modules/ProductManagement/Reviews/ProductReviews'));
 const Cart = lazy(() => import('../../modules/ProductManagement/CartPages/Cart'));
 const Wishlist = lazy(() => import('../../modules/ProductManagement/WishlistPages/Wishlist'));
 const NotificationsPage = lazy(() => import('../../modules/Notifications/NotificationsPage'));
@@ -49,9 +48,6 @@ const AdminOrderManagement = lazy(() => import('../../modules/Admin/Orders/Admin
 const AdminAccountsManagement = lazy(
   () => import('../../modules/Admin/Users/AdminAccountsManagement')
 );
-const RefundsList = lazy(() => import('../../modules/Admin/Refunds/RefundsList'));
-const RefundDetail = lazy(() => import('../../modules/Admin/Refunds/RefundDetail'));
-const AdminReviewsManagement = lazy(() => import('../../modules/Admin/Reviews/AdminReviewsManagement'));
 
 const AppRoutes: React.FC = () => {
   const { user } = useAuth();
@@ -109,9 +105,6 @@ const AppRoutes: React.FC = () => {
           <Route path="/admin/categories" element={<CategoryManagement />} />
           <Route path="/admin/tags" element={<TagManagement />} />
           <Route path="/admin/orders" element={<AdminOrderManagement />} />
-          <Route path="/admin/reviews" element={<AdminReviewsManagement />} />
-          <Route path="/admin/refunds" element={<RefundsList />} />
-          <Route path="/admin/refunds/:id" element={<RefundDetail />} />
           <Route
             path="/admin/accounts"
             element={
@@ -130,7 +123,6 @@ const AppRoutes: React.FC = () => {
           <Route path="/products/search" element={<ProductSearch />} />
           <Route path="/products/compare" element={<ProductCompare />} />
           <Route path="/products/:id" element={<ProductDetail />} />
-          <Route path="/products/:id/reviews" element={<ProductReviews />} />
         </Route>
 
         {/* Protected Routes - Main layout cố định, yêu cầu đăng nhập */}

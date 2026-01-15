@@ -5,11 +5,11 @@ import {
   FileTextOutlined,
   DollarOutlined,
 } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Banner, CategorySection, ProductSection } from './components';
 import { useAppDispatch, useAppSelector } from '../../shares/stores';
 import { fetchCart } from '../ProductManagement/stores/cartSlice';
-import { fetchProducts, fetchCategories } from '../ProductManagement/stores/productsSlice';
+import { fetchProducts, fetchCategories, resetFilters } from '../ProductManagement/stores/productsSlice';
 import { fetchRecentOrders } from '../Orders/stores/ordersSlice';
 import { Order } from '../../shares/types';
 import { logger } from '../../shares/utils/logger';
@@ -20,6 +20,7 @@ const { Title } = Typography;
 
 const Home: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useAppDispatch();
   const { isAuthenticated } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -31,14 +32,30 @@ const Home: React.FC = () => {
   
   // Lấy dữ liệu từ Redux
   const cartItems = useAppSelector((state) => state.cart.items);
-  const { items: products, categories } = useAppSelector((state) => state.products);
+  const { items: products, categories, filters } = useAppSelector((state) => state.products);
   const { recentOrders: orders } = useAppSelector((state) => state.orders);
+
+  // Reset filters khi vào trang Home (nếu có filters đang active)
+  useEffect(() => {
+    if (location.pathname === '/home' && (
+      filters.search || 
+      filters.category_id || 
+      filters.tag_ids || 
+      filters.min_price > 0 || 
+      filters.max_price < 10_000_000
+    )) {
+      dispatch(resetFilters());
+    }
+  }, [location.pathname, dispatch, filters]);
 
   // Sử dụng useEffectOnce để tránh gọi API 2 lần trong StrictMode
   useEffectOnce(() => {
     const fetchHomeData = async () => {
       try {
         setLoading(true);
+        
+        // Reset filters trước khi fetch products để hiển thị tất cả sản phẩm
+        dispatch(resetFilters());
         
         // Fetch public data (products, categories) luôn luôn
         await Promise.all([

@@ -52,7 +52,6 @@ const OrderList: React.FC = () => {
       pending: 'orange',
       paid: 'green',
       failed: 'red',
-      refunded: 'default',
     };
     return colors[status] || 'default';
   };
@@ -74,7 +73,6 @@ const OrderList: React.FC = () => {
       pending: 'Chờ thanh toán',
       paid: 'Đã thanh toán',
       failed: 'Thanh toán thất bại',
-      refunded: 'Đã hoàn tiền',
     };
     return labels[status] || status;
   };
@@ -146,9 +144,8 @@ const OrderList: React.FC = () => {
           </Button>
           {(() => {
             const status = (record as any).order_status || (record as any).status;
-            const canCancel =
-              ['pending', 'confirmed', 'processing'].includes(status) &&
-              record.payment_status !== 'paid';
+            // Chỉ cho phép hủy khi đơn ở trạng thái chờ xác nhận (pending)
+            const canCancel = status === 'pending';
             if (!canCancel) return null;
             return (
               <Popconfirm
@@ -199,7 +196,7 @@ const OrderList: React.FC = () => {
           {
             key: 'all',
             label: (
-              <Badge count={orders.length} offset={[10, 0]}>
+              <Badge count={orders.length} offset={[0, 0]} className="cart-badge-no-animation">
                 <span>Tất cả</span>
               </Badge>
             ),
@@ -210,7 +207,7 @@ const OrderList: React.FC = () => {
               <Badge count={orders.filter(o => {
                 const status = (o as any).order_status || (o as any).status;
                 return status === 'pending';
-              }).length} offset={[10, 0]}>
+              }).length} offset={[0, 0]} className="cart-badge-no-animation">
                 <span>Chờ xác nhận</span>
               </Badge>
             ),
@@ -221,7 +218,7 @@ const OrderList: React.FC = () => {
               <Badge count={orders.filter(o => {
                 const status = (o as any).order_status || (o as any).status;
                 return status === 'confirmed';
-              }).length} offset={[10, 0]}>
+              }).length} offset={[0, 0]} className="cart-badge-no-animation">
                 <span>Đã xác nhận</span>
               </Badge>
             ),
@@ -232,7 +229,7 @@ const OrderList: React.FC = () => {
               <Badge count={orders.filter(o => {
                 const status = (o as any).order_status || (o as any).status;
                 return status === 'processing';
-              }).length} offset={[10, 0]}>
+              }).length} offset={[0, 0]} className="cart-badge-no-animation">
                 <span>Đang xử lý</span>
               </Badge>
             ),
@@ -243,7 +240,7 @@ const OrderList: React.FC = () => {
               <Badge count={orders.filter(o => {
                 const status = (o as any).order_status || (o as any).status;
                 return status === 'shipping';
-              }).length} offset={[10, 0]}>
+              }).length} offset={[0, 0]} className="cart-badge-no-animation">
                 <span>Đang giao hàng</span>
               </Badge>
             ),
@@ -254,7 +251,7 @@ const OrderList: React.FC = () => {
               <Badge count={orders.filter(o => {
                 const status = (o as any).order_status || (o as any).status;
                 return status === 'delivered';
-              }).length} offset={[10, 0]}>
+              }).length} offset={[0, 0]} className="cart-badge-no-animation">
                 <span>Đã giao hàng</span>
               </Badge>
             ),
@@ -265,7 +262,7 @@ const OrderList: React.FC = () => {
               <Badge count={orders.filter(o => {
                 const status = (o as any).order_status || (o as any).status;
                 return status === 'cancelled';
-              }).length} offset={[10, 0]}>
+              }).length} offset={[0, 0]} className="cart-badge-no-animation">
                 <span>Đã hủy</span>
               </Badge>
             ),

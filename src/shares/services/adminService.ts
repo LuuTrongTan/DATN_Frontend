@@ -35,11 +35,9 @@ export interface CreateCategoryRequest {
 export interface UpdateCategoryRequest extends Partial<CreateCategoryRequest> {}
 
 export interface CreateStaffRequest {
-  full_name: string;
-  email: string;
-  phone: string;
-  password: string;
-  role?: string;
+  // Backend chỉ cần email hoặc phone để tạo staff
+  email?: string;
+  phone?: string;
 }
 
 export interface UpdateUserRequest {
@@ -73,6 +71,9 @@ export const adminService = {
     }
     const query = queryParams.toString();
     return apiClient.get(`/admin/orders${query ? `?${query}` : ''}`);
+  },
+  getOrderById: async (orderId: number): Promise<any> => {
+    return apiClient.get(`/admin/orders/${orderId}`);
   },
   updateOrderStatus: async (orderId: number, data: UpdateOrderStatusRequest): Promise<any> => {
     return apiClient.put(`/admin/orders/${orderId}/status`, data);
@@ -142,7 +143,9 @@ export const adminService = {
     return { users, pagination, raw: res };
   },
   createStaff: async (data: CreateStaffRequest): Promise<any> => {
-    return apiClient.post('/admin/staff', data);
+    // Backend dùng ResponseHandler, trả về { success, message, data }
+    const res: any = await apiClient.post('/admin/staff', data);
+    return res?.data || res;
   },
   updateUser: async (userId: number, data: UpdateUserRequest): Promise<any> => {
     return apiClient.put(`/admin/users/${userId}`, data);

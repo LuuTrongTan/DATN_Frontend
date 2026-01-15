@@ -243,13 +243,16 @@ const UserManagement: React.FC<UserManagementProps> = ({
       title: 'Thao tác',
       key: 'action',
       render: (_: any, record: User) => (
-        <Button
-          type="link"
-          icon={<EditOutlined />}
-          onClick={() => handleEdit(record)}
-        >
-          Chỉnh sửa
-        </Button>
+        <Tooltip title={record.role === 'customer' ? 'Không cho phép thao tác với tài khoản khách hàng' : 'Chỉnh sửa'}>
+          <Button
+            type="link"
+            icon={<EditOutlined />}
+            disabled={record.role === 'customer'}
+            onClick={() => handleEdit(record)}
+          >
+            Chỉnh sửa
+          </Button>
+        </Tooltip>
       ),
     },
   ];

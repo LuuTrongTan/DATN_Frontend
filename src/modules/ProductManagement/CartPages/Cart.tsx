@@ -1,18 +1,39 @@
-import React, { useEffect } from 'react';
-import { Card, Table, Button, Typography, Space, InputNumber, Empty, Row, Col, Statistic } from 'antd';
-import { DeleteOutlined, ShoppingCartOutlined } from '@ant-design/icons';
+import React, { useEffect, useMemo, useCallback } from 'react';
+import {
+  Card,
+  Table,
+  Button,
+  Typography,
+  Space,
+  Empty,
+  Row,
+  Col,
+  Alert,
+  Skeleton,
+  Modal,
+  Grid,
+} from 'antd';
+import { ShoppingCartOutlined, ExclamationCircleOutlined, ReloadOutlined } from '@ant-design/icons';
 import { CartItem } from '../../../shares/types';
 import { message } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../../shares/stores';
 import { fetchCart, removeCartItem, updateCartItemQuantity } from '../stores/cartSlice';
+import { addToWishlist } from '../stores/wishlistSlice';
+import CartItemCard from './CartItemCard';
+import CartItemRow from './CartItemRow';
+import CartSummary from './CartSummary';
 
 const { Title, Text } = Typography;
+const { confirm } = Modal;
+const { useBreakpoint } = Grid;
 
 const Cart: React.FC = () => {
   const dispatch = useAppDispatch();
   const { items: cartItems, loading, error } = useAppSelector((state) => state.cart);
   const navigate = useNavigate();
+  const screens = useBreakpoint();
+  const isMobile = !screens.md; // md breakpoint is 768px
 
   // Fetch cart khi component mount hoặc khi navigate vào trang
   // ProtectedRoute đã xử lý việc kiểm tra authentication và hiển thị modal
@@ -32,198 +53,284 @@ const Cart: React.FC = () => {
       });
   }, [dispatch]);
 
-  const handleUpdateQuantity = async (itemId: number, quantity: number) => {
-    try {
-      await dispatch(updateCartItemQuantity({ id: itemId, quantity })).unwrap();
-      message.success('Cập nhật giỏ hàng thành công');
-    } catch (error: any) {
-      if (error.code === 'INSUFFICIENT_STOCK') {
-        const available = error.details?.available;
-        message.error(
-          available !== undefined
-            ? `Số lượng sản phẩm không đủ. Chỉ còn ${available} sản phẩm trong kho.`
-            : 'Số lượng sản phẩm không đủ trong kho.'
-        );
-        return;
+  const handleUpdateQuantity = useCallback(
+    async (itemId: number, quantity: number) => {
+      try {
+        await dispatch(updateCartItemQuantity({ id: itemId, quantity })).unwrap();
+        // Don't show success message for every quantity change to avoid spam
+      } catch (error: any) {
+        if (error.code === 'INSUFFICIENT_STOCK') {
+          const available = error.details?.available;
+          message.error(
+            available !== undefined
+              ? `Số lượng sản phẩm không đủ. Chỉ còn ${available} sản phẩm trong kho.`
+              : 'Số lượng sản phẩm không đủ trong kho.'
+          );
+          return;
+        }
+        if (error.code === 'STOCK_NOT_AVAILABLE') {
+          message.error('Không xác định được tồn kho sản phẩm. Vui lòng tải lại trang và thử lại.');
+          return;
+        }
+        message.error(error.message || 'Có lỗi xảy ra');
       }
-      if (error.code === 'STOCK_NOT_AVAILABLE') {
-        message.error('Không xác định được tồn kho sản phẩm. Vui lòng tải lại trang và thử lại.');
-        return;
+    },
+    [dispatch]
+  );
+
+  const handleRemoveItem = useCallback(
+    async (itemId: number) => {
+      confirm({
+        title: 'Xác nhận xóa',
+        icon: <ExclamationCircleOutlined />,
+        content: 'Bạn có chắc chắn muốn xóa sản phẩm này khỏi giỏ hàng?',
+        okText: 'Xóa',
+        okType: 'danger',
+        cancelText: 'Hủy',
+        onOk: async () => {
+          try {
+            await dispatch(removeCartItem(itemId)).unwrap();
+            message.success('Đã xóa sản phẩm khỏi giỏ hàng');
+          } catch (error: any) {
+            message.error(error.message || 'Có lỗi xảy ra');
+          }
+        },
+      });
+    },
+    [dispatch]
+  );
+
+  const handleAddToWishlist = useCallback(
+    async (productId: number) => {
+      try {
+        await dispatch(addToWishlist(productId)).unwrap();
+        message.success('Đã thêm vào danh sách yêu thích');
+      } catch (error: any) {
+        message.error(error.message || 'Không thể thêm vào danh sách yêu thích');
       }
-      message.error(error.message || 'Có lỗi xảy ra');
-    }
-  };
+    },
+    [dispatch]
+  );
 
-  const handleRemoveItem = async (itemId: number) => {
-    try {
-      await dispatch(removeCartItem(itemId)).unwrap();
-      message.success('Đã xóa sản phẩm khỏi giỏ hàng');
-    } catch (error: any) {
-      message.error(error.message || 'Có lỗi xảy ra');
-    }
-  };
-
-  const calculateTotal = () => {
+  const calculateTotal = useMemo(() => {
     return cartItems.reduce((total, item) => {
       const basePrice = item.product?.price || 0;
       const priceAdjustment = item.variant?.price_adjustment || 0;
       const finalPrice = basePrice + priceAdjustment;
       return total + finalPrice * item.quantity;
     }, 0);
-  };
+  }, [cartItems]);
 
+  const itemCount = useMemo(() => {
+    return cartItems.reduce((count, item) => count + item.quantity, 0);
+  }, [cartItems]);
+
+  // Desktop table columns with custom rendering
   const columns = [
     {
       title: 'Sản phẩm',
       key: 'product',
+      width: '35%',
+      align: 'left' as const,
       render: (_: any, record: CartItem) => (
-        <Space>
-          <img
-            src={record.product?.image_url || record.product?.image_urls?.[0] || '/placeholder.png'}
-            alt={record.product?.name}
-            style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 4 }}
-          />
-          <div>
-            <div style={{ fontWeight: 'bold' }}>{record.product?.name}</div>
-            {record.variant && record.variant.variant_attributes && (
-              <div style={{ fontSize: 12, color: '#999' }}>
-                {Object.entries(record.variant.variant_attributes)
-                  .map(([key, val]) => `${key}: ${val}`)
-                  .join(', ')}
-              </div>
-            )}
-          </div>
-        </Space>
+        <CartItemRow
+          item={record}
+          onUpdateQuantity={handleUpdateQuantity}
+          onRemoveItem={handleRemoveItem}
+          onAddToWishlist={handleAddToWishlist}
+          renderMode="product"
+        />
       ),
     },
     {
       title: 'Giá',
       key: 'price',
-      render: (_: any, record: CartItem) => {
-        const basePrice = record.product?.price || 0;
-        const priceAdjustment = record.variant?.price_adjustment || 0;
-        const finalPrice = basePrice + priceAdjustment;
-        return (
-          <div>
-            <Text strong>{finalPrice.toLocaleString('vi-VN')} VNĐ</Text>
-            {priceAdjustment !== 0 && (
-              <div style={{ fontSize: 11, color: '#999' }}>
-                (Gốc: {basePrice.toLocaleString('vi-VN')} 
-                {priceAdjustment > 0 ? ' +' : ' '}
-                {priceAdjustment.toLocaleString('vi-VN')})
-              </div>
-            )}
-          </div>
-        );
-      },
+      width: '15%',
+      align: 'right' as const,
+      render: (_: any, record: CartItem) => (
+        <CartItemRow
+          item={record}
+          onUpdateQuantity={handleUpdateQuantity}
+          onRemoveItem={handleRemoveItem}
+          onAddToWishlist={handleAddToWishlist}
+          renderMode="price"
+        />
+      ),
     },
     {
       title: 'Số lượng',
       key: 'quantity',
-      render: (_: any, record: CartItem) => {
-        const availableStock = record.variant 
-          ? record.variant.stock_quantity 
-          : record.product?.stock_quantity || 0;
-        return (
-          <InputNumber
-            min={1}
-            max={availableStock}
-            value={record.quantity}
-            onChange={(value) => value && handleUpdateQuantity(record.id, value)}
-          />
-        );
-      },
+      width: '20%',
+      align: 'center' as const,
+      render: (_: any, record: CartItem) => (
+        <CartItemRow
+          item={record}
+          onUpdateQuantity={handleUpdateQuantity}
+          onRemoveItem={handleRemoveItem}
+          onAddToWishlist={handleAddToWishlist}
+          renderMode="quantity"
+        />
+      ),
     },
     {
       title: 'Thành tiền',
       key: 'total',
-      render: (_: any, record: CartItem) => {
-        const basePrice = record.product?.price || 0;
-        const priceAdjustment = record.variant?.price_adjustment || 0;
-        const finalPrice = basePrice + priceAdjustment;
-        const total = finalPrice * record.quantity;
-        return <Text strong>{total.toLocaleString('vi-VN')} VNĐ</Text>;
-      },
+      width: '15%',
+      align: 'right' as const,
+      render: (_: any, record: CartItem) => (
+        <CartItemRow
+          item={record}
+          onUpdateQuantity={handleUpdateQuantity}
+          onRemoveItem={handleRemoveItem}
+          onAddToWishlist={handleAddToWishlist}
+          renderMode="total"
+        />
+      ),
     },
     {
       title: 'Thao tác',
       key: 'action',
+      width: '15%',
+      align: 'center' as const,
       render: (_: any, record: CartItem) => (
-        <Button
-          danger
-          icon={<DeleteOutlined />}
-          onClick={() => handleRemoveItem(record.id)}
-        >
-          Xóa
-        </Button>
+        <CartItemRow
+          item={record}
+          onUpdateQuantity={handleUpdateQuantity}
+          onRemoveItem={handleRemoveItem}
+          onAddToWishlist={handleAddToWishlist}
+          renderMode="action"
+        />
       ),
     },
   ];
 
+  // Skeleton loading component
+  const renderSkeleton = () => {
+    if (isMobile) {
+      return (
+        <div>
+          {[1, 2, 3].map((i) => (
+            <Card key={i} style={{ marginBottom: 16 }}>
+              <Skeleton active avatar paragraph={{ rows: 3 }} />
+            </Card>
+          ))}
+        </div>
+      );
+    }
+    return (
+      <Card>
+        <Skeleton active paragraph={{ rows: 5 }} />
+      </Card>
+    );
+  };
+
+  // Enhanced empty state
+  const renderEmptyState = () => {
+    return (
+      <Card>
+        <Empty
+          description={
+            <div>
+              <Text style={{ fontSize: 16 }}>Giỏ hàng của bạn đang trống</Text>
+              <div style={{ marginTop: 16 }}>
+                <Text type="secondary">
+                  Hãy khám phá các sản phẩm tuyệt vời của chúng tôi!
+                </Text>
+              </div>
+            </div>
+          }
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+        >
+          <Space direction="vertical" size="middle">
+            <Button type="primary" size="large" onClick={() => navigate('/products')}>
+              Mua sắm ngay
+            </Button>
+            <Button onClick={() => navigate('/wishlist')}>
+              Xem danh sách yêu thích
+            </Button>
+          </Space>
+        </Empty>
+      </Card>
+    );
+  };
+
   return (
-    <div>
+    <div style={{ paddingBottom: isMobile ? 200 : 0 }}>
       <Title level={2}>Giỏ hàng của tôi</Title>
-      
+
+      {/* Error Display */}
       {error && (
-        <Card style={{ marginBottom: 16 }}>
-          <div style={{ color: 'red' }}>
-            <strong>Lỗi:</strong> {error}
-          </div>
-        </Card>
+        <Alert
+          message="Lỗi tải giỏ hàng"
+          description={error}
+          type="error"
+          showIcon
+          closable
+          action={
+            <Button
+              size="small"
+              icon={<ReloadOutlined />}
+              onClick={() => dispatch(fetchCart())}
+            >
+              Thử lại
+            </Button>
+          }
+          style={{ marginBottom: 16 }}
+        />
       )}
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '50px' }}>
-          <Space direction="vertical">
-            <ShoppingCartOutlined style={{ fontSize: 48, color: '#999' }} />
-            <Text type="secondary">Đang tải...</Text>
-          </Space>
-        </div>
+        renderSkeleton()
       ) : cartItems.length === 0 ? (
-        <Card>
-          <Empty
-            description="Giỏ hàng của bạn đang trống"
-            image={Empty.PRESENTED_IMAGE_SIMPLE}
-          >
-            <Button type="primary" onClick={() => navigate('/products')}>
-              Mua sắm ngay
-            </Button>
-          </Empty>
-        </Card>
+        renderEmptyState()
       ) : (
         <Row gutter={[16, 16]}>
+          {/* Cart Items */}
           <Col xs={24} lg={16}>
-            <Card>
-              <Table
-                columns={columns}
-                dataSource={cartItems}
-                rowKey="id"
-                pagination={false}
-              />
+            <Card
+              style={{
+                borderRadius: 8,
+                boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
+              }}
+            >
+              {isMobile ? (
+                // Mobile: Card Layout
+                <div>
+                  {cartItems.map((item) => (
+                    <CartItemCard
+                      key={item.id}
+                      item={item}
+                      onUpdateQuantity={handleUpdateQuantity}
+                      onRemoveItem={handleRemoveItem}
+                      onAddToWishlist={handleAddToWishlist}
+                    />
+                  ))}
+                </div>
+              ) : (
+                // Desktop: Table Layout
+                <Table
+                  columns={columns}
+                  dataSource={cartItems}
+                  rowKey="id"
+                  pagination={false}
+                  style={{
+                    borderRadius: 8
+                  }}
+                  rowClassName={() => 'cart-table-row'}
+                  bordered={false}
+                  size="middle"
+                />
+              )}
             </Card>
           </Col>
+
+          {/* Summary Sidebar */}
           <Col xs={24} lg={8}>
-            <Card title="Tổng kết">
-              <Space direction="vertical" size="large" style={{ width: '100%' }}>
-                <Statistic
-                  title="Tổng tiền"
-                  value={calculateTotal()}
-                  suffix="VNĐ"
-                  valueStyle={{ color: '#cf1322', fontSize: 24 }}
-                />
-                <Button
-                  type="primary"
-                  size="large"
-                  block
-                  onClick={() => navigate('/place-order')}
-                >
-                  Đặt hàng
-                </Button>
-                <Button block onClick={() => navigate('/products')}>
-                  Tiếp tục mua sắm
-                </Button>
-              </Space>
-            </Card>
+            <CartSummary
+              total={calculateTotal}
+              itemCount={itemCount}
+              isMobile={isMobile}
+            />
           </Col>
         </Row>
       )}

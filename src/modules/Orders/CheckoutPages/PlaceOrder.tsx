@@ -16,7 +16,6 @@ import {
   Spin,
   Divider,
   Image,
-  Alert,
 } from 'antd';
 import {
   ShoppingCartOutlined,
@@ -49,6 +48,8 @@ const PlaceOrder: React.FC = () => {
   const [calculatingShipping, setCalculatingShipping] = useState(false);
   const [shippingFee, setShippingFee] = useState<number>(0);
   const [estimatedDays, setEstimatedDays] = useState<number | null>(null);
+  const [estimatedHours, setEstimatedHours] = useState<number | null>(null);
+  const [estimatedMinutes, setEstimatedMinutes] = useState<number | null>(null);
   const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cod');
   const [form] = Form.useForm();
@@ -129,9 +130,13 @@ const PlaceOrder: React.FC = () => {
       if (res.success && res.data) {
         setShippingFee(res.data.fee);
         setEstimatedDays(res.data.estimated_days || null);
+        setEstimatedHours(res.data.estimated_hours ?? null);
+        setEstimatedMinutes(res.data.estimated_minutes ?? null);
       } else {
         setShippingFee(30000);
         setEstimatedDays(3);
+        setEstimatedHours(0);
+        setEstimatedMinutes(0);
         if (res.message) {
           message.warning(res.message);
         }
@@ -182,25 +187,77 @@ const PlaceOrder: React.FC = () => {
       const response = await orderService.createOrder(payload);
       
       if (response.success && response.data) {
-        const createdOrder = response.data;
+        // Backend trả về { order: {...} } trong data
+        const createdOrder = response.data.order;
 
-        // Kiểm tra order ID hợp lệ
-        if (!createdOrder || !createdOrder.id || isNaN(Number(createdOrder.id))) {
-          console.error('Invalid order ID:', createdOrder);
+        // Log để debug
+        logger.info('Order created response', { 
+          hasOrder: !!createdOrder, 
+          orderId: createdOrder?.id, 
+          orderIdType: typeof createdOrder?.id,
+          fullResponse: response.data 
+        });
+
+        // Kiểm tra order ID hợp lệ (cho phép cả string và number)
+        if (!createdOrder || createdOrder.id === undefined || createdOrder.id === null) {
+          logger.error('Invalid order ID', { createdOrder, responseData: response.data });
           message.error('Đơn hàng được tạo nhưng không có mã hợp lệ. Vui lòng kiểm tra lại trong danh sách đơn hàng.');
           navigate('/orders');
           return;
         }
 
-        const orderId = Number(createdOrder.id);
+        // Chuyển đổi ID sang number (hỗ trợ cả string và number)
+        const orderId = typeof createdOrder.id === 'string' ? parseInt(createdOrder.id, 10) : Number(createdOrder.id);
+        
+        if (isNaN(orderId) || orderId <= 0) {
+          logger.error('Invalid order ID format', { 
+            originalId: createdOrder.id, 
+            convertedId: orderId,
+            orderData: createdOrder 
+          });
+          message.error('Đơn hàng được tạo nhưng mã đơn hàng không hợp lệ. Vui lòng kiểm tra lại trong danh sách đơn hàng.');
+          navigate('/orders');
+          return;
+        }
 
         // Nếu chọn thanh toán online -> tạo URL VNPay và redirect
+        // Flow thanh toán VNPay:
+        // 1. User chọn thanh toán online và đặt hàng
+        // 2. Backend tạo đơn hàng và URL thanh toán VNPay
+        // 3. Frontend redirect user đến trang VNPay sandbox
+        // 4. User thanh toán trên trang VNPay
+        // 5. VNPay redirect user về ReturnURL (backend)
+        // 6. Backend xử lý callback và redirect về frontend
+        // 7. Frontend hiển thị kết quả thanh toán
         if (paymentMethod === 'online') {
           try {
             const paymentResponse = await paymentService.createVNPayPayment(orderId);
             if (paymentResponse.success && paymentResponse.data?.payment_url) {
-              message.info('Đang chuyển đến cổng thanh toán VNPay...');
-              window.location.href = paymentResponse.data.payment_url;
+              const paymentUrl = paymentResponse.data.payment_url;
+              
+              // Validate URL trước khi redirect
+              try {
+                new URL(paymentUrl);
+              } catch (urlError) {
+                logger.error('Invalid VNPay payment URL', { paymentUrl, orderId });
+                message.error('URL thanh toán không hợp lệ. Vui lòng thử lại hoặc liên hệ hỗ trợ.');
+                return;
+              }
+
+              // Log để debug
+              logger.info('Redirecting to VNPay', { 
+                orderId, 
+                paymentUrl: paymentUrl.substring(0, 100) + '...' // Chỉ log một phần URL
+              });
+
+              // Hiển thị thông báo rõ ràng cho user
+              message.info('Đang chuyển đến cổng thanh toán VNPay. Vui lòng thanh toán trên trang VNPay.', 3);
+              
+              // Sử dụng replace thay vì href để tránh vấn đề với browser history
+              // và đảm bảo người dùng không thể quay lại bằng nút back
+              // Lưu ý: Các lỗi CSP và JavaScript từ trang VNPay sandbox là bình thường
+              // và không ảnh hưởng đến chức năng thanh toán
+              window.location.replace(paymentUrl);
               return;
             }
 
@@ -218,7 +275,8 @@ const PlaceOrder: React.FC = () => {
           } catch (error: any) {
             logger.error(
               'Error creating VNPay payment',
-              error instanceof Error ? error : new Error(String(error))
+              error instanceof Error ? error : new Error(String(error)),
+              { orderId }
             );
             message.warning(
               error.message ||
@@ -229,13 +287,7 @@ const PlaceOrder: React.FC = () => {
 
         message.success('Đặt hàng thành công!');
         
-        // Clear cart trong Redux store (backend đã xóa cart_items trong DB)
-        dispatch(clearCart());
-        
-        // Fetch lại cart để đồng bộ với database (sẽ trả về empty)
         await dispatch(fetchCart());
-        
-        // Điều hướng đến trang chi tiết đơn hàng
         navigate(`/orders/${orderId}`);
       } else {
         const code = response.error?.code;
@@ -567,20 +619,16 @@ const PlaceOrder: React.FC = () => {
                     : formatCurrency(shippingFee)}
                   {estimatedDays !== null && !calculatingShipping && (
                     <span style={{ marginLeft: 8, fontSize: 12, color: '#888' }}>
-                      (Dự kiến {estimatedDays} ngày)
+                      (Dự kiến{' '}
+                      {estimatedDays > 0 && `${estimatedDays} ngày`}
+                      {estimatedHours !== null && estimatedHours > 0 && ` ${estimatedHours} giờ`}
+                      {estimatedMinutes !== null && estimatedMinutes > 0 && ` ${estimatedMinutes} phút`}
+                      {estimatedDays === 0 && estimatedHours === 0 && estimatedMinutes === 0 && 'sớm nhất'}
+                      )
                     </span>
                   )}
                 </Text>
               </div>
-
-              {subtotal < 500_000 && (
-                <Alert
-                  message={`Mua thêm ${formatCurrency(500_000 - subtotal)} để được miễn phí vận chuyển`}
-                  type="info"
-                  showIcon
-                  style={{ fontSize: 12 }}
-                />
-              )}
 
               <Divider style={{ margin: '12px 0' }} />
 
@@ -610,11 +658,7 @@ const PlaceOrder: React.FC = () => {
                   disabled={!selectedAddress || cartItems.length === 0}
                   style={{ marginTop: 16 }}
                 >
-                  {submitting
-                    ? 'Đang xử lý...'
-                    : paymentMethod === 'online'
-                      ? 'Đặt hàng & thanh toán VNPay'
-                      : 'Đặt hàng (COD)'}
+                  {submitting ? 'Đang xử lý...' : 'Đặt hàng (COD)'}
                 </Button>
               </Form>
             </Space>

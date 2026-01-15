@@ -233,10 +233,26 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
     }
   }, [hasVariants, variantStockTotal, form]);
 
+  // Helper function để validate và filter tag_ids - chỉ giữ lại số nguyên hợp lệ
+  const validateAndFilterTagIds = (tagIds: any[]): number[] => {
+    if (!Array.isArray(tagIds)) return [];
+    return tagIds
+      .map(id => {
+        // Chuyển đổi sang số nếu là string
+        const numId = typeof id === 'string' ? parseInt(id, 10) : id;
+        // Kiểm tra là số nguyên hợp lệ và dương
+        return typeof numId === 'number' && !isNaN(numId) && numId > 0 ? numId : null;
+      })
+      .filter((id): id is number => id !== null);
+  };
+
   const handleSubmit = async (values: any) => {
     try {
       setLoading(true);
       const stockToUse = hasVariants ? variantStockTotal : values.stock_quantity;
+      
+      // Validate và filter tag_ids trước khi gửi
+      const validTagIds = validateAndFilterTagIds(values.tag_ids || []);
       
       // Lấy danh sách file và URL
       const imageFiles = imageItems.filter(item => item.type === 'file' && item.file).map(item => item.file!);
@@ -293,7 +309,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
           image_urls: allImageUrls.length > 0 ? allImageUrls : undefined,
           video_url: finalVideoUrl || undefined,
           stock_quantity: stockToUse,
-          tag_ids: values.tag_ids || [],
+          tag_ids: validTagIds,
         };
         
         await productService.updateProduct(Number(id), data);
@@ -315,7 +331,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
           image_urls: allImageUrls.length > 0 ? allImageUrls : undefined,
           video_url: finalVideoUrl,
           stock_quantity: stockToUse,
-          tag_ids: values.tag_ids || [],
+          tag_ids: validTagIds,
         };
 
         const createResponse = await productService.createProduct(
@@ -883,7 +899,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
       render: (urls: string[] | null | undefined, record: ProductVariant) => {
         if (urls && urls.length > 0) {
           return (
-            <Badge count={urls.length} offset={[-5, 5]}>
+            <Badge count={urls.length} offset={[0, 0]} className="cart-badge-no-animation">
               <Image
                 src={urls[0]}
                 alt={Object.entries(record.variant_attributes || {})
@@ -1066,9 +1082,14 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
                 }
                 options={tags.map(tag => ({
                   label: tag.name,
-                  value: tag.id,
+                  value: Number(tag.id), // Đảm bảo value luôn là number
                 }))}
                 notFoundContent={tagsLoading ? <Spin size="small" /> : null}
+                onChange={(values) => {
+                  // Validate và filter values trước khi set vào form
+                  const validValues = validateAndFilterTagIds(values);
+                  form.setFieldsValue({ tag_ids: validValues });
+                }}
                 onSearch={(value) => {
                   setTagSearchValue(value);
                   // Tự động mở dropdown khi nhập text
@@ -1127,9 +1148,12 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
                         // Thêm tag mới vào danh sách
                         setTags([...tags, response.data]);
                         
-                        // Thêm tag vào form
+                        // Thêm tag vào form - đảm bảo id là số nguyên
                         const currentTagIds = form.getFieldValue('tag_ids') || [];
-                        form.setFieldsValue({ tag_ids: [...currentTagIds, response.data.id] });
+                        const newTagId = typeof response.data.id === 'number' ? response.data.id : parseInt(response.data.id, 10);
+                        if (!isNaN(newTagId) && newTagId > 0) {
+                          form.setFieldsValue({ tag_ids: [...currentTagIds, newTagId] });
+                        }
                         
                         // Reset search value
                         setTagSearchValue('');

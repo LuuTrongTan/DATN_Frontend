@@ -106,7 +106,6 @@ const OrderTrackingPage: React.FC = () => {
       pending: 'orange',
       paid: 'green',
       failed: 'red',
-      refunded: 'purple',
     };
     return colorMap[status] || 'default';
   };
@@ -116,7 +115,6 @@ const OrderTrackingPage: React.FC = () => {
       pending: 'Chờ thanh toán',
       paid: 'Đã thanh toán',
       failed: 'Thanh toán thất bại',
-      refunded: 'Đã hoàn tiền',
     };
     return textMap[status] || status;
   };
@@ -273,11 +271,11 @@ const OrderTrackingPage: React.FC = () => {
               <Space direction="vertical" size="small" style={{ width: '100%' }}>
                 <div>
                   <Text strong>Người nhận: </Text>
-                  <Text>{order.customer_name || order.shipping_address?.split('\n')[0]}</Text>
+                  <Text>{order.user?.full_name || order.full_name || order.customer_name || order.shipping_address?.split('\n')[0]}</Text>
                 </div>
                 <div>
                   <PhoneOutlined style={{ marginRight: 8 }} />
-                  <Text>{order.customer_phone || 'N/A'}</Text>
+                  <Text>{order.user?.phone || order.phone || order.customer_phone || 'N/A'}</Text>
                 </div>
                 {order.customer_email && (
                   <div>

@@ -1,31 +1,12 @@
-import React from 'react';
-import { Tabs, Button } from 'antd';
+import React, { useState } from 'react';
+import { Button, Modal } from 'antd';
 import { UserOutlined, TeamOutlined } from '@ant-design/icons';
 import UserManagement from './UserManagement';
 import StaffManagement from '../Staff/StaffManagement';
 import AdminPageContent from '../../../shares/components/layouts/AdminPageContent';
 
 const AdminAccountsManagement: React.FC = () => {
-  const tabItems = [
-    {
-      key: 'customers',
-      label: (
-        <span>
-          <UserOutlined /> Khách hàng
-        </span>
-      ),
-      children: <UserManagement showTitle={false} withCard={false} />,
-    },
-    {
-      key: 'staff',
-      label: (
-        <span>
-          <TeamOutlined /> Nhân viên
-        </span>
-      ),
-      children: <StaffManagement showTitle={false} withCard={false} />,
-    },
-  ];
+  const [isStaffModalVisible, setIsStaffModalVisible] = useState(false);
 
   return (
     <AdminPageContent
@@ -35,15 +16,30 @@ const AdminAccountsManagement: React.FC = () => {
           <UserOutlined /> Quản lý người dùng
         </>
       }
-      extra={null}
+      extra={
+        <Button
+          type="primary"
+          icon={<TeamOutlined />}
+          onClick={() => setIsStaffModalVisible(true)}
+        >
+          Thêm nhân viên
+        </Button>
+      }
     >
-      <Tabs
-        defaultActiveKey="customers"
-        type="card"
-        tabBarGutter={32}
-        className="admin-accounts-tabs"
-        items={tabItems}
-      />
+      {/* Chỉ hiển thị danh sách khách hàng */}
+      <UserManagement showTitle={false} withCard={false} />
+
+      {/* Modal quản lý / tạo nhân viên */}
+      <Modal
+        title="Quản lý nhân viên"
+        open={isStaffModalVisible}
+        onCancel={() => setIsStaffModalVisible(false)}
+        footer={null}
+        width={900}
+        destroyOnClose
+      >
+        <StaffManagement showTitle={true} withCard={false} />
+      </Modal>
     </AdminPageContent>
   );
 };

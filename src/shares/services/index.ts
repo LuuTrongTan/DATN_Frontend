@@ -7,7 +7,6 @@ export * from './adminService';
 export * from './uploadService';
 export * from './addressService';
 export * from './wishlistService';
-export * from './reviewService';
 export * from './paymentService';
 export * from './provincesService';
 export * from './shippingService';

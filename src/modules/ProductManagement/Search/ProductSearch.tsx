@@ -30,10 +30,12 @@ import {
   setPriceRange as setPriceRangeFilter,
   setSearch,
   setSort,
+  setTagIds,
 } from '../stores/productsSlice';
 import { Product } from '../../../shares/types';
 import ProductCard from '../../Home/components/ProductCard';
 import { useEffectOnce } from '../../../shares/hooks';
+import { tagService, ProductTag } from '../../../shares/services/tagService';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -46,6 +48,8 @@ const ProductSearchPage: React.FC = () => {
     (state) => state.products
   );
   const [filtersVisible, setFiltersVisible] = useState(true);
+  const [tags, setTags] = useState<ProductTag[]>([]);
+  const [tagsLoading, setTagsLoading] = useState(false);
 
   // Search params
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
@@ -54,6 +58,24 @@ const ProductSearchPage: React.FC = () => {
     searchParams.get('max_price') ? Number(searchParams.get('max_price')) : 10000000,
   ]);
   const [sortBy, setSortBy] = useState(searchParams.get('sort') || 'newest');
+
+  // Fetch tags
+  useEffectOnce(() => {
+    const fetchTags = async () => {
+      try {
+        setTagsLoading(true);
+        const response = await tagService.getAllTags();
+        if (response.success && response.data) {
+          setTags(response.data);
+        }
+      } catch (error) {
+        console.error('Error fetching tags:', error);
+      } finally {
+        setTagsLoading(false);
+      }
+    };
+    fetchTags();
+  }, []);
 
   // Khởi tạo filters từ URL khi mount
   // Danh mục đã được fetch tập trung tại Sidebar, nên không gọi lại ở đây
@@ -65,6 +87,7 @@ const ProductSearchPage: React.FC = () => {
     const urlMinPrice = searchParams.get('min_price');
     const urlMaxPrice = searchParams.get('max_price');
     const urlSort = searchParams.get('sort');
+    const urlTagIds = searchParams.getAll('tag_ids');
 
     if (urlSearch) {
       setSearchQuery(urlSearch);
@@ -86,13 +109,44 @@ const ProductSearchPage: React.FC = () => {
     if (urlPage) {
       dispatch(setPage(Number(urlPage)));
     }
+    if (urlTagIds.length > 0) {
+      const tagIds = urlTagIds.map(id => Number(id)).filter(id => !isNaN(id));
+      if (tagIds.length > 0) {
+        dispatch(setTagIds(tagIds));
+      }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch]);
+
+  // Đồng bộ searchQuery với URL khi URL thay đổi (ví dụ khi search từ navbar)
+  useEffect(() => {
+    const urlSearch = searchParams.get('q') || '';
+    // Chỉ cập nhật nếu giá trị URL khác với giá trị hiện tại trong state
+    if (urlSearch !== searchQuery) {
+      setSearchQuery(urlSearch);
+      if (urlSearch) {
+        dispatch(setSearch(urlSearch));
+      } else {
+        dispatch(setSearch(''));
+      }
+      dispatch(setPage(1));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]); // Chỉ phụ thuộc vào searchParams để đồng bộ khi URL thay đổi
+
+  // Đồng bộ priceRange local state với Redux filters
+  useEffect(() => {
+    const minPrice = filters.min_price || 0;
+    const maxPrice = filters.max_price || 10000000;
+    if (priceRange[0] !== minPrice || priceRange[1] !== maxPrice) {
+      setPriceRange([minPrice, maxPrice]);
+    }
+  }, [filters.min_price, filters.max_price]);
 
   // Đồng bộ filters Redux -> URL (chỉ khi filters thay đổi từ user action)
   useEffect(() => {
     // Tránh update URL khi đang khởi tạo từ URL
-    if (!filters.search && !filters.category_id && filters.page === 1) return;
+    if (!filters.search && !filters.category_id && filters.page === 1 && !filters.tag_ids) return;
 
     const newParams = new URLSearchParams();
     if (filters.search) newParams.set('q', filters.search);
@@ -103,6 +157,9 @@ const ProductSearchPage: React.FC = () => {
       newParams.set('max_price', filters.max_price.toString());
     if (filters.sort && filters.sort !== 'newest') newParams.set('sort', filters.sort);
     if (filters.page && filters.page !== 1) newParams.set('page', filters.page.toString());
+    if (filters.tag_ids && filters.tag_ids.length > 0) {
+      filters.tag_ids.forEach(tagId => newParams.append('tag_ids', tagId.toString()));
+    }
 
     setSearchParams(newParams, { replace: true });
   }, [filters, setSearchParams]);
@@ -116,6 +173,7 @@ const ProductSearchPage: React.FC = () => {
     filters.category_id,
     filters.min_price,
     filters.max_price,
+    filters.tag_ids,
     filters.sort,
     filters.page,
   ]);
@@ -133,6 +191,15 @@ const ProductSearchPage: React.FC = () => {
     dispatch(resetFilters());
     setSearchParams({});
   }, [dispatch, setSearchParams]);
+
+  const handleTagChange = useCallback((selectedTagIds: number[]) => {
+    if (selectedTagIds.length > 0) {
+      dispatch(setTagIds(selectedTagIds));
+    } else {
+      dispatch(setTagIds(undefined));
+    }
+    dispatch(setPage(1));
+  }, [dispatch]);
 
   const formatPrice = useMemo(() => {
     return (price: number) => new Intl.NumberFormat('vi-VN').format(price);
@@ -256,6 +323,29 @@ const ProductSearchPage: React.FC = () => {
                         <Text>{formatPrice(priceRange[1])} VNĐ</Text>
                       </div>
                     </div>
+                  </div>
+
+                  <div>
+                    <Text strong>Tags</Text>
+                    <Select
+                      mode="multiple"
+                      style={{ width: '100%', marginTop: 8 }}
+                      placeholder="Chọn tags"
+                      allowClear
+                      loading={tagsLoading}
+                      value={filters.tag_ids}
+                      onChange={handleTagChange}
+                      showSearch
+                      filterOption={(input, option) =>
+                        (option?.children as string)?.toLowerCase().includes(input.toLowerCase())
+                      }
+                    >
+                      {tags.map((tag) => (
+                        <Option key={tag.id} value={tag.id}>
+                          {tag.name}
+                        </Option>
+                      ))}
+                    </Select>
                   </div>
                 </Space>
               </Card>

@@ -32,29 +32,43 @@ export interface MarkAllAsReadResponse {
 
 export const notificationService = {
   async getNotifications(params?: PaginationParams): Promise<NotificationsResponse> {
-    const queryParams = new URLSearchParams();
-    if (params?.page) queryParams.append('page', params.page.toString());
-    if (params?.limit) queryParams.append('limit', params.limit.toString());
-    
-    const queryString = queryParams.toString();
-    const endpoint = `/notifications${queryString ? `?${queryString}` : ''}`;
-    
-    const res = await apiClient.get(endpoint);
-    // Backend trả về: { success: true, data: [], pagination: { page, limit, total, totalPages } }
-    if (res.data && res.data.success) {
-      return {
-        data: res.data.data || [],
-        pagination: res.data.pagination || { page: 1, limit: 20, total: 0, totalPages: 0 },
-      };
+    try {
+      const queryParams = new URLSearchParams();
+      if (params?.page) queryParams.append('page', params.page.toString());
+      if (params?.limit) queryParams.append('limit', params.limit.toString());
+      
+      const queryString = queryParams.toString();
+      const endpoint = `/notifications${queryString ? `?${queryString}` : ''}`;
+      
+      const res = await apiClient.get(endpoint);
+      
+      // apiClient.get() đã return data đã parse, không phải res.data
+      // Backend trả về: { success: true, data: [], pagination: { page, limit, total, totalPages } }
+      if (res && res.success) {
+        return {
+          data: res.data || [],
+          pagination: res.pagination || { page: 1, limit: 20, total: 0, totalPages: 0 },
+        };
+      }
+      
+      return { data: [], pagination: { page: 1, limit: 20, total: 0, totalPages: 0 } };
+    } catch (error: any) {
+      console.error('Error in getNotifications:', error);
+      console.error('Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      throw error;
     }
-    return { data: [], pagination: { page: 1, limit: 20, total: 0, totalPages: 0 } };
   },
 
   async markAsRead(id: number): Promise<Notification> {
     const res = await apiClient.post(`/notifications/${id}/read`, {});
     // Backend dùng ResponseHandler.success => { success, data, message }
-    if (res.data && res.data.success) {
-      return (res.data.data || null) as Notification;
+    // apiClient.post() đã return data đã parse
+    if (res && res.success) {
+      return (res.data || null) as Notification;
     }
     throw new Error('Không thể đánh dấu thông báo đã đọc');
   },
@@ -62,10 +76,27 @@ export const notificationService = {
   async markAllAsRead(): Promise<MarkAllAsReadResponse> {
     const res = await apiClient.post('/notifications/read-all', {});
     // Hiện BE trả về { success, data: null }, không có count; service chuẩn hóa về updatedCount
-    if (res.data && res.data.success) {
+    // apiClient.post() đã return data đã parse
+    if (res && res.success) {
       return { updatedCount: 0 };
     }
     throw new Error('Không thể đánh dấu tất cả thông báo');
+  },
+
+  // Lấy số lượng notifications chưa đọc
+  async getUnreadCount(): Promise<number> {
+    try {
+      const res = await apiClient.get('/notifications/unread-count');
+      // Backend trả về: { success: true, data: { unreadCount: number } }
+      // apiClient.get() đã return data đã parse
+      if (res && res.success && res.data) {
+        return res.data.unreadCount || 0;
+      }
+      return 0;
+    } catch (error) {
+      console.error('Error getting unread notification count:', error);
+      return 0;
+    }
   },
 };
 

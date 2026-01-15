@@ -182,6 +182,17 @@ const Login: React.FC = () => {
               </Button>
             </Form.Item>
 
+            <Form.Item style={{ marginTop: 12 }}>
+              <Button 
+                type="default" 
+                block 
+                onClick={() => navigate('/home')}
+                style={{ height: 45 }}
+              >
+                Đăng nhập với tư cách khách
+              </Button>
+            </Form.Item>
+
             <div style={{ textAlign: 'center' }}>
               <Space direction="vertical" size="small">
                 <Link to="/forgot-password">

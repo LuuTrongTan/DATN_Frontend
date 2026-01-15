@@ -11,6 +11,7 @@ export const productService = {
     search?: string;
     min_price?: number;
     max_price?: number;
+    tag_ids?: number[];
   }): Promise<ApiResponse<PaginatedResponse<Product>>> => {
     const queryParams = new URLSearchParams();
     if (params?.page) queryParams.append('page', params.page.toString());
@@ -20,6 +21,9 @@ export const productService = {
     if (params?.search) queryParams.append('search', params.search);
     if (params?.min_price) queryParams.append('min_price', params.min_price.toString());
     if (params?.max_price) queryParams.append('max_price', params.max_price.toString());
+    if (params?.tag_ids && params.tag_ids.length > 0) {
+      params.tag_ids.forEach(tagId => queryParams.append('tag_ids', tagId.toString()));
+    }
     
     const query = queryParams.toString();
     return apiClient.get(`/products${query ? `?${query}` : ''}`);

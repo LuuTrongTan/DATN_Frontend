@@ -368,6 +368,26 @@ code {
   box-shadow: none !important;
 }
 
+/* Cart Table Styling */
+.cart-table-row {
+  transition: background-color 0.2s ease;
+}
+
+.cart-table-row:hover {
+  background-color: #fafafa;
+}
+
+.ant-table-thead > tr > th {
+  background-color: #fafafa !important;
+  font-weight: 600 !important;
+  border-bottom: 2px solid #f0f0f0 !important;
+}
+
+.ant-table-tbody > tr > td {
+  padding: 16px !important;
+  vertical-align: middle !important;
+}
+
 /* Badge styling improvements */
 .ant-badge-count {
   font-weight: 600 !important;
@@ -377,7 +397,29 @@ code {
   line-height: 18px !important;
   padding: 0 6px !important;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
-  animation: pulse 2s infinite;
+  /* Tắt animation để số lượng xuất hiện ngay lập tức */
+  animation: none !important;
+  transition: none !important;
+}
+
+/* Tắt animation khi Badge thay đổi - đảm bảo số lượng xuất hiện ngay */
+.ant-badge-multiple-words .ant-badge-count,
+.ant-badge-count,
+.cart-badge-no-animation .ant-badge-count {
+  transition: none !important;
+  animation: none !important;
+}
+
+/* Tắt animation cho Badge wrapper */
+.ant-badge {
+  transition: none !important;
+}
+
+.ant-badge-zoom-appear,
+.ant-badge-zoom-enter,
+.ant-badge-zoom-leave {
+  animation: none !important;
+  transition: none !important;
 }
 
 @keyframes pulse {

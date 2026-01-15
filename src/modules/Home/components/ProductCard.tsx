@@ -54,13 +54,23 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
   }, [product, navigate, onAddToCart]);
 
   const handleCardClick = useCallback((e: React.MouseEvent) => {
-    // Kiểm tra nếu click vào button hoặc các phần tử không nên navigate
+    // Kiểm tra nếu click vào button, tag, hoặc các phần tử không nên navigate
     const target = e.target as HTMLElement;
-    if (target && (target.closest('button') || target.closest('.ant-btn'))) {
+    if (target && (
+      target.closest('button') || 
+      target.closest('.ant-btn') ||
+      target.closest('.ant-tag') ||
+      target.tagName === 'SPAN' && target.closest('.ant-tag')
+    )) {
       return;
     }
     navigate(`/products/${product.id}`);
   }, [navigate, product.id]);
+
+  const handleTagClick = useCallback((e: React.MouseEvent, tagId: number) => {
+    e.stopPropagation();
+    navigate(`/products/search?tag_ids=${tagId}`);
+  }, [navigate]);
 
   const imageUrl = useMemo(
     () => product.image_url || product.image_urls?.[0] || '/placeholder.png',
@@ -71,6 +81,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
   return (
     <Card
       hoverable
+      onClick={handleCardClick}
       style={{ 
         height: '100%',
         minHeight: 440,
@@ -82,6 +93,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
         flexDirection: 'column',
         border: isInWishlist ? '1px solid #ff85c0' : '1px solid #f2f4f7',
         background: 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)',
+        cursor: 'pointer',
       }}
       bodyStyle={{ padding: '14px 14px 10px' }}
       onMouseEnter={(e) => {
@@ -172,19 +184,31 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
     >
       <Card.Meta
         title={
-          <div
-            onClick={handleCardClick}
-            style={{ 
-              cursor: 'pointer',
-              minHeight: 22,
-            }}
-          >
+          <div style={{ minHeight: 22, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
             <Text 
               ellipsis={{ tooltip: product.name }}
-              style={{ fontSize: 16, fontWeight: 500 }}
+              style={{ fontSize: 16, fontWeight: 500, flex: 1, margin: 0 }}
             >
               {product.name}
             </Text>
+            {product.tags && product.tags.length > 0 && (
+              <Space wrap size={[4, 4]} style={{ flexShrink: 0 }}>
+                {product.tags.map((tag) => (
+                  <Tag
+                    key={tag.id}
+                    color="purple"
+                    style={{ 
+                      cursor: 'pointer',
+                      margin: 0,
+                      fontSize: 11,
+                    }}
+                    onClick={(e) => handleTagClick(e, tag.id)}
+                  >
+                    {tag.name}
+                  </Tag>
+                ))}
+              </Space>
+            )}
           </div>
         }
         description={

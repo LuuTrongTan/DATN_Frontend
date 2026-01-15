@@ -28,7 +28,7 @@ export const orderService = {
     payment_method: PaymentMethod;
     shipping_fee?: number;
     notes?: string;
-  }): Promise<ApiResponse<Order>> => {
+  }): Promise<ApiResponse<{ order: Order }>> => {
     return apiClient.post('/orders', data);
   },
 

@@ -170,17 +170,6 @@ const ProductComparePage: React.FC = () => {
       render: (product: Product) => getStockStatus(product.stock_quantity),
     },
     {
-      key: 'rating',
-      label: 'Đánh giá',
-      render: (product: Product) => (
-        <div>
-          <Rate disabled value={product.average_rating || 0} allowHalf />
-          <br />
-          <Text type="secondary">({product.review_count || 0} đánh giá)</Text>
-        </div>
-      ),
-    },
-    {
       key: 'sku',
       label: 'Mã SKU',
       render: (product: Product) => (

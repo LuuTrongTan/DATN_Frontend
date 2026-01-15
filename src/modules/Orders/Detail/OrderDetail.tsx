@@ -19,19 +19,17 @@ import {
   Modal,
   Form,
   Input,
-  Rate,
+  // Rate, // Tạm thời comment lại vì chưa có reviewsSlice
   Alert,
 } from 'antd';
 import {
   ArrowLeftOutlined,
-  StarOutlined,
+  // StarOutlined, // Tạm thời comment lại vì chưa có reviewsSlice
 } from '@ant-design/icons';
-import { Order, OrderItem, OrderStatus, PaymentStatus, Refund } from '../../../shares/types';
+import { Order, OrderItem, OrderStatus, PaymentStatus } from '../../../shares/types';
 import { useAppDispatch, useAppSelector } from '../../../shares/stores';
 import { fetchOrderById } from '../stores/ordersSlice';
-import { createReview } from '../../ProductManagement/stores/reviewsSlice';
 import { orderService } from '../../../shares/services/orderService';
-import RefundRequestForm from '../Refund/RefundRequestForm';
 
 const { Title, Text } = Typography;
 
@@ -45,17 +43,17 @@ const OrderDetail: React.FC = () => {
     orderId ? state.orders.byId[orderId] || null : null
   );
   const { detailLoading: loading } = useAppSelector((state) => state.orders);
-  const [reviewModalVisible, setReviewModalVisible] = useState(false);
-  const [reviewingProductId, setReviewingProductId] = useState<number | null>(null);
-  const [reviewForm] = Form.useForm();
-  const [submittingReview, setSubmittingReview] = useState(false);
+  // Tạm thời comment lại vì chưa có reviewsSlice
+  // const [reviewModalVisible, setReviewModalVisible] = useState(false);
+  // const [reviewingProductId, setReviewingProductId] = useState<number | null>(null);
+  // const [reviewForm] = Form.useForm();
+  // const [submittingReview, setSubmittingReview] = useState(false);
   const [paymentAlert, setPaymentAlert] = useState<{
     type: 'success' | 'error' | 'warning';
     message: string;
     description?: string;
   } | null>(null);
   const [cancelling, setCancelling] = useState(false);
-  const [refundModalVisible, setRefundModalVisible] = useState(false);
 
   useEffect(() => {
     if (!orderId) {
@@ -81,7 +79,7 @@ const OrderDetail: React.FC = () => {
       });
   }, [dispatch, orderId, navigate]);
 
-  // Hiển thị thông báo theo kết quả thanh toán (VNPay callback redirect với query ?payment=)
+  // Hiển thị thông báo theo kết quả thanh toán (redirect với query ?payment= từ cổng thanh toán)
   useEffect(() => {
     const params = new URLSearchParams(search);
     const paymentResult = params.get('payment');
@@ -95,7 +93,7 @@ const OrderDetail: React.FC = () => {
       setPaymentAlert({
         type: 'success',
         message: 'Thanh toán thành công',
-        description: 'Đơn hàng của bạn đã được thanh toán qua VNPay.',
+        description: 'Đơn hàng của bạn đã được thanh toán thành công.',
       });
     } else if (paymentResult === 'failed') {
       setPaymentAlert({
@@ -133,7 +131,6 @@ const OrderDetail: React.FC = () => {
       pending: 'orange',
       paid: 'green',
       failed: 'red',
-      refunded: 'default',
     };
     return colors[status] || 'default';
   };
@@ -155,7 +152,6 @@ const OrderDetail: React.FC = () => {
       pending: 'Chờ thanh toán',
       paid: 'Đã thanh toán',
       failed: 'Thanh toán thất bại',
-      refunded: 'Đã hoàn tiền',
     };
     return texts[status] || status;
   };
@@ -247,9 +243,8 @@ const OrderDetail: React.FC = () => {
 
   const displayStatus = (order as any).order_status || (order as any).status || order.order_status;
 
-  const canCancel =
-    ['pending', 'confirmed', 'processing'].includes(displayStatus as OrderStatus) &&
-    order.payment_status !== 'paid';
+  // Chỉ cho phép hủy khi đơn ở trạng thái chờ xác nhận (pending)
+  const canCancel = displayStatus === 'pending';
 
   return (
     <div>
@@ -393,8 +388,8 @@ const OrderDetail: React.FC = () => {
             <Timeline items={getStatusTimeline(displayStatus)} />
           </Card>
 
-          {/* Nút đánh giá nếu đã giao hàng */}
-          {displayStatus === 'delivered' && order.items && order.items.length > 0 && (
+          {/* Nút đánh giá nếu đã giao hàng - Tạm thời comment lại vì chưa có reviewsSlice */}
+          {/* {displayStatus === 'delivered' && order.items && order.items.length > 0 && (
             <Card title="Đánh giá sản phẩm" style={{ marginTop: 24 }}>
               <Space direction="vertical" style={{ width: '100%' }} size="middle">
                 {order.items.map((item) => (
@@ -426,12 +421,12 @@ const OrderDetail: React.FC = () => {
                 ))}
               </Space>
             </Card>
-          )}
+          )} */}
         </Col>
       </Row>
 
-      {/* Modal đánh giá */}
-      <Modal
+      {/* Modal đánh giá - Tạm thời comment lại vì chưa có reviewsSlice */}
+      {/* <Modal
         title="Đánh giá sản phẩm"
         open={reviewModalVisible}
         onCancel={() => {
@@ -512,7 +507,7 @@ const OrderDetail: React.FC = () => {
             </Space>
           </Form.Item>
         </Form>
-      </Modal>
+      </Modal> */}
     </div>
   );
 };

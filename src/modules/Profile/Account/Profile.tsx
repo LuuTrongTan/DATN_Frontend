@@ -71,6 +71,7 @@ const Profile: React.FC = () => {
   const [loadingWards, setLoadingWards] = useState(false);
   const [selectedProvinceCode, setSelectedProvinceCode] = useState<number | null>(null);
   const [selectedDistrictCode, setSelectedDistrictCode] = useState<number | null>(null);
+  const [selectedWardCode, setSelectedWardCode] = useState<string | null>(null);
 
   useEffect(() => {
     // Set form values from user context (no need to fetch on mount)
@@ -186,6 +187,7 @@ const Profile: React.FC = () => {
       setDistricts([]);
       setWards([]);
       setSelectedDistrictCode(null);
+      setSelectedWardCode(null);
       addressForm.setFieldsValue({ district: undefined, ward: undefined });
 
       const response = await provincesService.getDistricts(provinceCode);
@@ -204,6 +206,7 @@ const Profile: React.FC = () => {
     try {
       setLoadingWards(true);
       setWards([]);
+      setSelectedWardCode(null);
       addressForm.setFieldsValue({ ward: undefined });
 
       const response = await provincesService.getWards(districtCode);
@@ -232,6 +235,7 @@ const Profile: React.FC = () => {
     setEditingAddress(null);
     setSelectedProvinceCode(null);
     setSelectedDistrictCode(null);
+    setSelectedWardCode(null);
     setDistricts([]);
     setWards([]);
     addressForm.resetFields();
@@ -269,6 +273,7 @@ const Profile: React.FC = () => {
           const wardsResponse = await provincesService.getWards(district.code);
           if (wardsResponse.success && wardsResponse.data) {
             setWards(wardsResponse.data);
+            setSelectedWardCode(address.ward_code);
           }
         }
       }
@@ -297,15 +302,41 @@ const Profile: React.FC = () => {
 
   const handleSubmitAddress = async (values: CreateAddressInput | UpdateAddressInput) => {
     try {
+      // Loại bỏ full_name và phone khỏi payload
+      const { full_name, phone, ...addressData } = values as any;
+      
       if (editingAddress) {
-        const response = await addressService.updateAddress(editingAddress.id, values);
+        // Khi cập nhật, sử dụng mã code từ state hoặc từ địa chỉ hiện tại
+        const response = await addressService.updateAddress(editingAddress.id, {
+          ...addressData,
+          province_code: selectedProvinceCode ?? editingAddress.province_code,
+          district_code: selectedDistrictCode ?? editingAddress.district_code,
+          ward_code: selectedWardCode ?? editingAddress.ward_code,
+        });
         if (response.success) {
           message.success('Cập nhật địa chỉ thành công');
           setModalVisible(false);
           fetchAddresses();
         }
       } else {
-        const response = await addressService.createAddress(values as CreateAddressInput);
+        // Khi tạo mới, luôn yêu cầu đã chọn province/district/ward (và mã tương ứng)
+        if (!selectedProvinceCode || !selectedDistrictCode || !selectedWardCode) {
+          message.error('Vui lòng chọn đầy đủ Tỉnh/Thành phố, Quận/Huyện và Phường/Xã');
+          return;
+        }
+
+        const createPayload: CreateAddressInput = {
+          province: addressData.province as string,
+          district: addressData.district as string,
+          ward: addressData.ward as string,
+          street_address: addressData.street_address as string,
+          is_default: addressData.is_default,
+          province_code: selectedProvinceCode,
+          district_code: selectedDistrictCode,
+          ward_code: selectedWardCode,
+        };
+
+        const response = await addressService.createAddress(createPayload);
         if (response.success) {
           message.success('Thêm địa chỉ thành công');
           setModalVisible(false);
@@ -756,33 +787,6 @@ const Profile: React.FC = () => {
           onFinish={handleSubmitAddress}
         >
           <Form.Item
-            label={<Text strong>Họ và tên</Text>}
-            name="full_name"
-            rules={[{ required: true, message: 'Vui lòng nhập họ và tên' }]}
-          >
-            <Input 
-              placeholder="Nhập họ và tên người nhận" 
-              size="large"
-              style={{ borderRadius: '12px' }}
-            />
-          </Form.Item>
-
-          <Form.Item
-            label={<Text strong>Số điện thoại</Text>}
-            name="phone"
-            rules={[
-              { required: true, message: 'Vui lòng nhập số điện thoại' },
-              { pattern: /^[0-9]{10}$/, message: 'Số điện thoại phải có 10 chữ số' },
-            ]}
-          >
-            <Input 
-              placeholder="Nhập số điện thoại" 
-              size="large"
-              style={{ borderRadius: '12px' }}
-            />
-          </Form.Item>
-
-          <Form.Item
             label={<Text strong>Tỉnh/Thành phố</Text>}
             name="province"
             rules={[{ required: true, message: 'Vui lòng chọn tỉnh/thành phố' }]}
@@ -855,7 +859,14 @@ const Profile: React.FC = () => {
               options={wards.map(w => ({
                 value: w.name,
                 label: w.name,
+                code: w.code,
               }))}
+              onChange={(value, option) => {
+                const code = (option as any)?.code;
+                if (code) {
+                  setSelectedWardCode(String(code));
+                }
+              }}
               size="large"
               style={{ borderRadius: '12px' }}
             />

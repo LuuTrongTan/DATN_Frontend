@@ -13,15 +13,6 @@ export const ProtectedRoute: React.FC<RouteGuardProps> = ({ children }) => {
   const navigate = useNavigate();
   const [showModal, setShowModal] = useState(false);
 
-  // Đợi cho đến khi load xong từ localStorage
-  if (isLoading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
-        <Spin size="large" />
-      </div>
-    );
-  }
-
   // Hiển thị modal thay vì redirect ngay
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -30,6 +21,15 @@ export const ProtectedRoute: React.FC<RouteGuardProps> = ({ children }) => {
       setShowModal(false);
     }
   }, [isAuthenticated, isLoading]);
+
+  // Đợi cho đến khi load xong từ localStorage
+  if (isLoading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
+        <Spin size="large" />
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return (
@@ -60,15 +60,6 @@ export const RoleProtectedRoute: React.FC<
   const navigate = useNavigate();
   const [showModal, setShowModal] = useState(false);
 
-  // Đợi cho đến khi load xong từ localStorage
-  if (isLoading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
-        <Spin size="large" />
-      </div>
-    );
-  }
-
   // Hiển thị modal nếu chưa đăng nhập
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -77,6 +68,15 @@ export const RoleProtectedRoute: React.FC<
       setShowModal(false);
     }
   }, [isAuthenticated, isLoading]);
+
+  // Đợi cho đến khi load xong từ localStorage
+  if (isLoading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
+        <Spin size="large" />
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return (

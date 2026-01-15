@@ -93,12 +93,22 @@ const StaffManagement: React.FC<StaffManagementProps> = ({
   const handleCreate = async (values: CreateStaffRequest) => {
     try {
       const response = await adminService.createStaff(values);
-      if (response.staff) {
-        setNewStaffPassword(response.defaultPassword || '');
-        message.success('Tạo tài khoản nhân viên thành công');
-        setIsModalVisible(true);
+      if (response?.staff) {
+        // Dev: backend trả về defaultPassword, hiển thị trong modal để admin copy
+        if (response.defaultPassword) {
+          setNewStaffPassword(response.defaultPassword);
+          setIsModalVisible(true);
+        } else {
+          // Production: backend KHÔNG trả về mật khẩu -> đóng modal luôn
+          setNewStaffPassword('');
+          setIsModalVisible(false);
+        }
+
+        message.success(response.message || 'Tạo tài khoản nhân viên thành công');
         form.resetFields();
         fetchStaffs();
+      } else {
+        message.error('Tạo tài khoản nhân viên không thành công. Vui lòng thử lại.');
       }
     } catch (error: any) {
       message.error(error.message || 'Có lỗi xảy ra khi tạo tài khoản nhân viên');

@@ -8,6 +8,7 @@ export interface ProductsFilters {
   category_id?: number;
   min_price?: number;
   max_price?: number;
+  tag_ids?: number[];
   sort?: 'newest' | 'price_asc' | 'price_desc' | 'name';
   page: number;
   limit: number;
@@ -40,6 +41,7 @@ const initialState: ProductsState = {
     category_id: undefined,
     min_price: 0,
     max_price: 10_000_000,
+    tag_ids: undefined,
     sort: 'newest',
     page: 1,
     limit: 20,
@@ -83,6 +85,7 @@ export const fetchProducts = createAsyncThunk(
       category_id?: number;
       min_price?: number;
       max_price?: number;
+      tag_ids?: number[];
     } = {
       page: filters.page,
       limit: filters.limit,
@@ -92,6 +95,7 @@ export const fetchProducts = createAsyncThunk(
     if (filters.category_id) params.category_id = filters.category_id;
     if (filters.min_price && filters.min_price > 0) params.min_price = filters.min_price;
     if (filters.max_price && filters.max_price < 10_000_000) params.max_price = filters.max_price;
+    if (filters.tag_ids && filters.tag_ids.length > 0) params.tag_ids = filters.tag_ids;
 
     const response = await productService.getProducts(params);
     if (!response.success || !response.data) {
@@ -162,12 +166,17 @@ const productsSlice = createSlice({
     setPage(state, action: PayloadAction<number>) {
       state.filters.page = action.payload;
     },
+    setTagIds(state, action: PayloadAction<number[] | undefined>) {
+      state.filters.tag_ids = action.payload;
+      state.filters.page = 1;
+    },
     resetFilters(state) {
       state.filters = {
         search: '',
         category_id: undefined,
         min_price: 0,
         max_price: 10_000_000,
+        tag_ids: undefined,
         sort: 'newest',
         page: 1,
         limit: 20,
@@ -228,6 +237,7 @@ export const {
   setPriceRange,
   setSort,
   setPage,
+  setTagIds,
   resetFilters,
 } = productsSlice.actions;
 export default productsSlice.reducer;

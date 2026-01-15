@@ -12,6 +12,8 @@ export interface ShippingFeeRequest {
 export interface ShippingFeeResponse {
   fee: number;
   estimated_days: number;
+  estimated_hours?: number; // Số giờ dự kiến (0-23)
+  estimated_minutes?: number; // Số phút dự kiến (0-59)
   provider?: string;
 }
 

@@ -4,7 +4,6 @@ import cartReducer from '../modules/ProductManagement/stores/cartSlice';
 import wishlistReducer from '../modules/ProductManagement/stores/wishlistSlice';
 import ordersReducer from '../modules/Orders/stores/ordersSlice';
 import productsReducer from '../modules/ProductManagement/stores/productsSlice';
-import reviewsReducer from '../modules/ProductManagement/stores/reviewsSlice';
 import adminOrdersReducer from '../modules/Admin/stores/adminOrdersSlice';
 import adminProductsReducer from '../modules/Admin/stores/adminProductsSlice';
 import adminCategoriesReducer from '../modules/Admin/stores/adminCategoriesSlice';
@@ -18,7 +17,6 @@ export const store = configureStore({
     wishlist: wishlistReducer,
     orders: ordersReducer,
     products: productsReducer,
-    reviews: reviewsReducer,
     adminOrders: adminOrdersReducer,
     adminProducts: adminProductsReducer,
     adminCategories: adminCategoriesReducer,

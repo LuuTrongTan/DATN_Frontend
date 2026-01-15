@@ -73,11 +73,15 @@ export const fetchAdminOrders = createAsyncThunk<
     // Filter by search
     if (search) {
       const keyword = search.toLowerCase();
-      orders = orders.filter((o) => 
-        o.order_number?.toLowerCase().includes(keyword) ||
-        o.customer_name?.toLowerCase().includes(keyword) ||
-        o.customer_phone?.includes(keyword)
-      );
+      orders = orders.filter((o) => {
+        const customerName = o.user?.full_name || o.full_name || o.customer_name;
+        const customerPhone = o.user?.phone || o.phone || o.customer_phone;
+        return (
+          o.order_number?.toLowerCase().includes(keyword) ||
+          customerName?.toLowerCase().includes(keyword) ||
+          customerPhone?.includes(keyword)
+        );
+      });
     }
 
     return orders;
@@ -91,11 +95,13 @@ export const fetchAdminOrderById = createAsyncThunk<
   number,
   { rejectValue: string }
 >('adminOrders/fetchById', async (orderId: number, { rejectWithValue }) => {
-  const response = await orderService.getOrderById(orderId);
+  const response = await adminService.getOrderById(orderId);
   if (!response.success || !response.data) {
     return rejectWithValue(response.message || 'Không thể tải chi tiết đơn hàng');
   }
-  return response.data as Order;
+  // Backend trả về { order: Order } hoặc Order trực tiếp
+  const order = (response.data as any).order || response.data;
+  return order as Order;
 });
 
 export const updateAdminOrderStatus = createAsyncThunk<

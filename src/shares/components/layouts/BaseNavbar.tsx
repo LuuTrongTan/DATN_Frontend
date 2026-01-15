@@ -11,7 +11,7 @@ import {
   HomeOutlined,
   FileTextOutlined,
 } from '@ant-design/icons';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import type { MenuProps } from 'antd';
 
@@ -69,6 +69,7 @@ const BaseNavbar: React.FC<BaseNavbarProps> = ({
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const [dimensions, setDimensions] = React.useState({
     width: typeof window !== 'undefined' ? window.innerWidth : 1920,
@@ -81,6 +82,18 @@ const BaseNavbar: React.FC<BaseNavbarProps> = ({
   const isNotificationsActive = location.pathname === '/notifications';
   const isHomeActive = location.pathname === homePath;
   const isOrdersActive = location.pathname.startsWith(ordersPath);
+  const isSearchPage = location.pathname === '/products/search';
+
+  // Đồng bộ searchValue với URL khi đang ở trang search
+  React.useEffect(() => {
+    if (isSearchPage) {
+      const urlSearchQuery = searchParams.get('q') || '';
+      setSearchValue(urlSearchQuery);
+    } else {
+      // Reset search value khi rời khỏi trang search
+      setSearchValue('');
+    }
+  }, [isSearchPage, searchParams]);
 
   React.useEffect(() => {
     const handleResize = () => {
@@ -123,8 +136,12 @@ const BaseNavbar: React.FC<BaseNavbarProps> = ({
     if (onSearch) {
       onSearch(value);
     } else {
-      // Default: navigate to products page with search query
-      navigate(`/products?search=${encodeURIComponent(value)}`);
+      // Default: navigate to products search page with search query
+      if (value.trim()) {
+        navigate(`/products/search?q=${encodeURIComponent(value.trim())}`);
+      } else {
+        navigate('/products/search');
+      }
     }
   };
 
@@ -243,26 +260,38 @@ const BaseNavbar: React.FC<BaseNavbarProps> = ({
 
         {/* Wishlist */}
         {showWishlist && (
-          <Button
-            type="text"
-            icon={<HeartOutlined />}
-            onClick={() => navigate('/wishlist')}
-            className={`navbar-icon-btn ${isWishlistActive ? 'navbar-icon-active' : ''}`}
-            style={{ 
-              fontSize: 'clamp(1rem, 1.125vw, 1.125rem)',
-              color: '#000000',
-              borderRadius: '12px',
-              transition: 'all 0.3s ease',
-            }}
-          />
+          <Badge 
+            key={`wishlist-badge-${wishlistCount}`}
+            count={wishlistCount} 
+            size="small" 
+            offset={[0, 0]}
+            showZero={false}
+            className="cart-badge-no-animation"
+          >
+            <Button
+              type="text"
+              icon={<HeartOutlined />}
+              onClick={() => navigate('/wishlist')}
+              className={`navbar-icon-btn ${isWishlistActive ? 'navbar-icon-active' : ''}`}
+              style={{ 
+                fontSize: 'clamp(1rem, 1.125vw, 1.125rem)',
+                color: '#000000',
+                borderRadius: '12px',
+                transition: 'all 0.3s ease',
+              }}
+            />
+          </Badge>
         )}
 
         {/* Cart */}
         {showCart && (
           <Badge 
+            key={`cart-badge-${cartCount}`}
             count={cartCount} 
             size="small" 
-            offset={[10, -10]}
+            offset={[0, 0]}
+            showZero={false}
+            className="cart-badge-no-animation"
           >
             <Button
               type="text"
@@ -282,9 +311,12 @@ const BaseNavbar: React.FC<BaseNavbarProps> = ({
         {/* Notifications */}
         {showNotifications && (
           <Badge 
+            key={`notification-badge-${notificationCount}`}
             count={notificationCount} 
             size="small"
-            offset={[10, -10]}
+            offset={[0, 0]}
+            showZero={false}
+            className="cart-badge-no-animation"
           >
             <Button
               type="text"

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   Table,
   Button,
@@ -16,7 +16,6 @@ import {
   Divider,
   Row,
   Col,
-  Statistic,
   Image,
   Empty,
   Tabs,
@@ -30,10 +29,9 @@ import {
   EditOutlined,
   EyeOutlined,
   SearchOutlined,
-  DollarOutlined,
-  ShoppingCartOutlined,
+  StepForwardOutlined,
 } from '@ant-design/icons';
-import { UpdateOrderStatusRequest } from '../../../shares/services/adminService';
+import { UpdateOrderStatusRequest, adminService } from '../../../shares/services/adminService';
 import { Order, OrderStatus, OrderItem } from '../../../shares/types';
 import { useAppDispatch, useAppSelector } from '../../../shares/stores';
 import {
@@ -72,9 +70,61 @@ const AdminOrderManagement: React.FC = () => {
   const [codModalVisible, setCodModalVisible] = useState(false);
   const [codUpdating, setCodUpdating] = useState(false);
   const [activeTab, setActiveTab] = useState<string>('all');
+  // Lưu tất cả đơn hàng (không filter) để đếm số lượng cho các tab
+  const [allOrdersForCount, setAllOrdersForCount] = useState<Order[]>([]);
+
+  // Fetch tất cả đơn hàng (không filter status) để đếm số lượng cho các tab
+  const fetchAllOrdersForCount = useCallback(async () => {
+    try {
+      const { paymentMethod, search } = filters;
+      
+      // Fetch tất cả đơn hàng (không filter status) để đếm
+      const response = await adminService.getAllOrders({
+        limit: 1000, // Lấy nhiều để đếm chính xác
+      });
+      
+      if (response.success && response.data) {
+        let allOrders: Order[] = [];
+        if (Array.isArray(response.data)) {
+          allOrders = response.data as Order[];
+        } else if ('data' in response.data && Array.isArray((response.data as any).data)) {
+          allOrders = (response.data as any).data as Order[];
+        } else if ('orders' in response.data && Array.isArray((response.data as any).orders)) {
+          allOrders = (response.data as any).orders as Order[];
+        }
+        
+        // Filter by payment method nếu có
+        if (paymentMethod) {
+          allOrders = allOrders.filter((o) => o.payment_method === paymentMethod);
+        }
+        
+        // Filter by search nếu có
+        if (search) {
+          const keyword = search.toLowerCase();
+          allOrders = allOrders.filter((o) => {
+            const customerName = o.user?.full_name || o.full_name || o.customer_name;
+            const customerPhone = o.user?.phone || o.phone || o.customer_phone;
+            return (
+              o.order_number?.toLowerCase().includes(keyword) ||
+              customerName?.toLowerCase().includes(keyword) ||
+              customerPhone?.includes(keyword)
+            );
+          });
+        }
+        
+        setAllOrdersForCount(allOrders);
+      }
+    } catch (error) {
+      // Không hiển thị lỗi để tránh làm phiền user, chỉ log
+      console.error('Lỗi khi fetch tất cả đơn hàng để đếm:', error);
+    }
+  }, [filters.paymentMethod, filters.search]);
 
   // Fetch orders on mount
   useEffect(() => {
+    // Fetch tất cả đơn hàng để đếm số lượng
+    fetchAllOrdersForCount();
+    
     dispatch(fetchAdminOrders())
       .then((result) => {
         if (fetchAdminOrders.rejected.match(result)) {
@@ -88,10 +138,14 @@ const AdminOrderManagement: React.FC = () => {
       .catch(() => {
         message.error('Có lỗi xảy ra khi tải danh sách đơn hàng');
       });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch]);
 
   // Gọi lại khi filters thay đổi
   useEffect(() => {
+    // Fetch lại tất cả đơn hàng để đếm số lượng (khi paymentMethod hoặc search thay đổi)
+    fetchAllOrdersForCount();
+    
     dispatch(fetchAdminOrders())
       .then((result) => {
         if (fetchAdminOrders.rejected.match(result)) {
@@ -106,7 +160,7 @@ const AdminOrderManagement: React.FC = () => {
         // Error already handled in message.error above
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dispatch, filters.status, filters.paymentMethod, filters.search]);
+  }, [dispatch, filters.status, filters.paymentMethod, filters.search, fetchAllOrdersForCount]);
 
   // Sync activeTab với filters.status
   useEffect(() => {
@@ -159,7 +213,8 @@ const AdminOrderManagement: React.FC = () => {
       setEditingOrder(null);
       form.resetFields();
       
-      // Refresh orders list
+      // Refresh orders list và số lượng đếm
+      fetchAllOrdersForCount();
       dispatch(fetchAdminOrders());
     } catch (error: any) {
       message.error(error.message || 'Có lỗi xảy ra khi cập nhật đơn hàng');
@@ -190,12 +245,52 @@ const getStatusLabel = (status: OrderStatus) => {
   return labelMap[status] || status;
 };
 
+  // Lấy trạng thái tiếp theo
+  const getNextStatus = (currentStatus: OrderStatus): OrderStatus | null => {
+    const statusFlow: Record<OrderStatus, OrderStatus | null> = {
+      pending: 'confirmed',
+      confirmed: 'processing',
+      processing: 'shipping',
+      shipping: 'delivered',
+      delivered: null, // Không có trạng thái tiếp theo
+      cancelled: null, // Không có trạng thái tiếp theo
+    };
+    return statusFlow[currentStatus] || null;
+  };
+
+  // Xử lý chuyển sang trạng thái tiếp theo
+  const handleNextStatus = async (order: Order) => {
+    const nextStatus = getNextStatus(order.order_status || order.status);
+    if (!nextStatus) {
+      message.warning('Đơn hàng đã ở trạng thái cuối cùng');
+      return;
+    }
+
+    try {
+      const updateData: UpdateOrderStatusRequest = {
+        status: nextStatus,
+        notes: undefined,
+      };
+
+      await dispatch(
+        updateAdminOrderStatus({ orderId: order.id, data: updateData })
+      ).unwrap();
+      
+      message.success(`Đã chuyển đơn hàng sang trạng thái: ${getStatusLabel(nextStatus)}`);
+      
+      // Refresh orders list và số lượng đếm
+      fetchAllOrdersForCount();
+      dispatch(fetchAdminOrders());
+    } catch (error: any) {
+      message.error(error.message || 'Có lỗi xảy ra khi cập nhật đơn hàng');
+    }
+  };
+
   const getPaymentStatusColor = (status: string) => {
     const colorMap: Record<string, string> = {
       pending: 'orange',
       paid: 'green',
       failed: 'red',
-      refunded: 'purple',
     };
     return colorMap[status] || 'default';
   };
@@ -213,10 +308,20 @@ const getStatusLabel = (status: OrderStatus) => {
       dataIndex: 'user_id',
       key: 'user_id',
       align: 'center' as const,
-      width: 100,
-      render: (userId: number) => (
-        <Tag color="blue">User #{userId}</Tag>
-      ),
+      width: 150,
+      render: (_: any, record: Order) => {
+        // Ưu tiên lấy từ user object, sau đó từ full_name/phone trực tiếp, cuối cùng mới dùng customer_name/customer_phone (deprecated)
+        const customerName = record.user?.full_name || record.full_name || record.customer_name;
+        const customerPhone = record.user?.phone || record.phone || record.customer_phone;
+        
+        if (customerName) {
+          return <Text strong>{customerName}</Text>;
+        } else if (customerPhone) {
+          return <Text>{customerPhone}</Text>;
+        } else {
+          return <Tag color="blue">User #{record.user_id}</Tag>;
+        }
+      },
     },
     {
       title: 'Địa chỉ giao hàng',
@@ -227,11 +332,46 @@ const getStatusLabel = (status: OrderStatus) => {
       render: (address: string) => address || '-',
     },
     {
-      title: 'Tổng tiền',
-      dataIndex: 'total_amount',
-      key: 'total_amount',
+      title: 'Tổng tiền sản phẩm',
+      key: 'subtotal',
       align: 'center' as const,
-      render: (amount: number) => `${amount.toLocaleString('vi-VN')} VNĐ`,
+      render: (_: any, record: Order) => {
+        const total = typeof record.total_amount === 'string' ? parseFloat(record.total_amount) : (record.total_amount || 0);
+        const shipping = typeof record.shipping_fee === 'string' ? parseFloat(record.shipping_fee) : (record.shipping_fee || 0);
+        const subtotal = total - shipping;
+        return (
+          <Text strong style={{ color: '#1890ff' }}>
+            {subtotal.toLocaleString('vi-VN')} VNĐ
+          </Text>
+        );
+      },
+    },
+    {
+      title: 'Phí ship',
+      dataIndex: 'shipping_fee',
+      key: 'shipping_fee',
+      align: 'center' as const,
+      render: (fee: number | string | null | undefined) => {
+        const shippingFee = typeof fee === 'string' ? parseFloat(fee) : (fee || 0);
+        return (
+          <Text type="secondary">
+            {shippingFee.toLocaleString('vi-VN')} VNĐ
+          </Text>
+        );
+      },
+    },
+    {
+      title: 'Tổng cộng',
+      key: 'total',
+      align: 'center' as const,
+      render: (_: any, record: Order) => {
+        const total = typeof record.total_amount === 'string' ? parseFloat(record.total_amount) : (record.total_amount || 0);
+        return (
+          <Text strong style={{ color: '#cf1322', fontSize: 14 }}>
+            {total.toLocaleString('vi-VN')} VNĐ
+          </Text>
+        );
+      },
     },
     {
       title: 'Trạng thái đơn hàng',
@@ -253,8 +393,7 @@ const getStatusLabel = (status: OrderStatus) => {
         <Tag color={getPaymentStatusColor(status)}>
           {status === 'pending' ? 'Chờ thanh toán' :
            status === 'paid' ? 'Đã thanh toán' :
-           status === 'failed' ? 'Thanh toán thất bại' :
-           status === 'refunded' ? 'Đã hoàn tiền' : status}
+           status === 'failed' ? 'Thanh toán thất bại' : status}
         </Tag>
       ),
     },
@@ -280,26 +419,43 @@ const getStatusLabel = (status: OrderStatus) => {
       align: 'center' as const,
       width: 200,
       fixed: 'right' as const,
-      render: (_: any, record: Order) => (
-        <Space>
-          <Button
-            type="link"
-            icon={<EyeOutlined />}
-            onClick={() => handleViewDetail(record)}
-            size="small"
-          >
-            Chi tiết
-          </Button>
-          <Button
-            type="link"
-            icon={<EditOutlined />}
-            onClick={() => handleEditStatus(record)}
-            size="small"
-          >
-            Cập nhật
-          </Button>
-        </Space>
-      ),
+      render: (_: any, record: Order) => {
+        const currentStatus = record.order_status || record.status;
+        const nextStatus = getNextStatus(currentStatus);
+        const hasNextStatus = nextStatus !== null;
+        
+        return (
+          <Space>
+            <Button
+              type="link"
+              icon={<EyeOutlined />}
+              onClick={() => handleViewDetail(record)}
+              size="small"
+            >
+              Chi tiết
+            </Button>
+            {hasNextStatus && (
+              <Button
+                type="link"
+                icon={<StepForwardOutlined />}
+                onClick={() => handleNextStatus(record)}
+                size="small"
+                style={{ color: '#52c41a' }}
+              >
+                Tiếp theo
+              </Button>
+            )}
+            <Button
+              type="link"
+              icon={<EditOutlined />}
+              onClick={() => handleEditStatus(record)}
+              size="small"
+            >
+              Cập nhật
+            </Button>
+          </Space>
+        );
+      },
     },
   ];
 
@@ -314,6 +470,7 @@ const getStatusLabel = (status: OrderStatus) => {
         <Button
           icon={<ReloadOutlined />}
           onClick={() => {
+            fetchAllOrdersForCount();
             dispatch(fetchAdminOrders());
           }}
         >
@@ -341,7 +498,7 @@ const getStatusLabel = (status: OrderStatus) => {
             {
               key: 'all',
               label: (
-                <Badge count={orders.length} offset={[10, 0]}>
+                <Badge count={allOrdersForCount.length} offset={[0, 0]} className="cart-badge-no-animation">
                   <span>Tất cả</span>
                 </Badge>
               ),
@@ -349,7 +506,7 @@ const getStatusLabel = (status: OrderStatus) => {
             {
               key: 'pending',
               label: (
-                <Badge count={orders.filter(o => o.order_status === 'pending').length} offset={[10, 0]}>
+                <Badge count={allOrdersForCount.filter(o => o.order_status === 'pending').length} offset={[0, 0]} className="cart-badge-no-animation">
                   <span>Chờ xử lý</span>
                 </Badge>
               ),
@@ -357,7 +514,7 @@ const getStatusLabel = (status: OrderStatus) => {
             {
               key: 'confirmed',
               label: (
-                <Badge count={orders.filter(o => o.order_status === 'confirmed').length} offset={[10, 0]}>
+                <Badge count={allOrdersForCount.filter(o => o.order_status === 'confirmed').length} offset={[0, 0]} className="cart-badge-no-animation">
                   <span>Đã xác nhận</span>
                 </Badge>
               ),
@@ -365,7 +522,7 @@ const getStatusLabel = (status: OrderStatus) => {
             {
               key: 'processing',
               label: (
-                <Badge count={orders.filter(o => o.order_status === 'processing').length} offset={[10, 0]}>
+                <Badge count={allOrdersForCount.filter(o => o.order_status === 'processing').length} offset={[0, 0]} className="cart-badge-no-animation">
                   <span>Đang xử lý</span>
                 </Badge>
               ),
@@ -373,7 +530,7 @@ const getStatusLabel = (status: OrderStatus) => {
             {
               key: 'shipping',
               label: (
-                <Badge count={orders.filter(o => o.order_status === 'shipping').length} offset={[10, 0]}>
+                <Badge count={allOrdersForCount.filter(o => o.order_status === 'shipping').length} offset={[0, 0]} className="cart-badge-no-animation">
                   <span>Đang giao hàng</span>
                 </Badge>
               ),
@@ -381,7 +538,7 @@ const getStatusLabel = (status: OrderStatus) => {
             {
               key: 'delivered',
               label: (
-                <Badge count={orders.filter(o => o.order_status === 'delivered').length} offset={[10, 0]}>
+                <Badge count={allOrdersForCount.filter(o => o.order_status === 'delivered').length} offset={[0, 0]} className="cart-badge-no-animation">
                   <span>Đã giao hàng</span>
                 </Badge>
               ),
@@ -389,7 +546,7 @@ const getStatusLabel = (status: OrderStatus) => {
             {
               key: 'cancelled',
               label: (
-                <Badge count={orders.filter(o => o.order_status === 'cancelled').length} offset={[10, 0]}>
+                <Badge count={allOrdersForCount.filter(o => o.order_status === 'cancelled').length} offset={[0, 0]} className="cart-badge-no-animation">
                   <span>Đã hủy</span>
                 </Badge>
               ),
@@ -432,57 +589,6 @@ const getStatusLabel = (status: OrderStatus) => {
           </Row>
         </Space>
 
-        {/* Thống kê nhanh - chỉ hiển thị khi tab "Tất cả" */}
-        {activeTab === 'all' && (
-          <Row gutter={16} style={{ marginBottom: 24 }}>
-            <Col xs={24} sm={8} md={6}>
-              <Card>
-                <Statistic
-                  title="Tổng đơn hàng"
-                  value={orders.length}
-                  prefix={<FileTextOutlined />}
-                  valueStyle={{ color: '#1890ff' }}
-                />
-              </Card>
-            </Col>
-            <Col xs={24} sm={8} md={6}>
-              <Card>
-                <Statistic
-                  title="Tổng doanh thu"
-                  value={orders.reduce((sum, order) => {
-                    const total = typeof order.total_amount === 'string' ? parseFloat(order.total_amount) : (order.total_amount || 0);
-                    return sum + total;
-                  }, 0)}
-                  prefix={<DollarOutlined />}
-                  suffix="VNĐ"
-                  precision={0}
-                  valueStyle={{ color: '#3f8600' }}
-                />
-              </Card>
-            </Col>
-            <Col xs={24} sm={8} md={6}>
-              <Card>
-                <Statistic
-                  title="Đơn chờ xử lý"
-                  value={orders.filter(o => o.order_status === 'pending').length}
-                  prefix={<ShoppingCartOutlined />}
-                  valueStyle={{ color: '#faad14' }}
-                />
-              </Card>
-            </Col>
-            <Col xs={24} sm={8} md={6}>
-              <Card>
-                <Statistic
-                  title="Đơn đã giao"
-                  value={orders.filter(o => o.order_status === 'delivered').length}
-                  prefix={<FileTextOutlined />}
-                  valueStyle={{ color: '#52c41a' }}
-                />
-              </Card>
-            </Col>
-          </Row>
-        )}
-
         <Table
           columns={columns}
           dataSource={orders}
@@ -504,7 +610,66 @@ const getStatusLabel = (status: OrderStatus) => {
           setEditingOrder(null);
           form.resetFields();
         }}
-        onOk={() => form.submit()}
+        footer={(() => {
+          if (!editingOrder) return null;
+          const currentStatus = editingOrder.order_status || editingOrder.status;
+          const nextStatus = getNextStatus(currentStatus);
+          const hasNextStatus = nextStatus !== null;
+          
+          const footerButtons = [
+            <Button key="cancel" onClick={() => {
+              setIsModalVisible(false);
+              setEditingOrder(null);
+              form.resetFields();
+            }}>
+              Hủy
+            </Button>,
+          ];
+          
+          if (hasNextStatus) {
+            footerButtons.push(
+              <Button
+                key="next"
+                type="primary"
+                icon={<StepForwardOutlined />}
+                onClick={async () => {
+                  try {
+                    const updateData: UpdateOrderStatusRequest = {
+                      status: nextStatus!,
+                      notes: form.getFieldValue('notes') || undefined,
+                    };
+
+                    await dispatch(
+                      updateAdminOrderStatus({ orderId: editingOrder.id, data: updateData })
+                    ).unwrap();
+                    
+                    message.success(`Đã chuyển đơn hàng sang trạng thái: ${getStatusLabel(nextStatus!)}`);
+                    setIsModalVisible(false);
+                    setEditingOrder(null);
+                    form.resetFields();
+                    
+                    // Refresh orders list và số lượng đếm
+                    fetchAllOrdersForCount();
+                    dispatch(fetchAdminOrders());
+                  } catch (error: any) {
+                    message.error(error.message || 'Có lỗi xảy ra khi cập nhật đơn hàng');
+                  }
+                }}
+                style={{ marginRight: 8 }}
+              >
+                Chuyển sang {getStatusLabel(nextStatus!)}
+              </Button>
+            );
+          }
+          
+          footerButtons.push(
+            <Button key="submit" type="primary" onClick={() => form.submit()}>
+              Cập nhật
+            </Button>
+          );
+          
+          return footerButtons;
+        })()}
         width="50%"
       >
         {editingOrder && (
@@ -513,7 +678,12 @@ const getStatusLabel = (status: OrderStatus) => {
             <Typography.Text>#{editingOrder.order_number}</Typography.Text>
             <br />
             <Typography.Text strong>Tổng tiền: </Typography.Text>
-            <Typography.Text>{editingOrder.total_amount.toLocaleString('vi-VN')} VNĐ</Typography.Text>
+            <Typography.Text strong style={{ color: '#cf1322', fontSize: 16 }}>
+              {(typeof editingOrder.total_amount === 'string' 
+                ? parseFloat(editingOrder.total_amount) 
+                : (editingOrder.total_amount || 0)
+              ).toLocaleString('vi-VN')} VNĐ
+            </Typography.Text>
           </div>
         )}
         <Form
@@ -597,8 +767,7 @@ const getStatusLabel = (status: OrderStatus) => {
                 <Tag color={getPaymentStatusColor(orderDetail.payment_status)}>
                   {orderDetail.payment_status === 'pending' ? 'Chờ thanh toán' :
                    orderDetail.payment_status === 'paid' ? 'Đã thanh toán' :
-                   orderDetail.payment_status === 'failed' ? 'Thanh toán thất bại' :
-                   orderDetail.payment_status === 'refunded' ? 'Đã hoàn tiền' : orderDetail.payment_status}
+                   orderDetail.payment_status === 'failed' ? 'Thanh toán thất bại' : orderDetail.payment_status}
                 </Tag>
               </Descriptions.Item>
               <Descriptions.Item label="Địa chỉ giao hàng" span={2}>
@@ -701,6 +870,43 @@ const getStatusLabel = (status: OrderStatus) => {
 
             <Divider />
             <Space wrap>
+              {(() => {
+                const currentStatus = orderDetail.order_status || orderDetail.status;
+                const nextStatus = getNextStatus(currentStatus);
+                const hasNextStatus = nextStatus !== null;
+                
+                return hasNextStatus ? (
+                  <Button
+                    type="primary"
+                    icon={<StepForwardOutlined />}
+                    onClick={async () => {
+                      try {
+                        const updateData: UpdateOrderStatusRequest = {
+                          status: nextStatus!,
+                          notes: undefined,
+                        };
+
+                        await dispatch(
+                          updateAdminOrderStatus({ orderId: orderDetail.id, data: updateData })
+                        ).unwrap();
+                        
+                        message.success(`Đã chuyển đơn hàng sang trạng thái: ${getStatusLabel(nextStatus!)}`);
+                        
+                        // Refresh order detail, orders list và số lượng đếm
+                        const detail = await dispatch(fetchAdminOrderById(orderDetail.id)).unwrap();
+                        setOrderDetail(detail);
+                        fetchAllOrdersForCount();
+                        dispatch(fetchAdminOrders());
+                      } catch (error: any) {
+                        message.error(error.message || 'Có lỗi xảy ra khi cập nhật đơn hàng');
+                      }
+                    }}
+                    style={{ marginRight: 8 }}
+                  >
+                    Chuyển sang {getStatusLabel(nextStatus!)}
+                  </Button>
+                ) : null;
+              })()}
               <Button
                 type="primary"
                 icon={<EditOutlined />}

@@ -46,6 +46,8 @@ const Checkout: React.FC = () => {
   const [calculatingShipping, setCalculatingShipping] = useState(false);
   const [shippingFee, setShippingFee] = useState<number>(0);
   const [estimatedDays, setEstimatedDays] = useState<number | null>(null);
+  const [estimatedHours, setEstimatedHours] = useState<number | null>(null);
+  const [estimatedMinutes, setEstimatedMinutes] = useState<number | null>(null);
   const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cod');
   const [form] = Form.useForm();
@@ -129,10 +131,14 @@ const Checkout: React.FC = () => {
       if (res.success && res.data) {
         setShippingFee(res.data.fee);
         setEstimatedDays(res.data.estimated_days || null);
+        setEstimatedHours(res.data.estimated_hours ?? null);
+        setEstimatedMinutes(res.data.estimated_minutes ?? null);
       } else {
         // fallback: vẫn cho đặt hàng với phí cố định
         setShippingFee(30000);
         setEstimatedDays(3);
+        setEstimatedHours(0);
+        setEstimatedMinutes(0);
         if (res.message) {
           message.warning(res.message);
         }
@@ -182,25 +188,66 @@ const Checkout: React.FC = () => {
 
       const response = await orderService.createOrder(payload);
       if (response.success && response.data) {
-        const createdOrder = response.data;
+        // Backend trả về { order: {...} } trong data
+        const createdOrder = response.data.order || response.data;
 
-        // Kiểm tra order ID hợp lệ
-        if (!createdOrder || !createdOrder.id || isNaN(Number(createdOrder.id))) {
-          console.error('Invalid order ID:', createdOrder);
+        // Log để debug
+        logger.info('Order created response', { 
+          hasOrder: !!createdOrder, 
+          orderId: createdOrder?.id, 
+          orderIdType: typeof createdOrder?.id,
+          fullResponse: response.data 
+        });
+
+        // Kiểm tra order ID hợp lệ (cho phép cả string và number)
+        if (!createdOrder || createdOrder.id === undefined || createdOrder.id === null) {
+          logger.error('Invalid order ID', { createdOrder, responseData: response.data });
           message.error('Đơn hàng được tạo nhưng không có mã hợp lệ. Vui lòng kiểm tra lại trong danh sách đơn hàng.');
           navigate('/orders');
           return;
         }
 
-        const orderId = Number(createdOrder.id);
+        // Chuyển đổi ID sang number (hỗ trợ cả string và number)
+        const orderId = typeof createdOrder.id === 'string' ? parseInt(createdOrder.id, 10) : Number(createdOrder.id);
+        
+        if (isNaN(orderId) || orderId <= 0) {
+          logger.error('Invalid order ID format', { 
+            originalId: createdOrder.id, 
+            convertedId: orderId,
+            orderData: createdOrder 
+          });
+          message.error('Đơn hàng được tạo nhưng mã đơn hàng không hợp lệ. Vui lòng kiểm tra lại trong danh sách đơn hàng.');
+          navigate('/orders');
+          return;
+        }
 
         // Nếu chọn thanh toán online -> tạo URL VNPay và redirect
         if (paymentMethod === 'online') {
           try {
             const paymentResponse = await paymentService.createVNPayPayment(orderId);
             if (paymentResponse.success && paymentResponse.data?.payment_url) {
+              const paymentUrl = paymentResponse.data.payment_url;
+              
+              // Validate URL trước khi redirect
+              try {
+                new URL(paymentUrl);
+              } catch (urlError) {
+                logger.error('Invalid VNPay payment URL', { paymentUrl, orderId });
+                message.error('URL thanh toán không hợp lệ. Vui lòng thử lại hoặc liên hệ hỗ trợ.');
+                return;
+              }
+
+              // Log để debug
+              logger.info('Redirecting to VNPay', { 
+                orderId, 
+                paymentUrl: paymentUrl.substring(0, 100) + '...' // Chỉ log một phần URL
+              });
+
               message.info('Đang chuyển đến cổng thanh toán VNPay...');
-              window.location.href = paymentResponse.data.payment_url;
+              
+              // Sử dụng replace thay vì href để tránh vấn đề với browser history
+              // và đảm bảo người dùng không thể quay lại bằng nút back
+              window.location.replace(paymentUrl);
               return;
             }
 
@@ -208,7 +255,6 @@ const Checkout: React.FC = () => {
               paymentResponse.message ||
               'Không tạo được URL thanh toán online, đơn hàng sẽ được xử lý như COD.';
 
-            // UX thân thiện hơn khi VNPay chưa được cấu hình
             if (baseMessage.includes('VNPay chưa được cấu hình')) {
               message.warning(
                 'Cổng thanh toán VNPay chưa được cấu hình. Đơn hàng của bạn vẫn được tạo với hình thức COD.'
@@ -219,7 +265,8 @@ const Checkout: React.FC = () => {
           } catch (error: any) {
             logger.error(
               'Error creating VNPay payment',
-              error instanceof Error ? error : new Error(String(error))
+              error instanceof Error ? error : new Error(String(error)),
+              { orderId }
             );
             message.warning(
               error.message ||
@@ -229,7 +276,6 @@ const Checkout: React.FC = () => {
         }
 
         message.success('Đặt hàng thành công!');
-        // Backend thường sẽ clear giỏ hàng sau khi tạo đơn, ở đây chỉ điều hướng
         navigate(`/orders/${orderId}`);
       } else {
         // Map một số lỗi nghiệp vụ quan trọng
@@ -507,7 +553,12 @@ const Checkout: React.FC = () => {
                     : formatCurrency(shippingFee)}
                   {estimatedDays !== null && !calculatingShipping && (
                     <span style={{ marginLeft: 8, fontSize: 12, color: '#888' }}>
-                      (Dự kiến {estimatedDays} ngày)
+                      (Dự kiến{' '}
+                      {estimatedDays > 0 && `${estimatedDays} ngày`}
+                      {estimatedHours !== null && estimatedHours > 0 && ` ${estimatedHours} giờ`}
+                      {estimatedMinutes !== null && estimatedMinutes > 0 && ` ${estimatedMinutes} phút`}
+                      {estimatedDays === 0 && estimatedHours === 0 && estimatedMinutes === 0 && 'sớm nhất'}
+                      )
                     </span>
                   )}
                 </Text>

@@ -7,6 +7,3 @@ export { default as TagManagement } from './Tags/TagManagement';
 export { default as AdminProductManagement } from './Products/AdminProductManagement';
 export { default as ProductForm } from './Products/ProductForm';
 export { default as AdminOrderManagement } from './Orders/AdminOrderManagement';
-export { default as AdminReviewsManagement } from './Reviews/AdminReviewsManagement';
-export { default as RefundsList } from './Refunds/RefundsList';
-export { default as RefundDetail } from './Refunds/RefundDetail';

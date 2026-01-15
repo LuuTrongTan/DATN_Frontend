@@ -60,8 +60,6 @@ export interface Product {
   sku?: string | null;
   view_count?: number;
   sold_count?: number;
-  average_rating?: number;
-  review_count?: number;
   created_at: string;
   updated_at: string;
 }
@@ -95,7 +93,7 @@ export interface CartItem {
 
 // Order Types
 export type PaymentMethod = 'online' | 'cod';
-export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded';
+export type PaymentStatus = 'pending' | 'paid' | 'failed';
 // Backend dùng 'shipping' (không phải 'shipped')
 export type OrderStatus = 'pending' | 'confirmed' | 'processing' | 'shipping' | 'delivered' | 'cancelled';
 
@@ -114,8 +112,11 @@ export interface Order {
   tracking_number?: string | null;
   notes: string | null;
   items?: OrderItem[];
-  customer_name?: string | null;
-  customer_phone?: string | null;
+  user?: User; // User information
+  full_name?: string | null; // From user table (for backward compat)
+  phone?: string | null; // From user table (for backward compat)
+  customer_name?: string | null; // Deprecated - use user.full_name or full_name
+  customer_phone?: string | null; // Deprecated - use user.phone or phone
   customer_email?: string | null;
   subtotal?: number;
   discount_amount?: number;
@@ -124,7 +125,6 @@ export interface Order {
   cancelled_at?: string | null;
   cancelled_by?: number | null;
   cancellation_reason?: string | null;
-  refunds?: Refund[]; // Refunds của order
   created_at: string;
   updated_at: string;
 }
@@ -139,58 +139,6 @@ export interface OrderItem {
   quantity: number;
   price: number;
   created_at: string;
-}
-
-// Refund Types
-export type RefundType = 'refund' | 'return' | 'exchange';
-export type RefundStatus = 'pending' | 'approved' | 'rejected' | 'processing' | 'completed' | 'cancelled';
-
-export interface RefundItem {
-  id: number;
-  order_item_id: number;
-  quantity: number;
-  refund_amount: number;
-  reason?: string | null;
-}
-
-export interface Refund {
-  id: number;
-  refund_number: string;
-  order_id: number;
-  user_id: string;
-  type: RefundType;
-  reason: string;
-  status: RefundStatus;
-  refund_amount: number | null;
-  admin_notes?: string | null;
-  processed_by?: string | null;
-  processed_at?: string | null;
-  created_at: string;
-  updated_at: string;
-  items?: RefundItem[];
-  order_number?: string;
-  order_total?: number;
-}
-
-// Review Types
-export interface Review {
-  id: number;
-  user_id: number;
-  user?: User;
-  product_id: number;
-  product?: Product;
-  order_id: number;
-  rating: number; // 1-5
-  comment: string | null;
-  image_urls: string[] | null;
-  video_url: string | null;
-  is_approved: boolean;
-  helpful_count?: number;
-  reply?: string | null;
-  replied_at?: string | null;
-  replied_by?: number | null;
-  created_at: string;
-  updated_at: string;
 }
 
 // API Response Types
