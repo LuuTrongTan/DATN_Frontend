@@ -596,10 +596,7 @@ const ProductDetail: React.FC = () => {
                   {attributeNames.map((attrName) => (
                     <div key={attrName} style={{ marginBottom: 16 }}>
                       <Text strong style={{ display: 'block', marginBottom: 8 }}>
-                        {attrName === 'Size' ? 'Kích thước' : 
-                         attrName === 'Color' ? 'Màu sắc' : 
-                         attrName === 'Material' ? 'Chất liệu' : 
-                         attrName}:
+                        {attrName}:
                       </Text>
                       <Space wrap>
                         {variantsByAttribute[attrName].map((value) => {
