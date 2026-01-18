@@ -28,15 +28,25 @@ const ProductSection: React.FC<ProductSectionProps> = ({
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
 
-  const handleAddToCart = async (product: Product) => {
+  const handleAddToCart = async (product: Product, variantId?: number | null) => {
     try {
       await dispatch(addToCart({
         product_id: product.id,
+        variant_id: variantId ?? null,
         quantity: 1,
       })).unwrap();
       message.success('Đã thêm vào giỏ hàng!');
     } catch (error: any) {
-      message.error(error.message || 'Có lỗi xảy ra khi thêm vào giỏ hàng');
+      if (error.code === 'INSUFFICIENT_STOCK') {
+        const available = error.details?.available;
+        message.error(
+          available !== undefined
+            ? `Số lượng sản phẩm không đủ. Chỉ còn ${available} sản phẩm trong kho.`
+            : 'Số lượng sản phẩm không đủ trong kho.'
+        );
+      } else {
+        message.error(error.message || 'Có lỗi xảy ra khi thêm vào giỏ hàng');
+      }
     }
   };
 

@@ -17,8 +17,11 @@ export const cartService = {
   },
 
   // Update cart item
-  updateCartItem: async (id: number, quantity: number): Promise<ApiResponse<CartItem>> => {
-    return apiClient.put(`/cart/${id}`, { quantity });
+  updateCartItem: async (
+    id: number, 
+    data: { quantity?: number; variant_id?: number | null }
+  ): Promise<ApiResponse<CartItem>> => {
+    return apiClient.put(`/cart/${id}`, data);
   },
 
   // Remove item from cart

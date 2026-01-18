@@ -1,5 +1,5 @@
 import React from 'react';
-import { Layout, Menu, Button } from 'antd';
+import { Layout, Menu, Button, Drawer } from 'antd';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { LogoutOutlined, DoubleLeftOutlined, DoubleRightOutlined } from '@ant-design/icons';
 import { useAuth } from '../../contexts/AuthContext';
@@ -32,6 +32,7 @@ const BaseSidebar: React.FC<BaseSidebarProps> = ({
     width: typeof window !== 'undefined' ? window.innerWidth : 1920,
     height: typeof window !== 'undefined' ? window.innerHeight : 1080,
   });
+  const [isMobile, setIsMobile] = React.useState(false);
 
   const findActiveKeys = React.useCallback(
     (items: SidebarItem[] | undefined, path: string, parentKey?: string) => {
@@ -72,15 +73,18 @@ const BaseSidebar: React.FC<BaseSidebarProps> = ({
   }, [findActiveKeys, location.pathname, location.search, menuItems]);
 
   React.useEffect(() => {
-    const handleResize = () => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
       setDimensions({
         width: window.innerWidth,
         height: window.innerHeight,
       });
     };
 
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    checkMobile(); // Kiểm tra ngay lần đầu
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
   React.useEffect(() => {
@@ -92,6 +96,10 @@ const BaseSidebar: React.FC<BaseSidebarProps> = ({
       handleLogout();
     } else {
       navigate(key);
+      // Trên mobile, đóng drawer sau khi navigate
+      if (isMobile && !collapsed) {
+        onToggle();
+      }
     }
   };
 
@@ -112,44 +120,24 @@ const BaseSidebar: React.FC<BaseSidebarProps> = ({
   const sidebarWidth = Math.min(dimensions.width * 0.15, 250);
   const collapsedWidth = Math.min(dimensions.width * 0.05, 80);
 
-  return (
-    <Sider
-      trigger={null}
-      collapsible
-      collapsed={collapsed}
-      width={sidebarWidth}
-      collapsedWidth={collapsedWidth}
+  // Nội dung sidebar (dùng chung cho cả desktop và mobile)
+  const sidebarContent = (
+    <div
       style={{
-        overflow: 'auto',
-        height: 'calc(100vh - 8vh)', // phía dưới navbar
-        position: 'fixed',
-        left: 0,
-        top: '8vh', // bắt đầu dưới navbar
-        bottom: 0,
-        zIndex: 10,
-        boxShadow: 'none',
-        // Màu nền phần padding (bên ngoài khối sidebar) cho trùng màu nền xám của content/page
-        background: 'linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%)',
-        padding: collapsed ? '0.75rem 0.2rem' : '1rem 0.3rem',
+        height: '100%',
+        background: 'linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%)',
+        borderRadius: isMobile ? '0' : '1.5rem',
+        padding: collapsed ? '0.5rem 0.4rem' : '0.75rem 0.75rem',
+        boxShadow: isMobile ? 'none' : '0 8px 32px rgba(102, 126, 234, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08)',
+        border: isMobile ? 'none' : '1px solid rgba(102, 126, 234, 0.1)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '0.5rem',
         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
       }}
-      theme="light"
     >
-      <div
-        style={{
-          height: '100%',
-          background: 'linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%)',
-          borderRadius: '1.5rem',
-          padding: collapsed ? '0.5rem 0.4rem' : '0.75rem 0.75rem',
-          boxShadow: '0 8px 32px rgba(102, 126, 234, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08)',
-          border: '1px solid rgba(102, 126, 234, 0.1)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '0.5rem',
-          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-        }}
-      >
-        {/* Nút thu/phóng sidebar nằm ngay trong khối sidebar */}
+      {/* Nút thu/phóng sidebar - chỉ hiển thị trên desktop */}
+      {!isMobile && (
         <div
           style={{
             display: 'flex',
@@ -177,27 +165,104 @@ const BaseSidebar: React.FC<BaseSidebarProps> = ({
             }}
           />
         </div>
+      )}
 
-        <Menu
-          theme="light"
-          mode="inline"
-          className="admin-sidebar-menu"
-          selectedKeys={activeKeys.selected ? [activeKeys.selected] : []}
-          openKeys={openKeys}
-          items={menuItems}
-          onClick={handleMenuClick}
-          onOpenChange={(keys) => setOpenKeys(keys as string[])}
+      {/* Tiêu đề trên mobile */}
+      {isMobile && (
+        <div
           style={{
-            width: '100%',
-            boxSizing: 'border-box',
-            padding: collapsed ? '0.25rem 0.2rem' : '0.25rem 0.3rem',
-            background: 'transparent',
-            border: 'none',
-            flex: 1,
-            transition: 'all 0.3s ease',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: '1rem',
+            borderBottom: '1px solid rgba(0, 0, 0, 0.06)',
+            marginBottom: '0.5rem',
           }}
-        />
-      </div>
+        >
+          <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 600 }}>{title}</h3>
+          <Button
+            type="text"
+            icon={<DoubleLeftOutlined />}
+            onClick={onToggle}
+            style={{
+              fontSize: '1.25rem',
+              color: '#666',
+            }}
+          />
+        </div>
+      )}
+
+      <Menu
+        theme="light"
+        mode="inline"
+        className="admin-sidebar-menu"
+        selectedKeys={activeKeys.selected ? [activeKeys.selected] : []}
+        openKeys={openKeys}
+        items={menuItems}
+        onClick={handleMenuClick}
+        onOpenChange={(keys) => setOpenKeys(keys as string[])}
+        style={{
+          width: '100%',
+          boxSizing: 'border-box',
+          padding: collapsed ? '0.25rem 0.2rem' : '0.25rem 0.3rem',
+          background: 'transparent',
+          border: 'none',
+          flex: 1,
+          transition: 'all 0.3s ease',
+        }}
+      />
+    </div>
+  );
+
+  // Trên mobile: sử dụng Drawer
+  if (isMobile) {
+    return (
+      <Drawer
+        title={null}
+        placement="left"
+        onClose={onToggle}
+        open={!collapsed}
+        width={280}
+        closable={false}
+        maskClosable={true}
+        style={{
+          zIndex: 1000,
+        }}
+        bodyStyle={{
+          padding: 0,
+          height: '100%',
+        }}
+      >
+        {sidebarContent}
+      </Drawer>
+    );
+  }
+
+  // Trên desktop: sử dụng Sider như cũ
+  return (
+    <Sider
+      trigger={null}
+      collapsible
+      collapsed={collapsed}
+      width={sidebarWidth}
+      collapsedWidth={collapsedWidth}
+      style={{
+        overflow: 'auto',
+        height: 'calc(100vh - 8vh)', // phía dưới navbar
+        position: 'fixed',
+        left: 0,
+        top: '8vh', // bắt đầu dưới navbar
+        bottom: 0,
+        zIndex: 10,
+        boxShadow: 'none',
+        // Màu nền phần padding (bên ngoài khối sidebar) cho trùng màu nền xám của content/page
+        background: 'linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%)',
+        padding: collapsed ? '0.75rem 0.2rem' : '1rem 0.3rem',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+      }}
+      theme="light"
+    >
+      {sidebarContent}
     </Sider>
   );
 };

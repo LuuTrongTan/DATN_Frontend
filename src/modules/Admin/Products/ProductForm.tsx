@@ -31,7 +31,6 @@ import {
   InboxOutlined,
   EditOutlined,
   PictureOutlined,
-  CopyOutlined,
 } from '@ant-design/icons';
 import type { UploadProps } from 'antd';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -841,41 +840,6 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
     setVariantDrafts(variantDrafts.filter((_, i) => i !== index));
   };
 
-  // Duplicate variant (edit mode) - tạo bản sao và mở form chỉnh sửa
-  const duplicateVariant = (variant: ProductVariant) => {
-    if (!isEditMode) return;
-    // Tạo bản sao variant với dữ liệu từ variant gốc
-    setVariantEditing(null);
-    variantForm.setFieldsValue({
-      variant_attributes: {}, // Để trống để user chọn lại
-      price_adjustment: variant.price_adjustment || 0,
-      stock_quantity: variant.stock_quantity || 0,
-      sku: variant.sku || null,
-      is_active: variant.is_active !== false,
-    });
-    // Load variant images
-    variantImages.reset(variant.image_urls || []);
-    setJustCreatedVariant(null); // Reset khi duplicate
-    setVariantModalOpen(true);
-  };
-
-  // Duplicate variant draft (create mode) - tạo bản sao và mở form chỉnh sửa
-  const duplicateVariantDraft = (index: number) => {
-    if (isEditMode) return;
-    const v = variantDrafts[index];
-    setVariantDraftEditingIndex(null);
-    setVariantEditing(null);
-    variantForm.setFieldsValue({
-      variant_attributes: {}, // Để trống để user chọn lại
-      price_adjustment: v.price_adjustment || 0,
-      stock_quantity: v.stock_quantity || 0,
-      sku: v.sku || null,
-      is_active: v.is_active !== false,
-    });
-    variantImages.reset(v.image_urls || []);
-    setVariantModalOpen(true);
-  };
-
 
   const variantColumns = [
     {
@@ -946,9 +910,6 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
           <Button type="link" icon={<EditOutlined />} onClick={() => openEditVariantModal(record)}>
             Sửa
           </Button>
-          <Button type="link" icon={<CopyOutlined />} onClick={() => duplicateVariant(record)}>
-            Sao chép
-          </Button>
           <Popconfirm
             title="Bạn có chắc muốn xóa biến thể này?"
             okText="Xóa"
@@ -1001,9 +962,6 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel }) => {
         <Space>
           <Button type="link" icon={<EditOutlined />} onClick={() => openEditVariantDraftModal(index)}>
             Sửa
-          </Button>
-          <Button type="link" icon={<CopyOutlined />} onClick={() => duplicateVariantDraft(index)}>
-            Sao chép
           </Button>
           <Popconfirm
             title="Bạn có chắc muốn xóa biến thể này?"

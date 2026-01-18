@@ -1,11 +1,13 @@
-import React, { useEffect, useMemo, useCallback } from 'react';
+import React, { useEffect, useMemo, useCallback, useState } from 'react';
 import { Card, Typography, Button, Tag, Space, Tooltip, message, Image } from 'antd';
 import { ShoppingCartOutlined, HeartOutlined, HeartFilled } from '@ant-design/icons';
 import { Product } from '../../../shares/types';
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../../shares/stores';
 import { addToWishlist, removeFromWishlist, checkWishlist } from '../../ProductManagement/stores/wishlistSlice';
+import { addToCart } from '../../ProductManagement/stores/cartSlice';
 import { useAuth } from '../../../shares/contexts/AuthContext';
+import VariantSelectorModal from '../../ProductManagement/CartPages/VariantSelectorModal';
 
 const { Text, Paragraph } = Typography;
 
@@ -18,6 +20,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { isAuthenticated } = useAuth();
+  const [variantModalVisible, setVariantModalVisible] = useState(false);
   
   const { loading: wishlistLoading, checkedProducts } = useAppSelector((state) => state.wishlist);
   const isInWishlist = checkedProducts[product.id] ?? false;
@@ -46,12 +49,37 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
   }, [wishlistLoading, isInWishlist, product.id, dispatch]);
 
   const handleAddToCartClick = useCallback(() => {
-    if (product.variants && product.variants.length > 0) {
-      navigate(`/products/${product.id}`);
-    } else {
-      onAddToCart?.(product, null);
+    // Luôn mở modal để kiểm tra variant (vì có thể variants chưa được load trong product object)
+    // Modal sẽ tự kiểm tra và xử lý trường hợp không có variant
+    setVariantModalVisible(true);
+  }, []);
+
+  const handleVariantSelect = useCallback(async (variantId: number | null) => {
+    try {
+      if (onAddToCart) {
+        onAddToCart(product, variantId);
+      } else {
+        await dispatch(addToCart({
+          product_id: product.id,
+          variant_id: variantId,
+          quantity: 1,
+        })).unwrap();
+        message.success('Đã thêm vào giỏ hàng!');
+      }
+      setVariantModalVisible(false);
+    } catch (error: any) {
+      if (error.code === 'INSUFFICIENT_STOCK') {
+        const available = error.details?.available;
+        message.error(
+          available !== undefined
+            ? `Số lượng sản phẩm không đủ. Chỉ còn ${available} sản phẩm trong kho.`
+            : 'Số lượng sản phẩm không đủ trong kho.'
+        );
+      } else {
+        message.error(error.message || 'Có lỗi xảy ra khi thêm vào giỏ hàng');
+      }
     }
-  }, [product, navigate, onAddToCart]);
+  }, [product, onAddToCart, dispatch]);
 
   const handleCardClick = useCallback((e: React.MouseEvent) => {
     // Kiểm tra nếu click vào button, tag, hoặc các phần tử không nên navigate
@@ -251,6 +279,14 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
           {product.variants && product.variants.length > 0 ? 'Chọn biến thể' : 'Thêm vào giỏ'}
         </Button>
       </div>
+      <VariantSelectorModal
+        visible={variantModalVisible}
+        productId={product.id}
+        productName={product.name || ''}
+        currentVariantId={null}
+        onSelect={handleVariantSelect}
+        onCancel={() => setVariantModalVisible(false)}
+      />
     </Card>
   );
 };

@@ -44,9 +44,26 @@ export const fetchCart = createAsyncThunk<
 export const updateCartItemQuantity = createAsyncThunk(
   'cart/updateQuantity',
   async ({ id, quantity }: { id: number; quantity: number }, { dispatch }) => {
-    const response = await cartService.updateCartItem(id, quantity);
+    const response = await cartService.updateCartItem(id, { quantity });
     if (!response.success) {
       const err: any = new Error(response.message || 'Không thể cập nhật giỏ hàng');
+      if (response.error?.code) {
+        err.code = response.error.code;
+        err.details = response.error.details;
+      }
+      throw err;
+    }
+    await (dispatch as any)(fetchCart());
+    return;
+  }
+);
+
+export const updateCartItemVariant = createAsyncThunk(
+  'cart/updateVariant',
+  async ({ id, variant_id }: { id: number; variant_id: number | null }, { dispatch }) => {
+    const response = await cartService.updateCartItem(id, { variant_id });
+    if (!response.success) {
+      const err: any = new Error(response.message || 'Không thể cập nhật biến thể');
       if (response.error?.code) {
         err.code = response.error.code;
         err.details = response.error.details;

@@ -21,16 +21,24 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const [dimensions, setDimensions] = useState({
     width: typeof window !== 'undefined' ? window.innerWidth : 1920,
   });
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
-    const handleResize = () => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
       setDimensions({
         width: window.innerWidth,
       });
+      // Trên mobile, luôn ẩn sidebar mặc định
+      if (mobile) {
+        setCollapsed(true);
+      }
     };
 
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    checkMobile(); // Kiểm tra ngay lần đầu
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
   // Cập nhật collapsed khi role thay đổi (login/logout)
@@ -44,7 +52,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const collapsedWidth = Math.min(dimensions.width * 0.05, 80);
 
   let marginLeft: number;
-  if (isStaffOrAdmin) {
+  // Trên mobile, không chừa margin (sidebar dùng Drawer overlay)
+  if (isMobile) {
+    marginLeft = 0;
+  } else if (isStaffOrAdmin) {
     // Admin/staff: khi thu gọn vẫn chừa không gian cho sidebar hẹp
     marginLeft = collapsed ? collapsedWidth : sidebarWidth;
   } else {
@@ -64,7 +75,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       navbar={<Navbar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />}
       navbarSpacer={<div style={{ height: '8vh', minHeight: '4rem' }} />}
       beforeContent={
-        !isStaffOrAdmin && collapsed ? (
+        !isStaffOrAdmin && collapsed && !isMobile ? (
           <Button
             type="text"
             size="small"

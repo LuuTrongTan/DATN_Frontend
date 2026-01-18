@@ -10,6 +10,7 @@ import {
   HeartOutlined,
   HomeOutlined,
   FileTextOutlined,
+  MenuOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -75,6 +76,7 @@ const BaseNavbar: React.FC<BaseNavbarProps> = ({
     width: typeof window !== 'undefined' ? window.innerWidth : 1920,
   });
   const [searchValue, setSearchValue] = React.useState('');
+  const [isMobile, setIsMobile] = React.useState(false);
 
   // Kiểm tra trang hiện tại để highlight icon tương ứng
   const isCartActive = location.pathname === '/cart';
@@ -96,14 +98,17 @@ const BaseNavbar: React.FC<BaseNavbarProps> = ({
   }, [isSearchPage, searchParams]);
 
   React.useEffect(() => {
-    const handleResize = () => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
       setDimensions({
         width: window.innerWidth,
       });
     };
 
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    checkMobile(); // Kiểm tra ngay lần đầu
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
   const headerStyle: React.CSSProperties = {
@@ -175,9 +180,28 @@ const BaseNavbar: React.FC<BaseNavbarProps> = ({
   return (
     <Header style={headerStyle}>
       <div style={innerNavbarStyle}>
-      {/* Left: Home icon + Toggle button (nếu có) */}
+      {/* Left: Menu button (mobile) / Home icon + Toggle button (desktop) */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: '3rem' }}>
-        {showHome && (
+        {/* Trên mobile: hiển thị nút menu để mở sidebar */}
+        {isMobile && onToggle && (
+          <Button
+            type="text"
+            icon={<MenuOutlined />}
+            onClick={onToggle}
+            className="navbar-menu-btn"
+            style={{
+              fontSize: '1.25rem',
+              color: '#000000',
+              borderRadius: '12px',
+              transition: 'all 0.3s ease',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          />
+        )}
+        {/* Trên desktop: hiển thị Home icon */}
+        {!isMobile && showHome && (
           <Button
             type="text"
             icon={<HomeOutlined />}
@@ -191,7 +215,8 @@ const BaseNavbar: React.FC<BaseNavbarProps> = ({
             }}
           />
         )}
-        {showToggleButton && onToggle && (
+        {/* Toggle button trên desktop (nếu có) */}
+        {!isMobile && showToggleButton && onToggle && (
           <Button
             type="text"
             icon={collapsed ? <DoubleRightOutlined /> : <DoubleLeftOutlined />}

@@ -1,9 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, Space, Typography, InputNumber, Button, Tag, Image, Tooltip } from 'antd';
-import { DeleteOutlined, MinusOutlined, PlusOutlined, LinkOutlined, HeartOutlined } from '@ant-design/icons';
+import { DeleteOutlined, MinusOutlined, PlusOutlined, LinkOutlined, HeartOutlined, EditOutlined } from '@ant-design/icons';
 import { CartItem } from '../../../shares/types';
 import { formatCurrency } from '../../../shares/utils';
 import { useNavigate } from 'react-router-dom';
+import { useAppDispatch } from '../../../shares/stores';
+import { updateCartItemVariant } from '../stores/cartSlice';
+import { message } from 'antd';
+import VariantSelectorModal from './VariantSelectorModal';
 
 const { Text } = Typography;
 
@@ -21,6 +25,8 @@ const CartItemCard: React.FC<CartItemCardProps> = ({
   onAddToWishlist,
 }) => {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
+  const [variantModalVisible, setVariantModalVisible] = useState(false);
   const basePrice = item.product?.price || 0;
   const priceAdjustment = item.variant?.price_adjustment || 0;
   const finalPrice = basePrice + priceAdjustment;
@@ -28,6 +34,25 @@ const CartItemCard: React.FC<CartItemCardProps> = ({
   const availableStock = item.variant
     ? item.variant.stock_quantity
     : item.product?.stock_quantity || 0;
+
+  const handleVariantChange = async (newVariantId: number | null) => {
+    try {
+      await dispatch(updateCartItemVariant({ id: item.id, variant_id: newVariantId })).unwrap();
+      message.success('Đã cập nhật biến thể');
+      setVariantModalVisible(false);
+    } catch (error: any) {
+      if (error.code === 'INSUFFICIENT_STOCK') {
+        const available = error.details?.available;
+        message.error(
+          available !== undefined
+            ? `Số lượng sản phẩm không đủ. Chỉ còn ${available} sản phẩm trong kho.`
+            : 'Số lượng sản phẩm không đủ trong kho.'
+        );
+      } else {
+        message.error(error.message || 'Không thể cập nhật biến thể');
+      }
+    }
+  };
 
   const handleQuantityChange = (value: number | null) => {
     if (value && value > 0) {
@@ -100,12 +125,40 @@ const CartItemCard: React.FC<CartItemCardProps> = ({
 
             {/* Variant Attributes */}
             {item.variant && item.variant.variant_attributes && (
-              <div style={{ marginBottom: 8 }}>
+              <div style={{ marginBottom: 8, display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center' }}>
                 {Object.entries(item.variant.variant_attributes).map(([key, val]) => (
                   <Tag key={key} style={{ marginBottom: 4 }}>
                     {key}: {val}
                   </Tag>
                 ))}
+                <Button
+                  type="link"
+                  size="small"
+                  icon={<EditOutlined />}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setVariantModalVisible(true);
+                  }}
+                  style={{ padding: 0, height: 'auto', fontSize: 12 }}
+                >
+                  Đổi
+                </Button>
+              </div>
+            )}
+            {!item.variant && item.product && (
+              <div style={{ marginBottom: 8 }}>
+                <Button
+                  type="link"
+                  size="small"
+                  icon={<EditOutlined />}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setVariantModalVisible(true);
+                  }}
+                  style={{ padding: 0, height: 'auto', fontSize: 12 }}
+                >
+                  Chọn biến thể
+                </Button>
               </div>
             )}
 
@@ -234,6 +287,16 @@ const CartItemCard: React.FC<CartItemCardProps> = ({
           </Text>
         </div>
       </Space>
+      {item.product && (
+        <VariantSelectorModal
+          visible={variantModalVisible}
+          productId={item.product_id}
+          productName={item.product.name || ''}
+          currentVariantId={item.variant_id}
+          onSelect={handleVariantChange}
+          onCancel={() => setVariantModalVisible(false)}
+        />
+      )}
     </Card>
   );
 };

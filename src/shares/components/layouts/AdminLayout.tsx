@@ -21,22 +21,43 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const [dimensions, setDimensions] = useState({
     width: typeof window !== 'undefined' ? window.innerWidth : 1920,
   });
+  const [isMobile, setIsMobile] = useState(false);
+  const [prevIsMobile, setPrevIsMobile] = useState(false);
 
   useEffect(() => {
-    const handleResize = () => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 768;
+      const wasMobile = prevIsMobile;
+      
+      setIsMobile(mobile);
       setDimensions({
         width: window.innerWidth,
       });
+      
+      // Trên mobile, luôn ẩn sidebar mặc định
+      if (mobile) {
+        setCollapsed(true);
+      } else if (wasMobile && !mobile) {
+        // Khi chuyển từ mobile về desktop, khôi phục từ localStorage
+        const stored = window.localStorage.getItem('adminSidebarCollapsed');
+        if (stored !== null) {
+          setCollapsed(stored === 'true');
+        }
+      }
+      
+      setPrevIsMobile(mobile);
     };
 
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+    checkMobile(); // Kiểm tra ngay lần đầu
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, [prevIsMobile]);
 
   // Tính toán margin-left dựa trên viewport
   const sidebarWidth = Math.min(dimensions.width * 0.15, 250);
   const collapsedWidth = Math.min(dimensions.width * 0.05, 80);
-  const marginLeft = collapsed ? collapsedWidth : sidebarWidth;
+  // Trên mobile, không chừa margin (sidebar dùng Drawer overlay)
+  const marginLeft = isMobile ? 0 : (collapsed ? collapsedWidth : sidebarWidth);
   const marginLeftPercent = (marginLeft / dimensions.width) * 100;
 
   const handleToggleSidebar = () => {
@@ -52,7 +73,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   return (
     <BaseAppLayout
       sidebar={<AdminSidebar collapsed={collapsed} onToggle={handleToggleSidebar} />}
-      navbar={<AdminNavbar collapsed={collapsed} />}
+      navbar={<AdminNavbar collapsed={collapsed} onToggle={handleToggleSidebar} />}
       navbarSpacer={<div style={{ height: '8vh', minHeight: '4rem' }} />}
       marginLeftPercent={marginLeftPercent}
       rightLayoutStyle={{}}

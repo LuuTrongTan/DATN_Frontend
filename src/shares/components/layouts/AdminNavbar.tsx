@@ -12,9 +12,10 @@ import type { MenuProps } from 'antd';
 
 interface AdminNavbarProps {
   collapsed: boolean;
+  onToggle?: () => void;
 }
 
-const AdminNavbar: React.FC<AdminNavbarProps> = ({ collapsed }) => {
+const AdminNavbar: React.FC<AdminNavbarProps> = ({ collapsed, onToggle }) => {
   const navigate = useNavigate();
   const { logout } = useAuth();
   const [notifications] = React.useState(0);
@@ -58,6 +59,7 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ collapsed }) => {
   return (
     <BaseNavbar
       collapsed={collapsed}
+      onToggle={onToggle}
       userMenuItems={userMenuItems}
       position="fixed"
       sidebarWidth={250}
